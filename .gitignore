@@ -1,0 +1,56 @@
+# Rust
+/target
+**/target
+Cargo.lock
+# (workspace Cargo.lock IS committed for binary crates; we are mixed — committing for now)
+!Cargo.lock
+
+# Node / Svelte
+node_modules/
+.svelte-kit/
+build/
+dist/
+.vite/
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/dist/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local env / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Python sidecars
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Local state
+.prismatik/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+*.log
+
+# Generated bindings (regenerated on build)
+packages/api-client/generated/
+
+# Coverage / test artifacts
+.tarpaulin/
+coverage/
+lcov.info
+
+# Reference corpus (build-excluded per spec)
+reference/
