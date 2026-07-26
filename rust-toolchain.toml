@@ -1,6 +1,9 @@
 [toolchain]
 # Pinned toolchain per Wave 0 DoD. Bumping requires ADR.
-channel = "1.82.0"
+# 1.88 is the MSRV because the 2026 Rust ecosystem (time 0.3.5x, rand 0.10)
+# expects it. PRISMATIK Wave 0 spec pinned 1.82; ADR-0029 records this bump
+# as required by the modern ecosystem. Bumping further requires a new ADR.
+channel = "1.88.0"
 components = ["rustfmt", "clippy"]
 profile = "minimal"
 targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]

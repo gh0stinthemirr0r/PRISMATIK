@@ -49,7 +49,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.88"
 authors = ["Mythos Systems <build@mythos.systems>"]
 license = "Proprietary"
 repository = "https://github.com/mythos/prismatik"
@@ -125,8 +125,8 @@ base64 = "0.22"
 zeroize = { version = "1", features = ["derive"] }
 secrecy = { version = "0.8", features = ["serde"] }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
-rand_chacha = "0.8"
-rand = "0.8"
+rand_chacha = "0.10"
+rand = "0.10"
 
 [profile.release]
 opt-level = 3

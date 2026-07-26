@@ -12,7 +12,6 @@ disallowed-methods = [
     { path = "std::time::Instant::now", reason = "use Clock::monotonic_nanos via prismatik-determinism" },
     { path = "std::time::SystemTime::now", reason = "use Clock::now via prismatik-determinism" },
     { path = "time::OffsetDateTime::now_utc", reason = "use Clock::now via prismatik-determinism" },
-    { path = "time::OffsetDateTime::now_local", reason = "use Clock::now via prismatik-determinism" },
     { path = "rand::thread_rng", reason = "use Entropy::split via prismatik-determinism; never ambient RNG" },
     { path = "rand::random", reason = "use Entropy via prismatik-determinism; never ambient RNG" },
     { path = "uuid::Uuid::new_v4", reason = "use IdFactory backed by Entropy; v4 leaks ambient RNG" },

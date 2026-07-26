@@ -5,6 +5,23 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "PRISMATIK prismatik-determinism crate."
+description = "PRISMATIK Determinism Kernel: Clock, Entropy, hashing, manifest artifacts. The single source of time, entropy, and ordering for the platform."
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+rustc-hash.workspace = true
+blake3.workspace = true
+hex.workspace = true
+base64.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rand_core = "0.10"
+
+[dev-dependencies]
+tokio-test.workspace = true
+proptest.workspace = true
