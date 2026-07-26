@@ -1,0 +1,12 @@
+[package]
+name = "prismatik-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-storage crate."
+
+[dependencies]
+prismatik-determinism.workspace = true
+prismatik-identity.workspace = true

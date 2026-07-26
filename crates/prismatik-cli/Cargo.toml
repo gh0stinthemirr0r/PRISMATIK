@@ -1,0 +1,11 @@
+[package]
+name = "prismatik-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-cli crate."
+
+[dependencies]
+prismatik-manifest.workspace = true

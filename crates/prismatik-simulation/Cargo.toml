@@ -1,0 +1,12 @@
+[package]
+name = "prismatik-simulation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-simulation crate."
+
+[dependencies]
+prismatik-backtest.workspace = true
+prismatik-determinism.workspace = true

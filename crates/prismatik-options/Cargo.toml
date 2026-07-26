@@ -1,0 +1,12 @@
+[package]
+name = "prismatik-options"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-options crate."
+
+[dependencies]
+prismatik-domain.workspace = true
+prismatik-market-data.workspace = true

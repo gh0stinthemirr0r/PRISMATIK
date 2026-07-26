@@ -1,0 +1,12 @@
+[package]
+name = "prismatik-analog-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-analog-store crate."
+
+[dependencies]
+prismatik-domain.workspace = true
+prismatik-features.workspace = true

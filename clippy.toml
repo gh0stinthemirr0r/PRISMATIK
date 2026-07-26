@@ -1,0 +1,30 @@
+# PRISMATIK Clippy configuration
+# Wave 0 DoD criterion 1: enforce determinism discipline at the lint level.
+# Spec: DOCS/spec/CRATE_ARCHITECTURE.md §1.1, DOCS/waves/Wave_0_Foundation.md
+
+# Per Wave 0 DoD criterion 13: no fs/http/process/shell:execute in Tauri capability policy.
+# (The capability file is checked by tests; clippy gates the Rust side.)
+
+# Determinism: ambient time/entropy/hashmap are forbidden outside the determinism
+# crate. Each disallowed item carries a reason. The allowlist for prismatik-determinism
+# itself is a scoped #![allow] inside that crate's lib.rs.
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "use Clock::monotonic_nanos via prismatik-determinism" },
+    { path = "std::time::SystemTime::now", reason = "use Clock::now via prismatik-determinism" },
+    { path = "time::OffsetDateTime::now_utc", reason = "use Clock::now via prismatik-determinism" },
+    { path = "time::OffsetDateTime::now_local", reason = "use Clock::now via prismatik-determinism" },
+    { path = "rand::thread_rng", reason = "use Entropy::split via prismatik-determinism; never ambient RNG" },
+    { path = "rand::random", reason = "use Entropy via prismatik-determinism; never ambient RNG" },
+    { path = "uuid::Uuid::new_v4", reason = "use IdFactory backed by Entropy; v4 leaks ambient RNG" },
+]
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "use DetMap; RandomState iteration order is nondeterministic" },
+    { path = "std::collections::HashSet", reason = "use DetSet; RandomState iteration order is nondeterministic" },
+]
+
+# Cognitive load caps.
+type-complexity-threshold = 250
+too-many-arguments-threshold = 8
+
+# Forbidden in PRISMATIK (security / reproducibility posture).
+# (unsafe_code is #![forbid]'den at the top of each crate already.)

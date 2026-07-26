@@ -1,0 +1,14 @@
+[package]
+name = "prismatik-strategy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-strategy crate."
+
+[dependencies]
+prismatik-domain.workspace = true
+prismatik-determinism.workspace = true
+prismatik-indicator-core.workspace = true
+prismatik-features.workspace = true

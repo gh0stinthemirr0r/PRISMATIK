@@ -1,0 +1,144 @@
+[workspace]
+resolver = "2"
+members = [
+    # Layer 0 — Foundational (no workspace deps)
+    "crates/prismatik-determinism",
+    "crates/prismatik-identity",
+
+    # Layer 1 — Kernel extension
+    "crates/prismatik-calendar",
+    "crates/prismatik-audit",
+    "crates/prismatik-manifest",
+    "crates/prismatik-storage",
+
+    # Layer 2 — Domain
+    "crates/prismatik-domain",
+    "crates/prismatik-market-data",
+    "crates/prismatik-features",
+    "crates/prismatik-analog-store",
+    "crates/prismatik-indicator-core",
+    "crates/prismatik-quant-kernel",
+    "crates/prismatik-strategy",
+    "crates/prismatik-backtest",
+    "crates/prismatik-simulation",
+    "crates/prismatik-tsfm",
+    "crates/prismatik-calibration",
+    "crates/prismatik-crypto",
+    "crates/prismatik-options",
+    "crates/prismatik-filings",
+    "crates/prismatik-cot",
+    "crates/prismatik-events",
+    "crates/prismatik-risk",
+    "crates/prismatik-portfolio",
+    "crates/prismatik-execution",
+    "crates/prismatik-journal",
+
+    # Layer 3 — Extension and AI
+    "crates/prismatik-plugin-host",
+    "crates/prismatik-ai-tools",
+    "crates/prismatik-security",
+    "crates/prismatik-observability",
+    "crates/prismatik-renderer",
+    "crates/prismatik-oss-registry",
+
+    # Layer 4 — Application and shell
+    "crates/prismatik-application",
+    "crates/prismatik-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+authors = ["Mythos Systems <build@mythos.systems>"]
+license = "Proprietary"
+repository = "https://github.com/mythos/prismatik"
+homepage = "https://prismatik.example"
+
+[workspace.dependencies]
+# Layer 0 internal
+prismatik-determinism = { path = "crates/prismatik-determinism" }
+prismatik-identity = { path = "crates/prismatik-identity" }
+
+# Layer 1 internal
+prismatik-calendar = { path = "crates/prismatik-calendar" }
+prismatik-audit = { path = "crates/prismatik-audit" }
+prismatik-manifest = { path = "crates/prismatik-manifest" }
+prismatik-storage = { path = "crates/prismatik-storage" }
+
+# Layer 2 internal
+prismatik-domain = { path = "crates/prismatik-domain" }
+prismatik-market-data = { path = "crates/prismatik-market-data" }
+prismatik-features = { path = "crates/prismatik-features" }
+prismatik-analog-store = { path = "crates/prismatik-analog-store" }
+prismatik-indicator-core = { path = "crates/prismatik-indicator-core" }
+prismatik-quant-kernel = { path = "crates/prismatik-quant-kernel" }
+prismatik-strategy = { path = "crates/prismatik-strategy" }
+prismatik-backtest = { path = "crates/prismatik-backtest" }
+prismatik-simulation = { path = "crates/prismatik-simulation" }
+prismatik-tsfm = { path = "crates/prismatik-tsfm" }
+prismatik-calibration = { path = "crates/prismatik-calibration" }
+prismatik-crypto = { path = "crates/prismatik-crypto" }
+prismatik-options = { path = "crates/prismatik-options" }
+prismatik-filings = { path = "crates/prismatik-filings" }
+prismatik-cot = { path = "crates/prismatik-cot" }
+prismatik-events = { path = "crates/prismatik-events" }
+prismatik-risk = { path = "crates/prismatik-risk" }
+prismatik-portfolio = { path = "crates/prismatik-portfolio" }
+prismatik-execution = { path = "crates/prismatik-execution" }
+prismatik-journal = { path = "crates/prismatik-journal" }
+
+# Layer 3 internal
+prismatik-plugin-host = { path = "crates/prismatik-plugin-host" }
+prismatik-ai-tools = { path = "crates/prismatik-ai-tools" }
+prismatik-security = { path = "crates/prismatik-security" }
+prismatik-observability = { path = "crates/prismatik-observability" }
+prismatik-renderer = { path = "crates/prismatik-renderer" }
+prismatik-oss-registry = { path = "crates/prismatik-oss-registry" }
+
+# Layer 4 internal
+prismatik-application = { path = "crates/prismatik-application" }
+prismatik-cli = { path = "crates/prismatik-cli" }
+
+# External — pinned
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+time = { version = "0.3", features = ["serde", "serde-human-readable", "macros", "parsing", "formatting"] }
+rustc-hash = "2"
+blake3 = "1"
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+rust_decimal_macros = "1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+url = { version = "2", features = ["serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+proptest = "1"
+proptest-derive = "0.5"
+tokio-test = "0.4"
+criterion = "0.5"
+hex = "0.4"
+base64 = "0.22"
+zeroize = { version = "1", features = ["derive"] }
+secrecy = { version = "0.8", features = ["serde"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand_chacha = "0.8"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+
+[profile.dev]
+opt-level = 0
+debug = true

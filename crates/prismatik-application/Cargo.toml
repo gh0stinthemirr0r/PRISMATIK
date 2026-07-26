@@ -1,0 +1,18 @@
+[package]
+name = "prismatik-application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK prismatik-application crate."
+
+[dependencies]
+prismatik-determinism.workspace = true
+prismatik-identity.workspace = true
+prismatik-calendar.workspace = true
+prismatik-audit.workspace = true
+prismatik-manifest.workspace = true
+prismatik-storage.workspace = true
+prismatik-domain.workspace = true
+prismatik-market-data.workspace = true
