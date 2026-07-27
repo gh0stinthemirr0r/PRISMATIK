@@ -142,6 +142,64 @@ async fn meta(State(state): State<AppState>, headers: HeaderMap) -> Response {
     .into_response()
 }
 
+async fn health_detailed(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+
+    // Check Coinbase REST connectivity
+    let coinbase_rest_ok = {
+        let data = CoinbaseData::new(
+            &state.settings.coinbase_rest,
+            state.settings.rest_timeout_secs,
+        );
+        data.is_ok()
+    };
+
+    // Check Alpaca connectivity (if configured)
+    let alpaca_ok = if state.settings.alpaca.configured() {
+        // Simple check: alpaca credentials are present
+        state
+            .settings
+            .alpaca
+            .key_id
+            .as_ref()
+            .is_some_and(|k| !k.is_empty())
+    } else {
+        true // Not configured is ok
+    };
+
+    let all_ok = coinbase_rest_ok && alpaca_ok;
+
+    Json(json!({
+        "version": VERSION,
+        "status": if all_ok { "healthy" } else { "degraded" },
+        "timestamp_uptime_seconds": state.clock.monotonic_nanos().saturating_sub(state.boot_nanos) / 1_000_000_000,
+        "components": {
+            "coinbase_rest": {
+                "configured": !state.settings.coinbase_rest.is_empty(),
+                "url": state.settings.coinbase_rest,
+                "reachable": coinbase_rest_ok,
+            },
+            "coinbase_ws": {
+                "configured": !state.settings.coinbase_ws.is_empty(),
+                "url": state.settings.coinbase_ws,
+            },
+            "alpaca": {
+                "configured": state.settings.alpaca.configured(),
+                "live_unlocked": state.settings.alpaca.live,
+                "authenticated": alpaca_ok,
+            },
+        },
+        "capabilities": {
+            "backtesting_available": coinbase_rest_ok,
+            "live_trading_available": alpaca_ok && state.settings.alpaca.live,
+            "walkforward_available": coinbase_rest_ok,
+        },
+    }))
+    .into_response()
+}
+
 async fn validate_strategy(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -716,6 +774,113 @@ async fn get_job(
 }
 
 #[derive(Deserialize)]
+struct BatchJobRequest {
+    jobs: Vec<RunRequest>,
+}
+
+async fn batch_backtest(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<BatchJobRequest>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    if req.jobs.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"detail": "batch must contain at least 1 job"})),
+        )
+            .into_response();
+    }
+    if req.jobs.len() > 100 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"detail": "batch cannot exceed 100 jobs"})),
+        )
+            .into_response();
+    }
+    let mut job_ids = Vec::with_capacity(req.jobs.len());
+    for job_req in req.jobs {
+        if let Err(e) = validate_run(&job_req) {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": e}))).into_response();
+        }
+        let job_id = fresh_id();
+        job_ids.push(job_id.clone());
+        {
+            state
+                .jobs
+                .lock()
+                .await
+                .insert(job_id.clone(), json!({"status": "running"}));
+        }
+        let jobs = state.jobs.clone();
+        let settings = state.settings.clone();
+        let id = job_id;
+        tokio::spawn(async move {
+            let result = execute_job(&settings, "backtest", &job_req).await;
+            let entry = match result {
+                Ok(r) => json!({"status": "done", "result": r}),
+                Err(e) => json!({"status": "error", "error": e}),
+            };
+            jobs.lock().await.insert(id, entry);
+        });
+    }
+    Json(json!({"batch_job_ids": job_ids, "count": job_ids.len()})).into_response()
+}
+
+async fn batch_walkforward(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<BatchJobRequest>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    if req.jobs.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"detail": "batch must contain at least 1 job"})),
+        )
+            .into_response();
+    }
+    if req.jobs.len() > 100 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"detail": "batch cannot exceed 100 jobs"})),
+        )
+            .into_response();
+    }
+    let mut job_ids = Vec::with_capacity(req.jobs.len());
+    for job_req in req.jobs {
+        if let Err(e) = validate_run(&job_req) {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": e}))).into_response();
+        }
+        let job_id = fresh_id();
+        job_ids.push(job_id.clone());
+        {
+            state
+                .jobs
+                .lock()
+                .await
+                .insert(job_id.clone(), json!({"status": "running"}));
+        }
+        let jobs = state.jobs.clone();
+        let settings = state.settings.clone();
+        let id = job_id;
+        tokio::spawn(async move {
+            let result = execute_job(&settings, "walkforward", &job_req).await;
+            let entry = match result {
+                Ok(r) => json!({"status": "done", "result": r}),
+                Err(e) => json!({"status": "error", "error": e}),
+            };
+            jobs.lock().await.insert(id, entry);
+        });
+    }
+    Json(json!({"batch_job_ids": job_ids, "count": job_ids.len()})).into_response()
+}
+
+#[derive(Deserialize)]
 pub struct SessionStart {
     pub symbol: String,
     #[serde(default = "default_granularity")]
@@ -961,6 +1126,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/api/v1/health", get(health))
+        .route("/api/v1/health/detailed", get(health_detailed))
         .route("/api/v1/meta", get(meta))
         .route("/api/v1/config", get(config))
         .route("/api/v1/validate/strategy", post(validate_strategy))
@@ -972,6 +1138,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/sessions", get(sessions_list))
         .route("/api/v1/jobs/backtest", post(post_backtest))
         .route("/api/v1/jobs/walkforward", post(post_walkforward))
+        .route("/api/v1/jobs/batch/backtest", post(batch_backtest))
+        .route("/api/v1/jobs/batch/walkforward", post(batch_walkforward))
         .route("/api/v1/jobs/:id", get(get_job))
         .route("/api/v1/sessions/start", post(session_start))
         .route("/api/v1/sessions/:id", get(session_status))

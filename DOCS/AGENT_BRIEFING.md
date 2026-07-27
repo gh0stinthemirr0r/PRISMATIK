@@ -720,5 +720,822 @@ wrong.
 
 ---
 
-*Part I is operational. Part II is a proposal — no crates created, no wave commitments made, no work
-started. §21 must be resolved by a human before any of Part II is implemented.*
+# PART III — THE INSTRUMENT WORKSPACE, LONGITUDINAL INTELLIGENCE, AND THE ACCURACY CONTRACT
+
+*Proposal. Same confidence markers as Part II.*
+
+## 24. What Is Being Asked For, Stated Precisely
+
+> *A user selects any US-listed business or any crypto asset and gets deep trend analysis over time.
+> Data across all markets, over long history, because history is what makes metrics and predictions
+> real. The system should predict accurately within a stated percentage, measure risk — all of it.*
+
+Three of those four are straightforward engineering with enough history and enough discipline. One of
+them — "predict accurately within a stated percentage" — needs to be restated before it can be built,
+because the obvious reading of it cannot be delivered by anyone, and products that claim to deliver
+it are lying. §29 restates it into something that is both achievable and **strictly more valuable
+than what was asked for.** Read that section before costing anything else here.
+
+The rest of Part III is the full angle sweep: the workspace, the history substrate, the trend engine,
+the risk engine, backtest honesty, universe-wide analytics, the time machine, and the operator's own
+calibration.
+
+---
+
+## 25. The Universal Instrument Workspace
+
+**Confidence: H for the shell, M for full modality coverage. This is the product's front door.**
+
+Already in the wave plan as `P2-EX-03` ("universal instrument workspace generalized across asset
+classes"). Here is what generalized has to mean.
+
+### 25.1 One entity model, all asset classes
+
+The workspace is keyed on `AssetId` — the canonical, content-addressed, bitemporal identity from
+`prismatik-identity`. Everything else is a modality that either exists for that asset or does not.
+
+| Entity kind | Examples |
+|---|---|
+| Equity | AAPL, NVDA, MSTR, delisted names |
+| Crypto spot | BTC, ETH, long-tail tokens, dead tokens |
+| Crypto perp / futures | funding, basis, open interest |
+| ETF / ETP | SPY, IBIT, sector and thematic funds |
+| Option contract | OCC-symbol identity, adjusted contracts flagged |
+| Index | SPX, NDX, crypto indices |
+| Synthetic pair | BTC/MSTR, any user-defined ratio or spread |
+| Basket / universe | user-defined, screen output, or peer group |
+
+**The critical design rule: the workspace never renders a modality it does not have, and never
+silently omits one either.** Every instrument view opens with a **capability matrix** — what data
+exists for this asset, at what depth, at what quality, with what gaps. `prismatik-market-data`
+already defines `BlindSpot` and the `Concludes` trait for exactly this.
+
+A user looking at a long-tail token must see *"no options data, no institutional ownership, on-chain
+from block 1, price history 14 months, two exchange sources, one of which failed in 2023"* — not a
+layout that looks identical to AAPL's with empty panels. **Blind spots are content, not absence.**
+This single decision is the difference between a tool that teaches a user what they don't know and a
+tool that lets them believe a thin asset is a thick one.
+
+### 25.2 Progressive disclosure — three depths
+
+Complex data needs hierarchy or it becomes wallpaper. Three depths, each a deliberate step:
+
+1. **Glance** (< 2 seconds) — what is this, what regime is it in, what changed, what is the current
+   calibrated view and how much has that view been worth historically. One screen. No scrolling.
+2. **Analysis** (minutes) — trend decomposition, risk panel, peer relative, factor exposure,
+   narrative state, positioning, event calendar. Tabbed or panelled, user-arrangeable, layout saved
+   per workspace.
+3. **Forensics** (as long as it takes) — every number's evidence chain, the raw records, the
+   retrieval timestamps, the manifest, the leave-N-out sensitivity, the point-in-time replay.
+
+Depth 3 is not a debug view. **It is the product.** It is where a user goes when the answer matters,
+and it is the thing no competitor can offer because they cannot reconstruct what they knew.
+
+### 25.3 Cross-asset by construction
+
+The workspace must accept a mixed selection — `{NVDA, BTC, IBIT, MSTR, SPX}` — and analyse them on
+one lattice. That is the whole point of `prismatik-lattice` (Part II §9, and the cross-market
+proposal §5). A user comparing BTC to NVDA on daily closes is comparing a 00:00 UTC snapshot to a
+16:00 ET snapshot; the platform must reconcile that automatically and *say that it did*, with the
+projection named on the surface.
+
+### 25.4 Customization suite (directive Phase 3.2, kept)
+
+Panel layout, telemetry toggles, correlation layer filters, saved workspace layouts, per-workspace
+universe definitions. Two rules:
+
+- **Layouts are versioned artifacts, not blobs.** A saved workspace is content-addressed and
+  reproducible, so "the view I was looking at on Tuesday" is recoverable exactly.
+- **A customization may hide a panel; it may never hide a disclosure.** Interval, evidence, regime,
+  and blind-spot indicators are not user-suppressible. If a user could turn off the error bars, they
+  would, and then the product is a lie with a preferences menu.
+
+---
+
+## 26. The Longitudinal Substrate — Deep History Is the Product
+
+**Confidence: H, and this is where the real money and real time go. Underestimating it is the most
+common way platforms like this fail.**
+
+The user is right that history is what makes metrics real. But history is not a single thing you
+either have or don't — it is six separate problems.
+
+### 26.1 Depth targets by modality
+
+Minimum viable, and what each unlocks:
+
+| Modality | Target depth | Unlocks | Difficulty |
+|---|---|---|---|
+| US equity daily OHLCV | 25+ years | Multiple full cycles, 2000/2008/2020 regimes | M (licensing) |
+| US equity intraday | 10+ years | Microstructure, gap studies, event windows | H cost, H volume |
+| Crypto spot daily | since inception per asset | Full life-cycle; most assets are young | M |
+| Crypto intraday / trades | 5+ years majors | Funding, basis, liquidation cascades | H volume |
+| Options chains + IV surface | 10+ years | Vol regimes, skew history, dealer positioning | **Very high cost** |
+| Fundamentals (as-reported **and** restated) | 20+ years | Honest fundamental backtests | H — vintages are the hard part |
+| SEC filings full text | 1993→ (EDGAR full) | Narrative/filing divergence, 13F, Form 4 | M — free, but parsing is real work |
+| Macro (FRED with vintages) | full ALFRED vintages | No macro look-ahead | M — free |
+| COT | 1986→ | Positioning cycles | L — free |
+| News corpus | 10+ years | Everything in Part II | **Hardest: licensing, not tech** |
+| On-chain | genesis per chain | Crypto-native flow | M — node cost |
+| Corporate actions | 25+ years | Read-time adjustment | M |
+| Delisted / dead universe | **same depth as live** | §27 | M — and always skipped |
+
+**The honest sequencing insight:** free-and-deep sources (EDGAR, FRED/ALFRED, COT, on-chain) should
+be ingested *early and greedily*, because their value compounds with depth and their cost does not.
+Expensive sources (options chains, news, tick data) should be bought late, narrow, and only after
+§13's source-valuation machinery can justify the spend with a number.
+
+### 26.2 Bitemporality is not optional
+
+Every historical fact needs two time axes: **when it was true** and **when we knew it**. The
+architecture already commits to this; here is what it buys at instrument level.
+
+- The **as-of view**: what the platform believed on 2023-05-24, using only data observable then.
+- The **current view**: what we now believe about 2023-05-24, with all subsequent corrections.
+
+Both are legitimate and they answer different questions. Backtests must use the as-of view. Research
+retrospectives may use the current view — **but the surface must label which one it is showing**, and
+mixing them within one panel is a defect.
+
+### 26.3 Corporate actions applied at read time, never destructively
+
+Splits, dividends, spin-offs, mergers, ticker changes, and OCC option adjustments are applied as a
+**read-time factor computed from an append-only ledger**. The raw series is never rewritten. This is
+already `P2-DK-02`/`P2-DK-03` and Wave 2 DoD #2 (byte comparison of raw Parquet before and after a
+split ingestion).
+
+Why it matters for the instrument workspace specifically: a user asking "what did NVDA look like in
+2015" must get a coherent answer whether they want split-adjusted, unadjusted, or
+total-return-adjusted — and the toggle must be explicit, because the three tell different stories and
+the default is always wrong for someone.
+
+Crypto has its own version and it is under-modelled everywhere: token redenominations, chain splits,
+migrations (ERC-20 → native), rebases, airdrop-adjusted returns, and exchange-specific pair
+delistings. **Treat these as corporate actions in the same ledger.** No one else does, and a crypto
+backtest that ignores a token migration is silently wrong in the same way an equity backtest that
+ignores a split is.
+
+### 26.4 Vintages for anything revised
+
+GDP, CPI, employment, and company fundamentals are all revised, sometimes substantially, sometimes
+years later. A backtest using the *current* value of Q2-2019 GDP is using a number that did not exist
+in Q2 2019. ALFRED provides equity-side vintages for macro; fundamentals require storing every
+as-reported filing and never overwriting.
+
+`observation_delay` handles publication lag. **Vintages handle publication *revision*.** They are
+different mechanisms and you need both.
+
+### 26.5 History quality is heterogeneous — score it
+
+A 2013 crypto backtest and a 2013 equity backtest are not comparable, and presenting them in the same
+table without qualification is misleading. Early crypto data is thin, wash-traded, exchange-failure-
+ridden, and often reconstructed. Early small-cap equity data has its own pathologies.
+
+Introduce a per-series, per-window **History Quality Score** built on `DataQualityScore` (already in
+`prismatik-domain`), composed of:
+
+- Source count and cross-source agreement
+- Gap density and largest gap
+- Imputation fraction (**never impute silently — flag every filled bar**)
+- Suspected wash/print anomalies
+- Venue survivorship (did the exchange carrying this series later fail?)
+- Reconstruction provenance (was this stitched from multiple venues?)
+
+**Every backtest and every trend statistic carries the minimum quality score of the data it consumed.**
+A Sharpe of 2.1 computed on quality-0.3 data should be rendered differently from one on quality-0.95
+data. This is I1 applied to the substrate.
+
+---
+
+## 27. Survivorship — the Bias That Silently Invalidates Everything
+
+**Confidence: H that it matters. M that it will actually get done, because it is unglamorous.
+Do it anyway. This section is the highest ratio of correctness-per-effort in Part III.**
+
+If your universe contains only assets that exist today, every backtest, every trend statistic, and
+every "accuracy" number is wrong in the same optimistic direction — and no seed, hash, signature, or
+calibration curve detects it.
+
+### What must be retained at full depth
+
+| Market | Dead things you must keep |
+|---|---|
+| US equity | Delisted, bankrupt, acquired, taken private, reverse-split-to-death, deregistered |
+| ETF | Closed and liquidated funds (a large fraction of thematic ETFs) |
+| Crypto | Dead tokens, rug-pulls, abandoned chains, delisted pairs, **failed exchanges** |
+| Options | Expired series — the entire chain, not just survivors |
+| Index | Historical constituent sets with join/leave dates, **as published then** |
+
+### The crypto-specific failure everyone commits
+
+Crypto survivorship is *worse* than equity survivorship and almost universally ignored. The base rate
+of total loss is high, the dead assets are disproportionately the ones that looked best before dying,
+and the price history frequently disappears with the exchange that hosted it. **A crypto momentum
+backtest on today's top-200 list is not optimistic — it is meaningless**, because the universe
+definition itself encodes the outcome.
+
+The mitigation: reconstruct point-in-time universe membership. What were the top 200 by market cap on
+2018-01-15, *according to data available on 2018-01-15*? That is a hard, tedious data-engineering
+problem and it is the difference between a real crypto backtest and a demo.
+
+### Universe definitions are bitemporal artifacts
+
+A universe is not a list. It is a **rule plus an as-of date**, resolved through the same bitemporal
+symbology as everything else, pinned into the manifest so a reproduction resolves the same members.
+
+**Gate:** `test_universe_survivorship` — construct a universe as-of a historical date, assert it
+contains assets that have since died, and assert the count of dead members is non-zero for any window
+older than five years. A universe with zero mortality over a decade is a bug, not a clean dataset.
+
+---
+
+## 28. The Trend Engine
+
+**Confidence: M. This is what the user is asking for by name, and it is where most platforms ship
+moving-average crossovers with a confident tone of voice.**
+
+### 28.1 Trend is a latent state with uncertainty, not a line
+
+Do not ship "the 50-day crossed the 200-day." Ship a **state-space estimate**:
+
+- Local linear trend / structural time series decomposition → level, slope, seasonal, irregular, each
+  with a posterior variance
+- STL or wavelet multi-resolution decomposition for scale separation
+- Kalman/particle filtering so the trend estimate updates online and its uncertainty is explicit
+
+The rendered object is a **trend corridor**, not a trend line. Width is information: a strong trend
+with wide uncertainty is a different trade from a weak trend with tight uncertainty, and a single
+line erases that distinction.
+
+### 28.2 Multi-scale by default
+
+Trend is scale-dependent and a system that picks one scale has smuggled in an assumption. Compute and
+display simultaneously: intraday, daily, weekly, monthly, secular. **Scale agreement is itself a
+feature** — when all scales align, that is a different market state from when the daily fights the
+weekly. Render the alignment explicitly (a small multi-scale ribbon, not five separate charts).
+
+### 28.3 Trend persistence — the hazard function
+
+**The most useful and least-implemented idea in this section.**
+
+Users do not actually want to know "is there a trend." They want to know **"how much longer?"**
+That is a survival-analysis question, and survival analysis answers it properly:
+
+> *Trends with this character — this strength, this scale-alignment, this regime, this breadth —
+> have historically had a median remaining life of 14 trading days, with a 25th percentile of 4 and
+> a 75th of 41. The hazard rate rises sharply above day 30. n = 212 historical analogs.*
+
+Fit a hazard model over the historical corpus of trend episodes, conditioned on regime and
+characteristics. Output a **survival curve for the current trend**, not a binary "trend intact."
+
+This reframes the entire interaction. It is honest (it is a distribution), it is actionable (it maps
+directly to holding period and option tenor), and it is checkable (the hazard model is itself
+calibratable against realized episode lengths).
+
+### 28.4 Trend fragility
+
+A trend supported by broad participation is structurally different from one held up by three names or
+one exchange. Compute **fragility** from the correlation network and breadth:
+
+- Breadth: what fraction of the universe/peer group participates?
+- Concentration: what share of the move is attributable to the top contributors?
+- Network support: is the trend's cluster cohesive (MST/partial-correlation, cross-market proposal §7)?
+- Liquidity depth: could positions actually exit at these prices? (§30.5)
+- Narrative saturation: is the story fully priced? (Part II §14.5)
+
+Fragility and strength are orthogonal. Rendering them on two axes rather than collapsing to one score
+is the whole insight — the dangerous quadrant is *strong and fragile*, and a single "trend score"
+hides exactly that quadrant.
+
+### 28.5 Change points on the trend, not the price
+
+Run BOCPD (Part II / cross-market proposal §8) on the **trend state**, not raw price. Price is noisy
+and change-point-rich; the underlying trend state is not. This produces far fewer, far more meaningful
+alerts, and the run-length posterior gives "this trend is 14 days old with 70% probability" for free —
+which feeds §28.3.
+
+### 28.6 Regime conditioning, always
+
+Every trend statistic is reported conditional on regime. "Momentum works" is not a statement with a
+truth value; "momentum has a positive expected 20-day return in low-volatility, high-breadth regimes,
+and a negative one in stressed regimes, with these coverage numbers" is.
+
+---
+
+## 29. The Accuracy Contract
+
+**Read this section before promising anything to anyone. It is the most important section in Part III.**
+
+### 29.1 The honest restatement
+
+"Predict accurately within a certain percentage" has an intuitive reading — *"the system is 87%
+accurate"* — that cannot be delivered by any system in any market, and every product that claims it
+is either measuring something trivial, overfitting, or lying. Markets are non-stationary, partially
+efficient, and reflexive. A fixed accuracy number is not a hard engineering target; it is a category
+error.
+
+**But the underlying need is completely legitimate and there is a rigorous way to serve it.** Invert
+the promise:
+
+> **You choose the confidence level. The system delivers an interval that provably contains the truth
+> that often — and shows you its realized coverage so you can verify the claim yourself.**
+
+That is **conformal prediction**, which the architecture has already committed to (§17.3: ACI as the
+time-series default, Mondrian for regime-conditioning). It gives a *coverage guarantee* rather than an
+accuracy claim:
+
+- Ask for 80% → get an interval that contains the realization ~80% of the time.
+- Ask for 95% → get a wider interval that contains it ~95% of the time.
+
+Coverage is guaranteed by construction. **What varies with model skill is the interval's width.**
+
+### 29.2 Sharpness subject to calibration — the actual measure of skill
+
+This is the standard and correct framing, and it should be the product's spine:
+
+> **Calibration is a constraint. Sharpness is the objective.**
+
+Two systems both delivering 80% coverage are not equally good. The one with narrower intervals knows
+more. So the headline metric is not accuracy — it is **interval width at a fixed coverage level,
+compared against baselines**.
+
+> *"90-day NVDA return, 80% interval: [−11%, +19%]. Realized coverage over the last 500 predictions:
+> 79%. In high-volatility regimes: 74%. Baseline (unconditional historical) interval at the same
+> coverage: [−19%, +27%]. Sharpness gain: 34%."*
+
+That statement is honest, verifiable, comparable across assets and horizons, and vastly more useful
+than "87% accurate." A user reading it understands something true. A user reading "87% accurate"
+understands something false.
+
+### 29.3 The metric suite
+
+Point-accuracy metrics are the wrong family. Use **proper scoring rules** — they cannot be gamed by
+hedging your stated confidence:
+
+| Metric | Measures | Use |
+|---|---|---|
+| **CRPS** | Full distributional accuracy | Primary metric for continuous targets |
+| **CRPSS** | CRPS skill vs baseline | The headline number. Positive = beats baseline |
+| Pinball loss | Per-quantile accuracy | Where in the distribution is the model weak? |
+| Log score | Sharpness-sensitive | Punishes overconfidence hard |
+| Brier + decomposition | Binary events | Splits into reliability / resolution / uncertainty |
+| Reliability diagram | Calibration curve | The user-facing honesty surface |
+| **PIT histogram** | Distributional shape | Flat = well-calibrated. U-shaped = overconfident. Diagnoses *how* a model is wrong, not just that it is |
+| Realized coverage vs nominal | The conformal guarantee | Per horizon, per regime, per asset |
+| Interval width / sharpness | Skill at fixed coverage | The competitive number |
+| Directional accuracy | Sign only | Report it — users want it — but **never alone** |
+
+**Every one of these is reported per horizon, per regime, per asset class, and per data-quality
+band.** Aggregate accuracy numbers hide exactly the heterogeneity a user needs.
+
+### 29.4 Accuracy is heterogeneous — publish the map
+
+The single most useful honesty feature: **the Accuracy Atlas.** A surface answering *"where is this
+system actually good?"*
+
+Realistically, and this should be stated plainly to users:
+
+| Target | Realistic predictability |
+|---|---|
+| Realized volatility | **Genuinely predictable.** Vol clusters. Strong, durable skill available |
+| Return *distribution* / interval | Achievable with honest calibration |
+| Drawdown risk, tail behaviour | Achievable, especially regime-conditioned |
+| Relative / cross-sectional ranking | Modest but real skill |
+| Event *reaction* distributions | Achievable where n is sufficient |
+| Directional return, short horizon | **Near the noise floor.** Tiny edges at best, mostly illusory |
+| Precise price targets | Not achievable. Do not ship this |
+
+Building the Atlas means occasionally telling a user *"we have no skill here, and here is the
+evidence."* That will feel commercially painful. It is the single strongest trust-building act
+available, and it is the only defensible position for a platform whose entire premise is provable
+honesty.
+
+### 29.5 The predictability ceiling
+
+For each series and horizon, estimate an **information-theoretic ceiling** — entropy rate, permutation
+entropy, or a similar complexity measure — to answer *"how much predictable structure is even present
+here?"*
+
+Then report skill **as a fraction of the achievable ceiling**, not in absolute terms. A model
+capturing 60% of available structure in a near-random series is doing extraordinarily well; a model
+capturing 60% in a highly structured series is underperforming. Absolute numbers conflate the two and
+mislead in both directions.
+
+This also prevents the most expensive research failure mode: pouring months into a target that
+contains almost no extractable signal.
+
+### 29.6 The promotion gate
+
+No model reaches a user surface without passing, on **both discrimination and calibration**:
+
+1. Beats the unconditional historical baseline (CRPSS > 0)
+2. Beats the random-walk / momentum baseline
+3. Beats the simplest domain heuristic
+4. Realized coverage within tolerance of nominal, **per regime**
+5. PIT histogram passes a uniformity test
+6. Passes the pretraining-contamination gate (Part II §8)
+7. Number of configurations searched is disclosed, and the deflated Sharpe / PBO check clears (§31)
+
+Already normative in the architecture as the baseline ladder (§17.2). Part III's contribution is
+making it the *accuracy contract* the product is sold on.
+
+### 29.7 What is safe to promise
+
+- ✅ "You pick the confidence level; we deliver calibrated intervals and show realized coverage."
+- ✅ "Our intervals are N% narrower than baseline at the same coverage, on these assets, in these regimes."
+- ✅ "Here is exactly where we have skill and where we don't."
+- ✅ "Every prediction is in a tamper-evident ledger. Verify our record yourself, including the misses."
+- ❌ "87% accurate."
+- ❌ Any point price target without an interval.
+- ❌ Any accuracy number not decomposed by regime and horizon.
+
+---
+
+## 30. The Risk Engine
+
+**Confidence: H for standard measures, M for crypto-specific, L for model risk. "Measure risk — all
+of it" is a large surface; this is the full sweep.**
+
+Architecture already lists `P6-QM-02` (exposure, concentration, correlation, scenario analysis). This
+expands it.
+
+### 30.1 Distributional risk
+
+- **VaR** at multiple horizons and confidences — but never alone. VaR is not subadditive and says
+  nothing about the tail beyond the threshold. Shipping VaR as the headline risk number is
+  malpractice.
+- **CVaR / Expected Shortfall** — coherent, tail-aware. This is the headline.
+- **EVT tail fitting** (peaks-over-threshold, GPD) — because the historical sample almost never
+  contains the tail that matters, and empirical quantiles at 99.5% on 3 years of data are fiction.
+- **Skew and kurtosis**, with the honest note that both are unstable estimators requiring long windows.
+
+### 30.2 Path and drawdown risk
+
+Terminal-value distributions hide the path, and users do not experience terminal values — they
+experience drawdowns and quit during them.
+
+- Maximum drawdown **distribution**, not the single historical max
+- Time-under-water distribution — how long until recovery?
+- Ulcer index, Calmar/MAR
+- **Probability of ruin** and probability of hitting a personal pain threshold
+- **Sequence-of-returns risk** — same returns, different order, materially different outcome under
+  contributions or withdrawals
+
+### 30.3 Structural risk
+
+- Factor exposure decomposition (both markets, shared factors — cross-market proposal §9.2)
+- **Hidden concentration**: a portfolio that looks diversified by name and is concentrated by factor.
+  The most common real portfolio failure, and invisible to name-level checks. New pre-trade check.
+- **Tail dependence (λ_L)** alongside correlation. Two assets at ρ = 0.3 with λ_L = 0.7 are a
+  diversification illusion — independent on ordinary days, joined at the hip on the day that matters.
+  **Report λ_L on every pair.** Nearly free once the lattice exists; enormous honesty payoff.
+- Correlation instability: how much does the correlation matrix move between regimes?
+- Beta stability, rolling and regime-conditioned
+
+### 30.4 Liquidity risk
+
+Chronically under-modelled and the reason paper results don't survive contact with size.
+
+- ADV participation and **days-to-liquidate** at a given participation rate
+- Spread cost and depth-at-price
+- **Market impact** (square-root-law family), sized to the actual position
+- Liquidity *regime* — depth evaporates precisely when you need it
+- Crypto: per-venue depth fragmentation, and depth that is partially wash
+- Options: open interest, spread width, and whether the strike trades at all
+
+**Every backtest result should carry a capacity estimate.** A strategy with a Sharpe of 3 and a
+capacity of $200k is a hobby, and the platform should say so before a user finds out with real money.
+
+### 30.5 Crypto-specific risk
+
+Structurally different from equity risk. Mostly absent from equity-first platforms.
+
+| Risk | Instrumentation |
+|---|---|
+| Exchange counterparty | Venue solvency proxies, reserve attestations, withdrawal-latency anomalies, historical failure base rates |
+| Custody | Self-custody vs exchange vs qualified custodian exposure split |
+| Smart contract | Audit status, TVL-at-risk, time-since-deploy, upgrade-key centralization |
+| Bridge | Cross-chain exposure — historically the highest-severity loss category |
+| Stablecoin depeg | Peg deviation history, collateral composition, redemption-gate risk |
+| Liquidation cascade | Aggregate leverage, funding extremes, liquidation-level clustering |
+| Regulatory | Jurisdictional exposure, delisting precedent |
+| Concentration | Whale/holder distribution, exchange-held supply fraction |
+| Chain | Reorg depth, validator/miner concentration, halt history |
+
+### 30.6 Equity-specific risk
+
+Gap risk (overnight, and crypto is the overnight sensor — cross-market proposal §10), halt risk,
+borrow cost and short-squeeze exposure, corporate-action risk, index rebalance flow, earnings-date
+proximity, **adjusted option contracts** (already a HardDeny), and single-filing concentration.
+
+### 30.7 Scenario and stress
+
+- **Historical replay** — run the current portfolio through 1987, 2000, 2008, 2020, 2022, the May
+  2021 and FTX crypto events
+- **Hypothetical shocks** — user-defined factor moves with correlation-consistent propagation
+- **Reverse stress testing** — *"what scenario breaks me?"* Solve for the shock that produces a
+  target loss. Far more useful than forward stress testing and almost never offered
+- **Regime-conditional stress** — correlations go to 1 in crises; stressing with calm-regime
+  correlations understates loss, which is the exact error that made 2008 worse
+
+### 30.8 Model risk — the risk that the risk model is wrong
+
+Rarely instrumented; PRISMATIK already has the machinery.
+
+- Drift detection: feature, calibration, embedding, performance (already `P5-QM-14`)
+- **Out-of-distribution detection** — a model producing a *tight* forecast in a regime it has never
+  seen is a defect, not a feature. Already doctrine in the architecture. OOD must widen intervals
+  automatically and suppress beyond a second threshold, with no human in the loop
+- **Ensemble disagreement as a risk metric** — when models that usually agree diverge, that is
+  information about model risk, not just noise
+- Estimation error on the risk numbers themselves: a VaR from 250 observations has a confidence
+  interval, and it is wider than people expect. **Render it.**
+
+### 30.9 Position sizing under uncertainty
+
+- Kelly and fractional Kelly — with the parameter-uncertainty correction, because full Kelly on
+  estimated parameters is reliably ruinous
+- Risk parity / equal risk contribution
+- **Hierarchical Risk Parity** — uses the correlation-metric tree (cross-market proposal §7),
+  avoids matrix inversion, far more robust out-of-sample than mean-variance
+- Volatility targeting with a regime-aware target
+- Explicit maximum-loss budgeting per position and per day
+
+### 30.10 The Risk Ledger
+
+Every risk number carries: estimation window, **effective sample size**, regime, data quality score,
+and the model that produced it. A CVaR with no estimation window attached is a number with no meaning,
+and rendering one is an I1 violation.
+
+---
+
+## 31. Backtest Honesty — Where Prediction Claims Live or Die
+
+**Confidence: H. Mostly already in the wave plan; consolidated here because §29's claims are only
+worth what this section enforces.**
+
+| Discipline | Why |
+|---|---|
+| **Purged + embargoed CV** | Drop training samples whose label horizon overlaps the test window, plus a buffer after. Without both, overlapping labels leak and every OOS number is optimistic. Already `P4-QM-09` |
+| **Combinatorial purged CV** | Multiple backtest paths → a *distribution* of Sharpe, not one number |
+| **Deflated Sharpe Ratio** | Corrects for multiple testing, non-normality, and sample length |
+| **Probability of Backtest Overfitting** | Explicit estimate that the selected strategy is a fluke |
+| **Configurations-searched disclosure** | Deflated Sharpe requires N. Report it prominently — a Sharpe of 2.0 from 5 configs and from 50,000 are different objects. Already in the v0.1 walk-forward panel; keep it |
+| **Minimum backtest length** | For a given Sharpe, there is a minimum history below which the result is not distinguishable from luck. State it |
+| **Realistic costs** | Fees, spread, slippage, impact sized to position, borrow, funding. Frictionless backtests are fiction |
+| **Capacity estimate** | §30.4 |
+| **Survivorship-clean universe** | §27 |
+| **Point-in-time features** | `observation_delay` + vintages |
+| **Regime-stratified results** | A strategy that works only in one regime should show it, not average it away |
+| **Walk-forward efficiency** | OOS performance ÷ IS performance. Low ratio = overfit |
+
+**The multiple-testing disclosure is the differentiator.** As the v0.1 README already says: multiple-
+testing bias is how these products quietly lie. Surfacing it is the whole posture.
+
+---
+
+## 32. Cross-Sectional and Universe-Wide Analytics
+
+Instrument-level depth is necessary; universe-level breadth is what makes it actionable.
+
+- **Screening with uncertainty.** Ranked screens must carry **rank intervals**, not point ranks. The
+  #3 and #17 names are frequently statistically indistinguishable, and a bare ordered list implies a
+  precision that does not exist. FDR control applies here exactly as in the correlation matrix
+  (cross-market proposal §6.2) — screening 5,000 names on 20 metrics is 100,000 tests.
+- **Data-driven peer groups.** GICS/sector labels are coarse and stale. Cluster on realized
+  co-movement, factor loadings, and narrative co-occurrence. MSTR's real peer group includes BTC.
+- **Relative value** — spreads, ratios, cointegration (with proper testing and a stationarity verdict,
+  not eyeballed charts).
+- **Breadth and dispersion** as first-class universe metrics; they feed regime detection (§28.4).
+- **Factor exposure per name**, both markets, shared factor space.
+- **Cross-sectional momentum/reversal** with the survivorship-clean universe from §27.
+
+---
+
+## 33. The Time Machine
+
+**Confidence: M. The most striking UX expression of the entire architecture. Build it as the demo.**
+
+A date scrubber on the instrument workspace. Drag it to any historical instant and the **entire
+workspace re-renders to what the platform knew at that moment** — prices, features, news, analyst
+consensus, positioning, regime label, and the predictions it was making.
+
+> *"What did we say about NVDA on 2023-05-24, on what evidence, and what actually happened?"*
+
+Nothing else on the market can do this honestly, because it requires bitemporal symbology,
+`observation_delay`, vintage handling, versioned embedding indices, an append-only raw layer, and a
+prediction ledger — all of which exist in this architecture and essentially nowhere else.
+
+Two hard rules:
+
+- The as-of view must be **visually unmistakable** — a persistent, high-contrast chrome state, not a
+  small badge. A user who forgets they are in the past and trades on it has been actively harmed.
+- Pair it with the **Prediction Ledger** (Part II §14.4): scrub to a date, see the prediction, scrub
+  forward, see the resolution. The system grades itself in front of the user, including the misses.
+
+This is also the most persuasive sales artifact available. It is one interaction that demonstrates
+the entire invariant set at once.
+
+---
+
+## 34. The Operator Mirror — Calibrating the User
+
+**Confidence: M. Uses `prismatik-journal`, which already exists and already has the right shape.**
+
+The journal crate already specifies a three-layer memory loop and `TriggerWinRate`. Point the same
+calibration machinery that scores models and analysts (Part II §12.2) at **the user's own decisions.**
+
+- Every thesis logged with its reasoning, conviction level, horizon, and evidence
+- Scored on realization, exactly like an analyst
+- **The user's personal calibration curve**: *"when you say you're 80% confident, you're right 61% of
+  the time — and 44% in high-volatility regimes"*
+- Per-setup, per-sector, per-regime hit rates via the existing memory layers
+- Behavioural pattern surfacing: overtrading after losses, conviction inflation after wins, holding
+  losers past the stated thesis invalidation, systematically ignoring your own falsification criteria
+- **Counterfactual sizing**: *"with your actual signals and flat sizing, you'd be up 14% instead of
+  3% — your sizing is subtracting alpha"*
+
+This is the single most valuable thing a serious individual operator can receive, nobody offers it,
+and the infrastructure is already specified. It also completes the platform's philosophical arc: it
+calibrates its models, it calibrates the analysts, and it calibrates you — with the same machinery
+and the same honesty.
+
+Handle with care in the UI. This information is genuinely useful and genuinely uncomfortable.
+Frame it as instrumentation, never as judgment.
+
+---
+
+## 35. Alerting That Doesn't Become Noise
+
+- Alert classes: regime transition, trend hazard spike (§28.3), calibration decay, silence anomaly
+  (Part II §11.4), risk-limit proximity, correlation-structure break, liquidity degradation, thesis
+  invalidation (from the user's own stated falsifiers), data-quality degradation.
+- **Alerts are predictions and must be calibrated like predictions.** Track per-alert-type precision:
+  *"regime-transition alerts have preceded an actual transition 41% of the time."* An uncalibrated
+  alert stream trains users to ignore it, which is worse than no alerts.
+- Adaptive thresholds by regime — a fixed vol threshold fires constantly in stress and never in calm.
+- Every alert links to its evidence chain and its "what would falsify this."
+
+---
+
+## 36. Data Quality as a First-Class Surface
+
+Not a backend concern — a rendered one.
+
+- Live gap detection, provider disagreement, outlier and stale-quote flagging
+- **Never impute silently.** Every filled value is flagged, and the fill method is part of lineage
+- Provider divergence as a signal in its own right — when two feeds disagree about a print, that is
+  information
+- **Every analysis carries the minimum quality score of its inputs** (§26.5). *"This backtest ran on
+  data that was 3% imputed and drew from a venue that failed in 2023"* is a sentence the platform
+  should be capable of generating automatically
+
+---
+
+## 37. Performance and Scale
+
+The directive's Phase 2.1 asks, made concrete for this workload:
+
+- Arrow end-to-end, zero-copy to sidecars. Never serialize a large panel to JSON
+- DataFusion predicate/projection pushdown into partitioned Parquet
+- Incremental materialization: recompute only the affected windows, never full rebuilds
+- Content-addressed caching keyed on `(inputs, artifacts, seed, as_of)` — a cache key that includes
+  the determinism context is safe under I5; a wall-clock key is not (§2)
+- Query budgets with graceful degradation: a screen that would scan 20 years × 5,000 names should
+  narrow with disclosure, never silently sample
+- GPU (wgpu) for the heavy visuals — surfaces, path clouds, correlation graphs, heatmaps — with the
+  mandatory Canvas/CPU fallback
+- Deterministic parallel reduction throughout (fixed chunking, fixed merge order, compensated
+  summation). **Non-associative float addition under work-stealing silently breaks I3 while the
+  numbers still look plausible.**
+- Latency targets: glance view < 300 ms warm; analysis panel < 2 s; full backtest async with progress
+  and cancellation
+
+---
+
+## 38. Consolidated New Crates
+
+Across Parts II and III, and shared with the cross-market proposal:
+
+```
+prismatik-lattice        Temporal alignment: venues, sessions, information arrival.   SHARED — build once
+prismatik-dependence     Correlation, lead-lag, tail dependence, information flow
+prismatik-regime         Change points, state inference, regime artifacts
+prismatik-convergence    Factor attribution, network structure, market state tensor
+prismatik-narrative      Story threading, novelty, lineage, diffusion, silence
+prismatik-consensus      Analyst/firm call ledger, track-record calibration
+prismatik-hypothesis     Falsifiable statements, baseline ladder, prediction ledger
+prismatik-trend          Trend state estimation, multi-scale, hazard/survival, fragility
+prismatik-riskmetrics    VaR/CVaR/EVT, drawdown, liquidity, capacity, stress, model risk
+prismatik-universe       Bitemporal universe definitions, survivorship-correct membership
+```
+
+All Layer 2, ports only, no storage backends, no vendor SDKs, no HTTP clients. Heavy or research-grade
+estimation goes to sidecars first and earns a crate only after out-of-sample validation.
+
+---
+
+## 39. Consolidated Definition of Done
+
+| # | Criterion | Verified by |
+|---|---|---|
+| 1 | No conclusion renders without interval, evidence chain, regime, and ESS | Type-level + `test_no_orphan_conclusions` |
+| 2 | Realized coverage within tolerance of nominal, per regime, per horizon | Rolling coverage report, 500+ observations |
+| 3 | PIT histograms pass uniformity | Automated per model per promotion |
+| 4 | Every model beats the full baseline ladder on discrimination **and** calibration | Promotion gate |
+| 5 | Configurations-searched disclosed on every backtest; deflated Sharpe computed | Backtest result type |
+| 6 | Universe as-of a historical date contains since-dead assets | `test_universe_survivorship` |
+| 7 | No feature returned where `event_time + observation_delay > as_of` | Property test, 10k cases |
+| 8 | Corporate actions applied at read time; raw bytes unchanged | Byte comparison before/after split ingestion |
+| 9 | Correlation matrix bit-identical across 100 runs and 2 machines | DST replay + cross-machine harness |
+| 10 | Every backtest carries a capacity estimate and a minimum data-quality score | Result type |
+| 11 | Tail dependence reported on every rendered pair | UI review |
+| 12 | Time Machine as-of state visually unmistakable | UX review + user test |
+| 13 | Predictions written to the audit ledger at issuance, externally verifiable | `prismatik-cli verify` on a published tree head |
+| 14 | Accuracy Atlas published, including regions of no skill | Content review |
+| 15 | Blind spots rendered as content on every instrument view | UI review |
+| 16 | Alert types carry their own realized precision | Alert config surface |
+
+---
+
+## 40. Sequencing for Part III
+
+| Stage | Content | Depends on | Conf |
+|---|---|---|:---:|
+| 1 | `prismatik-universe` + survivorship-correct history ingestion | Bitemporal symbology (Wave 2) | H |
+| 2 | History Quality Score wired into every result type | Stage 1 | H |
+| 3 | Instrument workspace shell + capability matrix + blind spots | Stage 1 | M |
+| 4 | `prismatik-trend`: state-space estimation, multi-scale | `prismatik-lattice` | M |
+| 5 | `prismatik-riskmetrics`: distributional, drawdown, structural, liquidity | Stage 1 | M |
+| 6 | Accuracy metric suite (CRPS/CRPSS/PIT/coverage) + promotion gate | `prismatik-calibration` | M |
+| 7 | Backtest honesty consolidation (DSR, PBO, combinatorial purged CV, capacity) | Stage 5 | M |
+| 8 | The Accuracy Atlas | Stage 6 | M |
+| 9 | Trend hazard / survival model | Stage 4 | L |
+| 10 | Crypto-specific risk suite | Stage 5 | M |
+| 11 | The Time Machine | Stages 1–3 + prediction ledger | M |
+| 12 | Operator Mirror on `prismatik-journal` | Stage 6 | M |
+| 13 | Reverse stress testing, HRP sizing | Stage 5 | L |
+
+**Stages 1, 2, and 6 are the load-bearing three.** Survivorship-correct history, quality scoring, and
+the accuracy metric suite are what make every other number in the product mean something. Skipping
+them produces a platform that is faster at being wrong.
+
+---
+
+## 41. What I Would Cut, and the Honest Risks
+
+**Cut order:** trend hazard/survival (L — needs a large, cleanly-labelled corpus of trend episodes and
+the labelling is subjective), reverse stress testing (L — the optimization is fiddly and the output is
+easy to misread), predictability-ceiling estimation (L — entropy-rate estimators on short financial
+series are themselves noisy), smart-contract and bridge risk scoring (L — largely qualitative, hard to
+keep current).
+
+| Risk | Reality |
+|---|---|
+| **History acquisition is the real cost and the real timeline** | Options chains, tick data, and licensed news are expensive and recurring. Deep history is the moat and it is bought, not coded. Model this before committing to Part III |
+| Survivorship reconstruction for crypto is genuinely hard | Point-in-time top-N membership from 2017 may be partially unrecoverable. Where it is, say so and bound the analysis rather than quietly using today's list |
+| The Accuracy Atlas will show weak areas | That is the feature. It must survive the first commercial conversation where someone asks to hide a red cell. Decide now, in writing, that it will not be hidden |
+| Calibration guarantees assume near-exchangeability | ACI relaxes this and is the correct default for time series, but no conformal method survives a true structural break. Per-regime coverage makes the failure visible rather than silent — which is the best available outcome, not a fix |
+| Risk numbers invite false precision | A CVaR rendered to four significant figures implies certainty that a 250-observation estimate does not have. Render estimation error alongside every risk figure or round aggressively |
+| Scope | Part III is comfortably multiple engineer-years in full. Stages 1, 2, 6, and the workspace shell are the defensible minimum and are worth doing alone |
+
+---
+
+## 42. Closing — What This Adds Up To
+
+Most platforms in this space are built on an implicit promise of *certainty delivered attractively*.
+They render a number, they render it beautifully, and the number is not accountable to anything.
+
+The architecture already in this repository makes the opposite bet, and Parts II and III are that bet
+carried to its conclusion:
+
+- **Deep, survivorship-correct, bitemporal history**, because a metric computed on a universe that
+  encodes its own outcome is not a metric.
+- **Trend as a state with uncertainty and a hazard function**, because the real question was never
+  "is there a trend" but "how much longer, and how fragile."
+- **Calibrated intervals instead of accuracy claims**, because coverage is provable and accuracy is
+  not — and because sharpness-subject-to-calibration is a harder, more honest, and more competitive
+  target than any percentage.
+- **Risk measured across distribution, path, structure, liquidity, venue, and model**, with every
+  number carrying its estimation window and effective sample size.
+- **An accuracy map that admits where there is no skill**, because a system that is never wrong in
+  public is a system nobody should trust.
+- **A ledger that makes the platform cryptographically incapable of lying about its record**,
+  including the misses.
+- **A time machine that lets a user stand in any past moment** and see exactly what was known and what
+  was said.
+- **And a mirror that calibrates the operator** with the same machinery it uses on its models and on
+  Wall Street's analysts.
+
+The differentiator was never going to be a better prediction. Everyone's predictions converge toward
+the same noisy ceiling, and the ones that don't are usually overfit. The differentiator is being the
+only system that can prove what it said, why it said it, what it knew at the time, how often it has
+been wrong, and exactly where its skill runs out.
+
+That is a defensible product. It is also, not incidentally, an honest one.
+
+---
+
+*Part I is operational. Parts II and III are proposals — no crates created, no wave commitments made,
+no work started. §21 (licensing, defamation, adviser regulation) and §41 (history acquisition cost)
+must be resolved by a human before implementation.*
