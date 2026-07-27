@@ -320,6 +320,7 @@ curl -i -H "Authorization: Bearer <token>" http://127.0.0.1:8787/api/v1/meta
 - Backend now exposes authenticated list endpoints for jobs and sessions.
 - Backend now exposes a deterministic overview endpoint for downstream UI/ops consumption.
 - Backend now exposes a parameterized events endpoint for custom-sized event tail retrieval on sessions.
+- Backend now exposes a comprehensive config endpoint so UIs can adapt to configured operational constraints.
 
 ## 6) Placeholder Inventory and Follow-Through
 

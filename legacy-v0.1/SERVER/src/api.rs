@@ -142,6 +142,70 @@ async fn meta(State(state): State<AppState>, headers: HeaderMap) -> Response {
     .into_response()
 }
 
+async fn validate_strategy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<RunRequest>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+
+    let mut errors = Vec::new();
+
+    if req.symbol.is_empty()
+        || req.symbol.len() > 24
+        || !req
+            .symbol
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '/')
+    {
+        errors.push("symbol must be non-empty, <= 24 chars, and alphanumeric/dash/slash");
+    }
+
+    if !VALID_GRANULARITIES.contains(&req.granularity_s) {
+        errors.push("granularity must be one of [60, 300, 900, 3600, 21600, 86400]");
+    }
+
+    if !(7..=1500).contains(&req.days) {
+        errors.push("days must be in 7..=1500");
+    }
+
+    if !(req.initial_equity_usd > 0.0 && req.initial_equity_usd <= 1_000_000.0) {
+        errors.push("initial equity must be in (0, 1_000_000]");
+    }
+
+    if !(2..=12).contains(&req.folds) {
+        errors.push("folds must be in 2..=12");
+    }
+
+    let strategy_valid = Strategy::from_spec(&req.strategy).is_ok();
+    if !strategy_valid {
+        errors.push("strategy specification is invalid");
+    }
+
+    if errors.is_empty() {
+        Json(json!({
+            "valid": true,
+            "symbol": req.symbol,
+            "granularity_s": req.granularity_s,
+            "days": req.days,
+            "initial_equity_usd": req.initial_equity_usd,
+            "folds": req.folds,
+        }))
+        .into_response()
+    } else {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "valid": false,
+                "errors": errors,
+            })),
+        )
+            .into_response()
+    }
+}
+
 async fn config(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !check_token(&state, &headers) {
         return unauthorized();
@@ -774,6 +838,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/health", get(health))
         .route("/api/v1/meta", get(meta))
         .route("/api/v1/config", get(config))
+        .route("/api/v1/validate/strategy", post(validate_strategy))
         .route("/api/v1/status", get(status))
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/jobs", get(jobs_list))
