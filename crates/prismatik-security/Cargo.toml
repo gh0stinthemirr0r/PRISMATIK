@@ -8,4 +8,6 @@ license.workspace = true
 description = "PRISMATIK prismatik-security crate."
 
 [dependencies]
+thiserror.workspace = true
+serde.workspace = true
 prismatik-determinism.workspace = true

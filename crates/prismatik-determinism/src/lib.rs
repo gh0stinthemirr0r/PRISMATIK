@@ -65,3 +65,5 @@ pub mod prelude {
     pub use crate::hashing::{DetHasher, DetMap, DetSet};
     pub use crate::signature::{DualSignature, SigningIdentity};
 }
+
+pub mod artifact_store;

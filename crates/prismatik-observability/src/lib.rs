@@ -32,3 +32,6 @@ pub struct DeterminismAttributes {
 pub fn span_name(domain: &str, action: &str) -> String {
     format!("{domain}.{action}")
 }
+pub mod alerts;
+pub mod metrics;
+pub mod slo;

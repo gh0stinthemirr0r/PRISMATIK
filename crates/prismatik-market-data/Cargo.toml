@@ -8,6 +8,8 @@ license.workspace = true
 description = "PRISMATIK prismatik-market-data crate."
 
 [dependencies]
+serde_json.workspace = true
+prismatik-identity.workspace = true
 prismatik-domain.workspace = true
 prismatik-determinism.workspace = true
 async-trait.workspace = true
@@ -15,3 +17,6 @@ serde.workspace = true
 thiserror.workspace = true
 time.workspace = true
 blake3.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

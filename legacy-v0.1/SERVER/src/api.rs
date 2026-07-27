@@ -142,6 +142,50 @@ async fn meta(State(state): State<AppState>, headers: HeaderMap) -> Response {
     .into_response()
 }
 
+async fn config(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    Json(json!({
+        "version": VERSION,
+        "api_version": "v1",
+        "cost_model": {
+            "fee_rate": state.settings.cost.fee_rate,
+            "slippage_rate": state.settings.cost.slippage_rate,
+            "total_per_turnover": state.settings.cost.per_turnover(),
+        },
+        "risk_limits": {
+            "max_position_weight": state.settings.risk.max_position_weight,
+            "max_drawdown_kill": state.settings.risk.max_drawdown_kill,
+            "max_notional_usd": state.settings.risk.max_notional_usd,
+            "max_order_usd": state.settings.risk.max_order_usd,
+        },
+        "broker": {
+            "alpaca_configured": state.settings.alpaca.configured(),
+            "live_trading_unlocked": state.settings.alpaca.live,
+        },
+        "data_sources": {
+            "coinbase_rest": state.settings.coinbase_rest,
+            "coinbase_ws": state.settings.coinbase_ws,
+            "rest_timeout_secs": state.settings.rest_timeout_secs,
+        },
+        "valid_granularities_s": VALID_GRANULARITIES,
+        "valid_strategies": ["hold", "ma", "donchian", "rsi"],
+        "backtesting": {
+            "min_days": 7,
+            "max_days": 1500,
+            "min_folds": 2,
+            "max_folds": 12,
+        },
+        "session": {
+            "min_window_bars": 20,
+            "max_window_bars": 2000,
+        },
+        "live_trading_ack_phrase": LIVE_ACK_PHRASE,
+    }))
+    .into_response()
+}
+
 async fn status(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !check_token(&state, &headers) {
         return unauthorized();
@@ -242,6 +286,36 @@ async fn jobs_list(State(state): State<AppState>, headers: HeaderMap) -> Respons
     Json(json!({ "jobs": items })).into_response()
 }
 
+async fn session_payload(session: Arc<Session>, tail: usize) -> Value {
+    let st = session.state.lock().await;
+    let price = st.last_price.unwrap_or(0.0);
+    let (equity, cash, units) = match &st.execution {
+        Execution::Paper(b) => (b.equity(price), b.cash_usd, b.position_units),
+        Execution::Alpaca {
+            tracked_units,
+            entry_equity,
+            ..
+        } => (
+            entry_equity + tracked_units * price,
+            f64::NAN,
+            *tracked_units,
+        ),
+    };
+    json!({
+        "session_id": session.id,
+        "running": !session.stop.load(Ordering::Relaxed),
+        "halted": st.halted,
+        "live": st.live,
+        "symbol": session.cfg.symbol,
+        "strategy": st.strategy_name,
+        "last_price": st.last_price,
+        "equity": equity,
+        "cash_usd": cash,
+        "position_units": units,
+        "events": session.journal.read_tail(tail),
+    })
+}
+
 async fn sessions_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !check_token(&state, &headers) {
         return unauthorized();
@@ -252,34 +326,53 @@ async fn sessions_list(State(state): State<AppState>, headers: HeaderMap) -> Res
     };
     let mut items = Vec::with_capacity(session_refs.len());
     for s in session_refs {
-        let st = s.state.lock().await;
-        let price = st.last_price.unwrap_or(0.0);
-        let (equity, cash, units) = match &st.execution {
-            Execution::Paper(b) => (b.equity(price), b.cash_usd, b.position_units),
-            Execution::Alpaca {
-                tracked_units,
-                entry_equity,
-                ..
-            } => (
-                entry_equity + tracked_units * price,
-                f64::NAN,
-                *tracked_units,
-            ),
-        };
-        items.push(json!({
-            "session_id": s.id,
-            "running": !s.stop.load(Ordering::Relaxed),
-            "halted": st.halted,
-            "live": st.live,
-            "symbol": s.cfg.symbol,
-            "strategy": st.strategy_name,
-            "last_price": st.last_price,
-            "equity": equity,
-            "cash_usd": cash,
-            "position_units": units,
-        }));
+        items.push(session_payload(s, 0).await);
     }
     Json(json!({ "sessions": items })).into_response()
+}
+
+#[derive(Deserialize)]
+struct EventTailQuery {
+    #[serde(default = "default_event_tail")]
+    limit: usize,
+}
+
+fn default_event_tail() -> usize {
+    200
+}
+
+async fn session_events(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Query(query): Query<EventTailQuery>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    if !(1..=1000).contains(&query.limit) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"detail": "limit must be in 1..=1000"})),
+        )
+            .into_response();
+    }
+    let session = {
+        let sessions = state.sessions.lock().await;
+        sessions.get(&id).cloned()
+    };
+    match session {
+        Some(session) => Json(json!({
+            "session_id": id,
+            "events": session.journal.read_tail(query.limit),
+        }))
+        .into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"detail": "unknown session"})),
+        )
+            .into_response(),
+    }
 }
 
 async fn run_job(state: AppState, kind: &'static str, req: RunRequest) -> Response {
@@ -586,34 +679,7 @@ async fn session_status(
         )
             .into_response();
     };
-    let st = s.state.lock().await;
-    let price = st.last_price.unwrap_or(0.0);
-    let (equity, cash, units) = match &st.execution {
-        Execution::Paper(b) => (b.equity(price), b.cash_usd, b.position_units),
-        Execution::Alpaca {
-            tracked_units,
-            entry_equity,
-            ..
-        } => (
-            entry_equity + tracked_units * price,
-            f64::NAN,
-            *tracked_units,
-        ),
-    };
-    Json(json!({
-        "session_id": s.id,
-        "running": !s.stop.load(Ordering::Relaxed),
-        "halted": st.halted,
-        "live": st.live,
-        "symbol": s.cfg.symbol,
-        "strategy": st.strategy_name,
-        "last_price": st.last_price,
-        "equity": equity,
-        "cash_usd": cash,
-        "position_units": units,
-        "events": s.journal.read_tail(200),
-    }))
-    .into_response()
+    Json(session_payload(s.clone(), 200).await).into_response()
 }
 
 async fn session_stop(
@@ -707,6 +773,7 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(index))
         .route("/api/v1/health", get(health))
         .route("/api/v1/meta", get(meta))
+        .route("/api/v1/config", get(config))
         .route("/api/v1/status", get(status))
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/jobs", get(jobs_list))
@@ -716,6 +783,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/jobs/:id", get(get_job))
         .route("/api/v1/sessions/start", post(session_start))
         .route("/api/v1/sessions/:id", get(session_status))
+        .route("/api/v1/sessions/:id/events", get(session_events))
         .route("/api/v1/sessions/:id/stop", post(session_stop))
         .route("/api/v1/sessions/:id/stream", get(session_stream))
         .nest_service("/app", assets)

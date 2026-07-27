@@ -232,6 +232,14 @@ Backend expansion after root consolidation:
     - risk limits and UI presence
 58. Re-ran `cargo test` and `cargo clippy --manifest-path legacy-v0.1/SERVER/Cargo.toml -- -D warnings` successfully after the overview endpoint.
 59. Probed `/api/v1/overview` successfully with bearer auth on a live throwaway server instance.
+60. Added authenticated `/api/v1/sessions/:id/events` parameterized endpoint for custom event tail retrieval:
+    - `limit` query parameter (default 200, range 1-1000)
+    - Returns JSONL session events up to specified limit
+    - Validates limit range and returns 422 Unprocessable Entity if out of bounds
+    - Returns 404 Not Found for unknown session IDs
+61. Refactored `session_payload` helper to eliminate code duplication between list and detail endpoints.
+62. Re-ran `cargo fmt`, `cargo clippy -- -D warnings`, and `cargo test` successfully after the events endpoint.
+63. Probed `/api/v1/sessions/:id/events` with default limit (200) and custom limits, confirming validation works.
 
 ## 3) Deployment Procedure & Final Deployment Verification
 
@@ -311,6 +319,7 @@ curl -i -H "Authorization: Bearer <token>" http://127.0.0.1:8787/api/v1/meta
 - The legacy dashboard now surfaces live server status and uptime.
 - Backend now exposes authenticated list endpoints for jobs and sessions.
 - Backend now exposes a deterministic overview endpoint for downstream UI/ops consumption.
+- Backend now exposes a parameterized events endpoint for custom-sized event tail retrieval on sessions.
 
 ## 6) Placeholder Inventory and Follow-Through
 

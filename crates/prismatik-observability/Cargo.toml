@@ -9,3 +9,4 @@ description = "PRISMATIK prismatik-observability crate."
 
 [dependencies]
 prismatik-determinism.workspace = true
+serde.workspace = true

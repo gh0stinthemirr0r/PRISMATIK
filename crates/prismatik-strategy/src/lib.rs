@@ -17,3 +17,10 @@ pub mod dsl;
 pub mod ir;
 pub mod runtime;
 pub mod trait_def;
+
+pub mod context;
+pub mod data_access;
+pub mod strategy;
+pub mod strategy_ir;
+
+pub use strategy_ir::STRATEGY_IR_SCHEMA_VERSION;

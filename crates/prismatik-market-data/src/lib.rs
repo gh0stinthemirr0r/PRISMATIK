@@ -24,3 +24,8 @@ pub mod ingest;
 pub mod lineage;
 pub mod provider;
 pub mod request;
+
+pub mod cassette;
+pub mod chain_exec;
+pub mod http;
+pub mod types;

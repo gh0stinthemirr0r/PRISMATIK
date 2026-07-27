@@ -8,5 +8,7 @@ license.workspace = true
 description = "PRISMATIK prismatik-plugin-host crate."
 
 [dependencies]
+thiserror.workspace = true
+serde.workspace = true
 prismatik-determinism.workspace = true
 prismatik-audit.workspace = true

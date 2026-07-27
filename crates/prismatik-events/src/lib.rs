@@ -69,3 +69,5 @@ pub mod provider {
         pub supports_realtime: bool,
     }
 }
+
+pub mod openlineage;

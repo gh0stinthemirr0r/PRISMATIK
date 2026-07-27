@@ -127,3 +127,5 @@ pub mod config {
         HardenedEngine
     }
 }
+
+pub mod cosign;

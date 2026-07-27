@@ -435,6 +435,9 @@ version = "0.1.0"
 dependencies = [
  "prismatik-domain",
  "prismatik-market-data",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -515,9 +518,12 @@ dependencies = [
  "blake3",
  "prismatik-determinism",
  "prismatik-domain",
+ "prismatik-identity",
  "serde",
+ "serde_json",
  "thiserror",
  "time",
+ "tokio",
 ]
 
 [[package]]
@@ -525,6 +531,7 @@ name = "prismatik-observability"
 version = "0.1.0"
 dependencies = [
  "prismatik-determinism",
+ "serde",
 ]
 
 [[package]]
@@ -548,6 +555,8 @@ version = "0.1.0"
 dependencies = [
  "prismatik-audit",
  "prismatik-determinism",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -587,6 +596,8 @@ name = "prismatik-security"
 version = "0.1.0"
 dependencies = [
  "prismatik-determinism",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

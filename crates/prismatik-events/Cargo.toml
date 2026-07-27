@@ -8,5 +8,10 @@ license.workspace = true
 description = "PRISMATIK prismatik-events crate."
 
 [dependencies]
+thiserror.workspace = true
+serde.workspace = true
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
