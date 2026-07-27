@@ -48,8 +48,14 @@ pub fn backtest(
     let mut bench = Vec::with_capacity(n);
     let mut net_returns = Vec::with_capacity(n);
 
-    equity.push(EquityPoint { time: candles[0].time, value: equity_val });
-    bench.push(EquityPoint { time: candles[0].time, value: bench_val });
+    equity.push(EquityPoint {
+        time: candles[0].time,
+        value: equity_val,
+    });
+    bench.push(EquityPoint {
+        time: candles[0].time,
+        value: bench_val,
+    });
 
     for i in 1..n {
         let asset_ret = candles[i].close / candles[i - 1].close - 1.0;
@@ -66,8 +72,14 @@ pub fn backtest(
         bench_val *= 1.0 + asset_ret;
         prev_held = held;
         net_returns.push(net);
-        equity.push(EquityPoint { time: candles[i].time, value: equity_val });
-        bench.push(EquityPoint { time: candles[i].time, value: bench_val });
+        equity.push(EquityPoint {
+            time: candles[i].time,
+            value: equity_val,
+        });
+        bench.push(EquityPoint {
+            time: candles[i].time,
+            value: bench_val,
+        });
     }
 
     let metrics = compute_metrics(&equity, periods_per_year);
@@ -99,8 +111,16 @@ pub fn compute_metrics(equity: &[EquityPoint], periods_per_year: f64) -> Metrics
     let n = equity.len();
     if n < 2 {
         let nan = f64::NAN;
-        return Metrics { total_return: nan, cagr: nan, ann_volatility: nan, sharpe: nan,
-                         sortino: nan, max_drawdown: nan, calmar: nan, n_periods: n };
+        return Metrics {
+            total_return: nan,
+            cagr: nan,
+            ann_volatility: nan,
+            sharpe: nan,
+            sortino: nan,
+            max_drawdown: nan,
+            calmar: nan,
+            n_periods: n,
+        };
     }
     let vals: Vec<f64> = equity.iter().map(|p| p.value).collect();
     let rets: Vec<f64> = vals.windows(2).map(|w| w[1] / w[0] - 1.0).collect();
@@ -110,31 +130,61 @@ pub fn compute_metrics(equity: &[EquityPoint], periods_per_year: f64) -> Metrics
     let growth = vals[n - 1] / vals[0];
     let cagr = if years > 0.0 && growth > 0.0 {
         let c = growth.powf(1.0 / years) - 1.0;
-        if c.is_finite() { c } else { f64::NAN }
-    } else { f64::NAN };
+        if c.is_finite() {
+            c
+        } else {
+            f64::NAN
+        }
+    } else {
+        f64::NAN
+    };
 
     let mean = rets.iter().sum::<f64>() / rets.len() as f64;
     let var = if rets.len() > 1 {
         rets.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (rets.len() - 1) as f64
-    } else { f64::NAN };
+    } else {
+        f64::NAN
+    };
     let sd = var.sqrt();
     let ann_vol = sd * periods_per_year.sqrt();
-    let sharpe = if sd > 0.0 { mean / sd * periods_per_year.sqrt() } else { f64::NAN };
+    let sharpe = if sd > 0.0 {
+        mean / sd * periods_per_year.sqrt()
+    } else {
+        f64::NAN
+    };
 
     let downside: Vec<f64> = rets.iter().copied().filter(|r| *r < 0.0).collect();
     let sortino = if downside.len() > 1 {
         let dmean = downside.iter().sum::<f64>() / downside.len() as f64;
-        let dvar = downside.iter().map(|r| (r - dmean).powi(2)).sum::<f64>()
-            / (downside.len() - 1) as f64;
+        let dvar =
+            downside.iter().map(|r| (r - dmean).powi(2)).sum::<f64>() / (downside.len() - 1) as f64;
         let dsd = dvar.sqrt();
-        if dsd > 0.0 { mean / dsd * periods_per_year.sqrt() } else { f64::NAN }
-    } else { f64::NAN };
+        if dsd > 0.0 {
+            mean / dsd * periods_per_year.sqrt()
+        } else {
+            f64::NAN
+        }
+    } else {
+        f64::NAN
+    };
 
     let mdd = max_drawdown(&vals);
-    let calmar = if mdd < 0.0 && cagr.is_finite() { cagr / mdd.abs() } else { f64::NAN };
+    let calmar = if mdd < 0.0 && cagr.is_finite() {
+        cagr / mdd.abs()
+    } else {
+        f64::NAN
+    };
 
-    Metrics { total_return, cagr, ann_volatility: ann_vol, sharpe, sortino,
-              max_drawdown: mdd, calmar, n_periods: n }
+    Metrics {
+        total_return,
+        cagr,
+        ann_volatility: ann_vol,
+        sharpe,
+        sortino,
+        max_drawdown: mdd,
+        calmar,
+        n_periods: n,
+    }
 }
 
 #[cfg(test)]
@@ -143,13 +193,28 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     fn candles(prices: &[f64]) -> Vec<Candle> {
-        prices.iter().enumerate().map(|(i, &p)| Candle {
-            time: Utc.timestamp_opt(1_700_000_000 + i as i64 * 3600, 0).unwrap(),
-            open: p, high: p, low: p, close: p, volume: 1.0,
-        }).collect()
+        prices
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| Candle {
+                time: Utc
+                    .timestamp_opt(1_700_000_000 + i as i64 * 3600, 0)
+                    .unwrap(),
+                open: p,
+                high: p,
+                low: p,
+                close: p,
+                volume: 1.0,
+            })
+            .collect()
     }
 
-    fn cost(fee: f64, slip: f64) -> CostModel { CostModel { fee_rate: fee, slippage_rate: slip } }
+    fn cost(fee: f64, slip: f64) -> CostModel {
+        CostModel {
+            fee_rate: fee,
+            slippage_rate: slip,
+        }
+    }
 
     #[test]
     fn buy_and_hold_matches_price_return_minus_entry_cost() {
@@ -186,10 +251,14 @@ mod tests {
 
     #[test]
     fn rising_equity_has_positive_sharpe() {
-        let pts: Vec<EquityPoint> = (0..500).map(|i| EquityPoint {
-            time: Utc.timestamp_opt(1_700_000_000 + i as i64 * 3600, 0).unwrap(),
-            value: 100.0 * 1.001f64.powi(i),
-        }).collect();
+        let pts: Vec<EquityPoint> = (0..500)
+            .map(|i| EquityPoint {
+                time: Utc
+                    .timestamp_opt(1_700_000_000 + i as i64 * 3600, 0)
+                    .unwrap(),
+                value: 100.0 * 1.001f64.powi(i),
+            })
+            .collect();
         let m = compute_metrics(&pts, 8760.0);
         assert!(m.sharpe > 0.0 && m.total_return > 0.0);
     }

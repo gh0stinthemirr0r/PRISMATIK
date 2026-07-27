@@ -9,3 +9,9 @@ description = "PRISMATIK prismatik-market-data crate."
 
 [dependencies]
 prismatik-domain.workspace = true
+prismatik-determinism.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true
+blake3.workspace = true

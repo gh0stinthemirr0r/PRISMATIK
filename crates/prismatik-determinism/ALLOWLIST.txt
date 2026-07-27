@@ -1,0 +1,12 @@
+# Determinism grep-gate allowlist (Wave 0 DoD criterion 1).
+#
+# Format: <relative/path:line> # one-line reason
+#
+# Hard cap: 10 entries. Every addition must justify itself. A gate that grows
+# an allowlist is a gate that is dying; keep this short and revisit often.
+#
+# Only entries that genuinely cannot use the Clock/Entropy/DetMap abstractions
+# belong here (e.g. a wall-clock latency benchmark that *measures* elapsed real
+# time and therefore must read the monotonic clock directly).
+
+crates/prismatik-audit/src/ledger.rs:439 # append_p99_smoke benchmark measures real elapsed wall time; monotonic clock is the correct tool here (scoped clippy #[allow] present)

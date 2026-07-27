@@ -1,0 +1,16 @@
+[
+  {
+    "name": "aapl_flow_alerts",
+    "request": {
+      "method": "GET",
+      "path": "/api/option-trades/flow-alerts",
+      "query": { "ticker": "AAPL" },
+      "headers": {}
+    },
+    "response": {
+      "status": 200,
+      "headers": { "content-type": "application/json" },
+      "body": "{\"data\":[{\"option_symbol\":\"AAPL  260116C00150000\",\"executed_at\":\"2026-01-02T15:30:00Z\",\"size\":100,\"premium_cents\":1000000,\"side\":\"ask\",\"open_interest\":50,\"volume\":500,\"opening\":true}]}"
+    }
+  }
+]

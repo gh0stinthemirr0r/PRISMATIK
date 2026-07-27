@@ -41,9 +41,7 @@ pub mod error;
 pub mod hashing;
 pub mod signature;
 
-pub use artifact_ref::{
-    ArtifactId, ArtifactKind, ArtifactRef, ContentHash, SemanticVersion,
-};
+pub use artifact_ref::{ArtifactId, ArtifactKind, ArtifactRef, ContentHash, SemanticVersion};
 pub use clock::{Clock, ClockKind, FrozenClock, SimulatedClock, SystemClock};
 pub use context::{DeterminismContext, PinnedArtifactSet, RunId};
 pub use entropy::{Entropy, EntropyError, SplitEntropy};

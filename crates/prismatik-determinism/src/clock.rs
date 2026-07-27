@@ -164,22 +164,16 @@ impl Clock for SimulatedClock {
         // For DST (where strict serializability matters), madsim provides
         // the runtime-level determinism; this clock is the logical-time
         // source on top of that.
-        self.inner
-            .try_lock()
-            .map(|g| g.now)
-            .unwrap_or_else(|_| {
-                // Fall back: block briefly. In practice this only happens
-                // under heavy contention, which backtest event loops don't
-                // produce.
-                self.now_blocking()
-            })
+        self.inner.try_lock().map(|g| g.now).unwrap_or_else(|_| {
+            // Fall back: block briefly. In practice this only happens
+            // under heavy contention, which backtest event loops don't
+            // produce.
+            self.now_blocking()
+        })
     }
 
     fn monotonic_nanos(&self) -> u64 {
-        self.inner
-            .try_lock()
-            .map(|g| g.nanos_elapsed)
-            .unwrap_or(0)
+        self.inner.try_lock().map(|g| g.nanos_elapsed).unwrap_or(0)
     }
 
     async fn sleep_until(&self, deadline: OffsetDateTime) {

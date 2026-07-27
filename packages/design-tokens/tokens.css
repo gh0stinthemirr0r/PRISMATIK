@@ -1,0 +1,136 @@
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Brand luminance */
+  --color-brand-primary: #00f0ff;
+  --color-brand-primary-soft: rgba(0, 240, 255, 0.12);
+  --color-brand-accent: #a855f7;
+  --color-brand-accent-soft: rgba(168, 85, 247, 0.12);
+
+  /* Deep-space material stack */
+  --color-surface-0: #06080d;
+  --color-surface-1: rgba(13, 17, 28, 0.68);
+  --color-surface-2: rgba(22, 28, 44, 0.72);
+  --color-surface-3: rgba(31, 39, 59, 0.82);
+  --color-surface-solid: #0b0f19;
+  --color-glass-highlight: rgba(255, 255, 255, 0.07);
+
+  /* Text */
+  --color-text-primary: #f2f7ff;
+  --color-text-secondary: #9aa9bf;
+  --color-text-tertiary: #607089;
+  --color-text-inverse: #021014;
+
+  /* Semantic telemetry */
+  --color-up: #10b981;
+  --color-down: #ff5f79;
+  --color-neutral: #718096;
+  --color-info: #00f0ff;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ff5f79;
+  --color-stale: #f59e0b;
+  --color-unverified: #718096;
+  --color-coverage-good: #10b981;
+  --color-coverage-marginal: #f59e0b;
+  --color-coverage-bad: #ff5f79;
+  --color-evidence-confirmed: #10b981;
+  --color-evidence-uncertain: #f59e0b;
+  --color-evidence-contradicted: #ff5f79;
+
+  /* Edges and illumination */
+  --color-border-default: rgba(255, 255, 255, 0.075);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+  --color-border-focus: #00f0ff;
+  --shadow-panel:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 24px 60px -28px rgba(0, 0, 0, 0.9);
+  --shadow-cyan: 0 0 24px rgba(0, 240, 255, 0.22);
+  --shadow-violet: 0 0 28px rgba(168, 85, 247, 0.2);
+  --blur-panel: 24px;
+
+  /* Typography */
+  --font-sans: "IBM Plex Sans", "Segoe UI Variable", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
+  --font-display: "IBM Plex Sans", var(--font-sans);
+  --font-size-xs: 0.6875rem;
+  --font-size-sm: 0.75rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.65rem;
+  --font-size-3xl: 2.25rem;
+  --font-size-hero: clamp(3.5rem, 9vw, 7rem);
+  --line-height-tight: 1.12;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.65;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Physics */
+  --duration-instant: 80ms;
+  --duration-fast: 160ms;
+  --duration-base: 280ms;
+  --duration-slow: 620ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-accelerate: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Layout */
+  --density-comfortable: 1;
+  --density-compact: 0.85;
+  --density-cozy: 1.15;
+  --workspace-min-width: 1180px;
+  --panel-min-width: 320px;
+  --panel-default-width: 480px;
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}
+
+/* Light is intentionally a second, dimmer observatory mode—not a paper UI. */
+[data-theme="light"] {
+  color-scheme: dark;
+  --color-surface-0: #090d16;
+  --color-surface-1: rgba(20, 27, 43, 0.76);
+  --color-surface-2: rgba(31, 41, 62, 0.76);
+  --color-surface-3: rgba(42, 54, 78, 0.84);
+  --color-surface-solid: #101622;
+  --color-text-primary: #f7fbff;
+  --color-text-secondary: #afbdd0;
+  --color-text-tertiary: #73839b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

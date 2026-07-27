@@ -27,7 +27,7 @@ pub struct DualSignature {
 /// Signature-scheme identifier recorded in the manifest.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SignatureScheme {
-    /// No signature present yet (placeholder).
+    /// No signature present.
     #[default]
     None,
     /// Ed25519 only (Wave 0 conditional shipping).

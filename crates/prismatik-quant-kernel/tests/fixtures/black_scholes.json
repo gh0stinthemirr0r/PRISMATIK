@@ -1,0 +1,342 @@
+[
+  {
+    "name": "case_01",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.08,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 1.437818034276812e-169,
+      "vega": 2.875636068553625e-169,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_02",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.08,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 1.437818034276812e-169,
+      "vega": 2.875636068553625e-169,
+      "theta": -1.1502544274214497e-168
+    }
+  },
+  {
+    "name": "case_03",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.1,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 6.701427703537197e-109,
+      "vega": 1.6753569258842994e-108,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_04",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.1,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 6.701427703537197e-109,
+      "vega": 1.6753569258842994e-108,
+      "theta": -8.376784629421497e-108
+    }
+  },
+  {
+    "name": "case_05",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.15,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 4.626524323235356e-49,
+      "vega": 1.7349466212132585e-48,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_06",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.15,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 4.626524323235356e-49,
+      "vega": 1.7349466212132585e-48,
+      "theta": -1.3012099659099435e-47
+    }
+  },
+  {
+    "name": "case_07",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.18,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 1.8048741349351064e-34,
+      "vega": 8.121933607207979e-34,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_08",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.18,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 1.8048741349351064e-34,
+      "vega": 8.121933607207979e-34,
+      "theta": -7.30974024648718e-33
+    }
+  },
+  {
+    "name": "case_09",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.2,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 3.5125422617532937e-28,
+      "vega": 1.7562711308766468e-27,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_10",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.2,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 3.5125422617532937e-28,
+      "vega": 1.7562711308766468e-27,
+      "theta": -1.7562711308766468e-26
+    }
+  },
+  {
+    "name": "case_11",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.22,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 1.5536768893338452e-23,
+      "vega": 8.545222891336149e-23,
+      "theta": 0.40004000200006673
+    }
+  },
+  {
+    "name": "case_12",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.22,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 1.5536768893338452e-23,
+      "vega": 8.545222891336149e-23,
+      "theta": -9.399745180469763e-22
+    }
+  },
+  {
+    "name": "case_13",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.25,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993328,
+      "delta": 1.0,
+      "gamma": 1.483062286236408e-18,
+      "vega": 9.26913928897755e-18,
+      "theta": 0.4000400020000666
+    }
+  },
+  {
+    "name": "case_14",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.25,
+    "kind": "Put",
+    "expected": {
+      "price": 0.0,
+      "delta": -0.0,
+      "gamma": 1.483062286236408e-18,
+      "vega": 9.26913928897755e-18,
+      "theta": -1.1586424111221938e-16
+    }
+  },
+  {
+    "name": "case_15",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.3,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999799993335,
+      "delta": 0.9999999999999533,
+      "gamma": 2.362106883790797e-13,
+      "vega": 1.771580162843098e-12,
+      "theta": 0.4000400019734696
+    }
+  },
+  {
+    "name": "case_16",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.3,
+    "kind": "Put",
+    "expected": {
+      "price": 1.0226720104481164e-14,
+      "delta": -4.674038933671909e-14,
+      "gamma": 2.362106883790797e-13,
+      "vega": 1.771580162843098e-12,
+      "theta": -2.6597174904515868e-11
+    }
+  },
+  {
+    "name": "case_17",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.35,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999800015134,
+      "delta": 0.9999999999171508,
+      "gamma": 3.09609548535264e-10,
+      "vega": 2.7090835496835598e-09,
+      "theta": 0.40003995454946195
+    }
+  },
+  {
+    "name": "case_18",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.35,
+    "kind": "Put",
+    "expected": {
+      "price": 2.1804852093827356e-11,
+      "delta": -8.284917196732522e-11,
+      "gamma": 3.09609548535264e-10,
+      "vega": 2.7090835496835598e-09,
+      "theta": -4.745060475396689e-08
+    }
+  },
+  {
+    "name": "case_19",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.4,
+    "kind": "Call",
+    "expected": {
+      "price": 9.995999803718028,
+      "delta": 0.999999989037927,
+      "gamma": 3.1597414271154193e-08,
+      "vega": 3.1597414271154196e-07,
+      "theta": 0.400033676998929
+    }
+  },
+  {
+    "name": "case_20",
+    "spot": 50,
+    "strike": 40,
+    "time_to_expiry": 0.01,
+    "risk_free_rate": -0.01,
+    "dividend_yield": 0.0,
+    "volatility": 0.4,
+    "kind": "Put",
+    "expected": {
+      "price": 3.7246980986708465e-09,
+      "delta": -1.0962073027087627e-08,
+      "gamma": 3.1597414271154193e-08,
+      "vega": 3.1597414271154196e-07,
+      "theta": -6.325001137725369e-06
+    }
+  }
+]

@@ -1,0 +1,49 @@
+[[permission]]
+identifier = "allow-get-equity-bars"
+description = "Allows reading offline equity bars."
+commands.allow = ["get_equity_bars"]
+
+[[permission]]
+identifier = "allow-get-filing-summaries"
+description = "Allows reading offline filing summaries."
+commands.allow = ["get_filing_summaries"]
+
+[[permission]]
+identifier = "allow-get-insider-transactions"
+description = "Allows reading offline insider transactions."
+commands.allow = ["get_insider_transactions"]
+
+[[permission]]
+identifier = "allow-get-macro-series"
+description = "Allows reading offline FRED series."
+commands.allow = ["get_macro_series"]
+
+[[permission]]
+identifier = "allow-get-cot-report"
+description = "Allows reading offline COT reports."
+commands.allow = ["get_cot_report"]
+
+[[permission]]
+identifier = "allow-get-options-chain"
+description = "Allows reading offline OCC option chains."
+commands.allow = ["get_options_chain"]
+
+[[permission]]
+identifier = "allow-get-options-flow"
+description = "Allows reading offline options flow prints."
+commands.allow = ["get_options_flow"]
+
+[[permission]]
+identifier = "allow-get-dealer-exposure"
+description = "Allows reading offline dealer exposure aggregates."
+commands.allow = ["get_dealer_exposure"]
+
+[[permission]]
+identifier = "allow-get-catalyst-calendar"
+description = "Allows reading offline earnings and macro catalysts."
+commands.allow = ["get_catalyst_calendar"]
+
+[[permission]]
+identifier = "allow-get-next-session"
+description = "Allows reading an offline venue calendar session."
+commands.allow = ["get_next_session"]

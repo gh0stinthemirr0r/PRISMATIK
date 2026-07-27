@@ -10,3 +10,5 @@ description = "PRISMATIK prismatik-simulation crate."
 [dependencies]
 prismatik-backtest.workspace = true
 prismatik-determinism.workspace = true
+serde.workspace = true
+thiserror.workspace = true

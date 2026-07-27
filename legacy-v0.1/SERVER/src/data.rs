@@ -36,10 +36,17 @@ impl CoinbaseData {
             .user_agent(format!("prismatik/{}", crate::config::VERSION))
             .build()
             .map_err(|e| DataError::Http(e.to_string()))?;
-        Ok(Self { client, base: base.trim_end_matches('/').to_string() })
+        Ok(Self {
+            client,
+            base: base.trim_end_matches('/').to_string(),
+        })
     }
 
-    async fn get_json(&self, url: &str, params: &[(&str, String)]) -> Result<serde_json::Value, DataError> {
+    async fn get_json(
+        &self,
+        url: &str,
+        params: &[(&str, String)],
+    ) -> Result<serde_json::Value, DataError> {
         let mut last: Option<String> = None;
         for attempt in 1..=MAX_RETRIES {
             let resp = self.client.get(url).query(params).send().await;
@@ -47,20 +54,26 @@ impl CoinbaseData {
                 Ok(r) if r.status().as_u16() == 429 => {
                     tracing::warn!(attempt, "rate_limited");
                     tokio::time::sleep(StdDuration::from_millis(700 * attempt as u64)).await;
-                }
+                },
                 Ok(r) if r.status().is_success() => {
-                    return r.json().await.map_err(|e| DataError::BadPayload(e.to_string()));
-                }
+                    return r
+                        .json()
+                        .await
+                        .map_err(|e| DataError::BadPayload(e.to_string()));
+                },
                 Ok(r) => return Err(DataError::Http(format!("{} from {}", r.status(), url))),
                 Err(e) if e.is_timeout() || e.is_connect() => {
                     last = Some(e.to_string());
                     tracing::warn!(attempt, error = %e, "transient_error");
                     tokio::time::sleep(StdDuration::from_millis(700 * attempt as u64)).await;
-                }
+                },
                 Err(e) => return Err(DataError::Http(e.to_string())),
             }
         }
-        Err(DataError::Http(format!("exhausted retries: {}", last.unwrap_or_default())))
+        Err(DataError::Http(format!(
+            "exhausted retries: {}",
+            last.unwrap_or_default()
+        )))
     }
 
     pub async fn fetch_candles(
@@ -80,13 +93,17 @@ impl CoinbaseData {
         while cursor_end > start {
             let cursor_start = std::cmp::max(start, cursor_end - window);
             let payload = self
-                .get_json(&url, &[
-                    ("granularity", granularity_s.to_string()),
-                    ("start", cursor_start.to_rfc3339()),
-                    ("end", cursor_end.to_rfc3339()),
-                ])
+                .get_json(
+                    &url,
+                    &[
+                        ("granularity", granularity_s.to_string()),
+                        ("start", cursor_start.to_rfc3339()),
+                        ("end", cursor_end.to_rfc3339()),
+                    ],
+                )
                 .await?;
-            let batch = payload.as_array()
+            let batch = payload
+                .as_array()
                 .ok_or_else(|| DataError::BadPayload("expected array of candles".into()))?;
             for item in batch {
                 rows.push(parse_candle(item)?);
@@ -108,19 +125,32 @@ impl CoinbaseData {
 }
 
 pub fn parse_candle(item: &serde_json::Value) -> Result<Candle, DataError> {
-    let arr = item.as_array()
+    let arr = item
+        .as_array()
         .ok_or_else(|| DataError::BadPayload("candle row is not an array".into()))?;
     if arr.len() < 6 {
-        return Err(DataError::BadPayload(format!("candle row has {} fields", arr.len())));
+        return Err(DataError::BadPayload(format!(
+            "candle row has {} fields",
+            arr.len()
+        )));
     }
     let num = |i: usize| -> Result<f64, DataError> {
-        arr[i].as_f64().ok_or_else(|| DataError::BadPayload(format!("field {i} not numeric")))
+        arr[i]
+            .as_f64()
+            .ok_or_else(|| DataError::BadPayload(format!("field {i} not numeric")))
     };
     let ts = num(0)? as i64;
     let time = DateTime::<Utc>::from_timestamp(ts, 0)
         .ok_or_else(|| DataError::BadPayload(format!("bad timestamp {ts}")))?;
     // Coinbase order: [time, low, high, open, close, volume]
-    Ok(Candle { time, low: num(1)?, high: num(2)?, open: num(3)?, close: num(4)?, volume: num(5)? })
+    Ok(Candle {
+        time,
+        low: num(1)?,
+        high: num(2)?,
+        open: num(3)?,
+        close: num(4)?,
+        volume: num(5)?,
+    })
 }
 
 #[cfg(test)]

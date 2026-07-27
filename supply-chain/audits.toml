@@ -1,0 +1,11 @@
+
+# cargo-vet audits file
+
+[criteria.trusted-core]
+description = """
+PRISMATIK trusted-core: production deps of foundational crates
+(prismatik-determinism, identity, audit, manifest) must be safe-to-deploy.
+"""
+implies = "safe-to-deploy"
+
+[audits]

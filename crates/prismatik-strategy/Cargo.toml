@@ -12,3 +12,7 @@ prismatik-domain.workspace = true
 prismatik-determinism.workspace = true
 prismatik-indicator-core.workspace = true
 prismatik-features.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

@@ -11,3 +11,5 @@ description = "PRISMATIK prismatik-backtest crate."
 prismatik-strategy.workspace = true
 prismatik-calendar.workspace = true
 prismatik-features.workspace = true
+serde.workspace = true
+thiserror.workspace = true

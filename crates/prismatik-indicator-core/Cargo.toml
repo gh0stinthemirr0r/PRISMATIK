@@ -9,3 +9,5 @@ description = "PRISMATIK prismatik-indicator-core crate."
 
 [dependencies]
 prismatik-domain.workspace = true
+serde.workspace = true
+thiserror.workspace = true

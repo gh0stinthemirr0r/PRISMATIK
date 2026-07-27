@@ -9,3 +9,8 @@ description = "PRISMATIK prismatik-audit crate."
 
 [dependencies]
 prismatik-determinism.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+thiserror.workspace = true

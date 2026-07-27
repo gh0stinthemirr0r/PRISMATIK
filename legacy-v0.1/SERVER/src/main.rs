@@ -14,6 +14,7 @@ mod strategy;
 mod types;
 mod walkforward;
 
+use prismatik_determinism::{Clock, SystemClock};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -21,8 +22,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -31,18 +31,22 @@ async fn main() {
         Err(e) => {
             eprintln!("configuration error: {e}");
             std::process::exit(1);
-        }
+        },
     };
 
     let ui_dir = std::env::var("PRISMATIK_UI_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| std::path::PathBuf::from("../ui/build"));
+    let clock = Arc::new(SystemClock::new());
+    let boot_nanos = clock.monotonic_nanos();
 
     let state = api::AppState {
         settings: settings.clone(),
         jobs: Arc::new(tokio::sync::Mutex::new(Default::default())),
         sessions: Arc::new(tokio::sync::Mutex::new(Default::default())),
         ui_dir: Arc::new(ui_dir),
+        clock,
+        boot_nanos,
     };
 
     let addr = format!("{}:{}", settings.host, settings.port);
@@ -56,9 +60,13 @@ async fn main() {
     println!(
         "\n  Prismatik {}  ->  http://{}\n  API token (also injected into the page): {}\n  \
          Execution defaults to PAPER. Live requires the double acknowledgment.\n",
-        config::VERSION, addr, settings.api_token
+        config::VERSION,
+        addr,
+        settings.api_token
     );
 
     let listener = tokio::net::TcpListener::bind(&addr).await.expect("bind");
-    axum::serve(listener, api::router(state)).await.expect("serve");
+    axum::serve(listener, api::router(state))
+        .await
+        .expect("serve");
 }

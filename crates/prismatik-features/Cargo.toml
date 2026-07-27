@@ -10,3 +10,7 @@ description = "PRISMATIK prismatik-features crate."
 [dependencies]
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true

@@ -21,9 +21,11 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use prismatik_determinism::{Clock, SystemClock};
+use rand::RngCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
@@ -31,26 +33,40 @@ use tokio::sync::{broadcast, Mutex};
 #[derive(Clone)]
 pub struct AppState {
     pub settings: Settings,
-    pub jobs: Arc<Mutex<HashMap<String, Value>>>,
-    pub sessions: Arc<Mutex<HashMap<String, Arc<Session>>>>,
+    pub jobs: Arc<Mutex<BTreeMap<String, Value>>>,
+    pub sessions: Arc<Mutex<BTreeMap<String, Arc<Session>>>>,
     pub ui_dir: Arc<std::path::PathBuf>,
+    pub clock: Arc<SystemClock>,
+    pub boot_nanos: u64,
 }
 
 fn unauthorized() -> Response {
-    (StatusCode::UNAUTHORIZED, Json(json!({"detail": "missing or invalid bearer token"})))
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({"detail": "missing or invalid bearer token"})),
+    )
         .into_response()
 }
 
+fn fresh_id() -> String {
+    let mut bytes = [0u8; 16];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    uuid::Uuid::from_bytes(bytes).simple().to_string()[..12].to_string()
+}
+
 fn check_token(state: &AppState, headers: &HeaderMap) -> bool {
-    let expected = format!("Bearer {}", state.settings.api_token);
-    headers.get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| constant_time_eq(v.as_bytes(), expected.as_bytes()))
-        .unwrap_or(false)
+    let Some(value) = headers.get("authorization").and_then(|v| v.to_str().ok()) else {
+        return false;
+    };
+    let bearer = format!("Bearer {}", state.settings.api_token);
+    constant_time_eq(value.as_bytes(), bearer.as_bytes())
+        || constant_time_eq(value.as_bytes(), state.settings.api_token.as_bytes())
 }
 
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
+    if a.len() != b.len() {
+        return false;
+    }
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
@@ -67,24 +83,43 @@ pub struct RunRequest {
     #[serde(default = "default_folds")]
     pub folds: usize,
 }
-fn default_granularity() -> u32 { 3600 }
-fn default_days() -> u32 { 180 }
-fn default_equity() -> f64 { 100.0 }
-fn default_folds() -> usize { 5 }
+fn default_granularity() -> u32 {
+    3600
+}
+fn default_days() -> u32 {
+    180
+}
+fn default_equity() -> f64 {
+    100.0
+}
+fn default_folds() -> usize {
+    5
+}
 
 fn validate_run(req: &RunRequest) -> Result<(), String> {
-    if req.symbol.is_empty() || req.symbol.len() > 24
-        || !req.symbol.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '/') {
+    if req.symbol.is_empty()
+        || req.symbol.len() > 24
+        || !req
+            .symbol
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '/')
+    {
         return Err("invalid symbol".into());
     }
     if !VALID_GRANULARITIES.contains(&req.granularity_s) {
-        return Err(format!("granularity must be one of {:?}", VALID_GRANULARITIES));
+        return Err(format!(
+            "granularity must be one of {VALID_GRANULARITIES:?}"
+        ));
     }
-    if !(7..=1500).contains(&req.days) { return Err("days must be in 7..=1500".into()); }
+    if !(7..=1500).contains(&req.days) {
+        return Err("days must be in 7..=1500".into());
+    }
     if !(req.initial_equity_usd > 0.0 && req.initial_equity_usd <= 1_000_000.0) {
         return Err("initial equity out of range".into());
     }
-    if !(2..=12).contains(&req.folds) { return Err("folds must be in 2..=12".into()); }
+    if !(2..=12).contains(&req.folds) {
+        return Err("folds must be in 2..=12".into());
+    }
     Strategy::from_spec(&req.strategy).map(|_| ())
 }
 
@@ -93,7 +128,9 @@ async fn health() -> Json<Value> {
 }
 
 async fn meta(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     Json(json!({
         "strategies": ["hold", "ma", "donchian", "rsi"],
         "granularities": VALID_GRANULARITIES,
@@ -101,15 +138,162 @@ async fn meta(State(state): State<AppState>, headers: HeaderMap) -> Response {
         "live_unlocked": state.settings.alpaca.live,
         "live_ack_phrase_required": LIVE_ACK_PHRASE,
         "risk": state.settings.risk,
+    }))
+    .into_response()
+}
+
+async fn status(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let jobs = state.jobs.lock().await;
+    let sessions = state.sessions.lock().await;
+    Json(json!({
+        "version": VERSION,
+        "uptime_seconds": state.clock.monotonic_nanos().saturating_sub(state.boot_nanos) / 1_000_000_000,
+        "jobs_queued": jobs.len(),
+        "sessions_open": sessions.len(),
+        "alpaca_configured": state.settings.alpaca.configured(),
+        "live_unlocked": state.settings.alpaca.live,
+        "ui_present": state.ui_dir.join("index.html").exists(),
     })).into_response()
+}
+
+async fn overview(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let job_entries: Vec<(String, Value)> = {
+        let jobs = state.jobs.lock().await;
+        jobs.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    };
+    let session_entries: Vec<Arc<Session>> = {
+        let sessions = state.sessions.lock().await;
+        sessions.values().cloned().collect()
+    };
+
+    let latest_job = job_entries.last().map(|(job_id, entry)| {
+        json!({
+            "job_id": job_id,
+            "status": entry.get("status").cloned().unwrap_or_else(|| json!("unknown")),
+            "result": entry.get("result").cloned(),
+            "error": entry.get("error").cloned(),
+        })
+    });
+
+    let latest_session = if let Some(s) = session_entries.last() {
+        let st = s.state.lock().await;
+        let price = st.last_price.unwrap_or(0.0);
+        let equity = match &st.execution {
+            Execution::Paper(b) => b.equity(price),
+            Execution::Alpaca {
+                tracked_units,
+                entry_equity,
+                ..
+            } => entry_equity + tracked_units * price,
+        };
+        Some(json!({
+            "session_id": s.id,
+            "running": !s.stop.load(Ordering::Relaxed),
+            "halted": st.halted,
+            "live": st.live,
+            "symbol": s.cfg.symbol,
+            "strategy": st.strategy_name,
+            "last_price": st.last_price,
+            "equity": equity,
+        }))
+    } else {
+        None
+    };
+
+    Json(json!({
+        "version": VERSION,
+        "uptime_seconds": state.clock.monotonic_nanos().saturating_sub(state.boot_nanos) / 1_000_000_000,
+        "jobs_queued": job_entries.len(),
+        "sessions_open": session_entries.len(),
+        "latest_job": latest_job,
+        "latest_session": latest_session,
+        "risk": {
+            "max_order_usd": state.settings.risk.max_order_usd,
+            "max_notional_usd": state.settings.risk.max_notional_usd,
+            "max_drawdown_kill": state.settings.risk.max_drawdown_kill,
+        },
+        "readiness": if state.settings.alpaca.configured() { "broker_configured" } else { "paper_only" },
+        "ui_present": state.ui_dir.join("index.html").exists(),
+    })).into_response()
+}
+
+async fn jobs_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let jobs = state.jobs.lock().await;
+    let items: Vec<Value> = jobs
+        .iter()
+        .map(|(id, entry)| {
+            json!({
+                "job_id": id,
+                "status": entry.get("status").cloned().unwrap_or_else(|| json!("unknown")),
+                "result": entry.get("result").cloned(),
+                "error": entry.get("error").cloned(),
+            })
+        })
+        .collect();
+    Json(json!({ "jobs": items })).into_response()
+}
+
+async fn sessions_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let session_refs: Vec<Arc<Session>> = {
+        let sessions = state.sessions.lock().await;
+        sessions.values().cloned().collect()
+    };
+    let mut items = Vec::with_capacity(session_refs.len());
+    for s in session_refs {
+        let st = s.state.lock().await;
+        let price = st.last_price.unwrap_or(0.0);
+        let (equity, cash, units) = match &st.execution {
+            Execution::Paper(b) => (b.equity(price), b.cash_usd, b.position_units),
+            Execution::Alpaca {
+                tracked_units,
+                entry_equity,
+                ..
+            } => (
+                entry_equity + tracked_units * price,
+                f64::NAN,
+                *tracked_units,
+            ),
+        };
+        items.push(json!({
+            "session_id": s.id,
+            "running": !s.stop.load(Ordering::Relaxed),
+            "halted": st.halted,
+            "live": st.live,
+            "symbol": s.cfg.symbol,
+            "strategy": st.strategy_name,
+            "last_price": st.last_price,
+            "equity": equity,
+            "cash_usd": cash,
+            "position_units": units,
+        }));
+    }
+    Json(json!({ "sessions": items })).into_response()
 }
 
 async fn run_job(state: AppState, kind: &'static str, req: RunRequest) -> Response {
     if let Err(e) = validate_run(&req) {
         return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": e}))).into_response();
     }
-    let job_id = uuid::Uuid::new_v4().simple().to_string()[..12].to_string();
-    { state.jobs.lock().await.insert(job_id.clone(), json!({"status": "running"})); }
+    let job_id = fresh_id();
+    {
+        state
+            .jobs
+            .lock()
+            .await
+            .insert(job_id.clone(), json!({"status": "running"}));
+    }
 
     let jobs = state.jobs.clone();
     let settings = state.settings.clone();
@@ -128,8 +312,10 @@ async fn run_job(state: AppState, kind: &'static str, req: RunRequest) -> Respon
 async fn execute_job(settings: &Settings, kind: &str, req: &RunRequest) -> Result<Value, String> {
     let data = CoinbaseData::new(&settings.coinbase_rest, settings.rest_timeout_secs)
         .map_err(|e| e.to_string())?;
-    let candles = data.fetch_candles(&req.symbol, req.granularity_s, req.days)
-        .await.map_err(|e| e.to_string())?;
+    let candles = data
+        .fetch_candles(&req.symbol, req.granularity_s, req.days)
+        .await
+        .map_err(|e| e.to_string())?;
     let ppy = Settings::periods_per_year(req.granularity_s);
     let cost = settings.cost.clone();
     let max_w = settings.risk.max_position_weight;
@@ -169,14 +355,17 @@ async fn execute_job(settings: &Settings, kind: &str, req: &RunRequest) -> Resul
             }))
         } else {
             let grid = grid_for(&spec.kind)?;
-            let rep = walk_forward(&candles, &spec, &grid, folds, 0.6, &cost, max_w, equity0, ppy)?;
+            let rep = walk_forward(
+                &candles, &spec, &grid, folds, 0.6, &cost, max_w, equity0, ppy,
+            )?;
             let positive = rep.oos_metrics.total_return > 0.0;
             let verdict = if positive {
                 if rep.stable {
                     "Out of sample result is positive. Necessary, not sufficient.".to_string()
                 } else {
                     "Out of sample result is positive, but parameters are unstable across \
-                     folds. Necessary, not sufficient.".to_string()
+                     folds. Necessary, not sufficient."
+                        .to_string()
                 }
             } else {
                 "Out of sample result is negative. This configuration has no demonstrated edge."
@@ -199,27 +388,48 @@ async fn execute_job(settings: &Settings, kind: &str, req: &RunRequest) -> Resul
                 "verdict": verdict,
             }))
         }
-    }).await.map_err(|e| e.to_string())?
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-async fn post_backtest(State(state): State<AppState>, headers: HeaderMap,
-                       Json(req): Json<RunRequest>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn post_backtest(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<RunRequest>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     run_job(state, "backtest", req).await
 }
 
-async fn post_walkforward(State(state): State<AppState>, headers: HeaderMap,
-                          Json(req): Json<RunRequest>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn post_walkforward(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<RunRequest>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     run_job(state, "walkforward", req).await
 }
 
-async fn get_job(State(state): State<AppState>, headers: HeaderMap,
-                 Path(id): Path<String>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn get_job(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     match state.jobs.lock().await.get(&id) {
         Some(v) => Json(v.clone()).into_response(),
-        None => (StatusCode::NOT_FOUND, Json(json!({"detail": "unknown job"}))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"detail": "unknown job"})),
+        )
+            .into_response(),
     }
 }
 
@@ -243,52 +453,89 @@ pub struct SessionStart {
     #[serde(default)]
     pub live_confirm: String,
 }
-fn default_window() -> usize { 200 }
-fn default_execution() -> String { "paper".into() }
+fn default_window() -> usize {
+    200
+}
+fn default_execution() -> String {
+    "paper".into()
+}
 
-async fn session_start(State(state): State<AppState>, headers: HeaderMap,
-                       Json(req): Json<SessionStart>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn session_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<SessionStart>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     if req.symbol.is_empty() || req.symbol.len() > 24 {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": "invalid symbol"}))).into_response();
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"detail": "invalid symbol"})),
+        )
+            .into_response();
     }
     if !VALID_GRANULARITIES.contains(&req.granularity_s) {
-        return (StatusCode::UNPROCESSABLE_ENTITY,
-                Json(json!({"detail": format!("granularity must be one of {:?}", VALID_GRANULARITIES)})))
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({"detail": format!("granularity must be one of {:?}", VALID_GRANULARITIES)}),
+            ),
+        )
             .into_response();
     }
     let strategy = match Strategy::from_spec(&req.strategy) {
         Ok(s) => s,
-        Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": e}))).into_response(),
+        Err(e) => {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"detail": e}))).into_response()
+        },
     };
 
     let (execution, live) = match req.execution.as_str() {
-        "paper" => (Execution::Paper(PaperBroker::new(req.initial_equity_usd, &state.settings)), false),
-        "alpaca" => {
-            match AlpacaBroker::new(&state.settings, req.live, &req.live_confirm) {
-                Ok(broker) => {
-                    let live = broker.live;
-                    (Execution::Alpaca {
+        "paper" => (
+            Execution::Paper(PaperBroker::new(req.initial_equity_usd, &state.settings)),
+            false,
+        ),
+        "alpaca" => match AlpacaBroker::new(&state.settings, req.live, &req.live_confirm) {
+            Ok(broker) => {
+                let live = broker.live;
+                (
+                    Execution::Alpaca {
                         broker,
                         tracked_units: 0.0,
                         entry_equity: req.initial_equity_usd,
                         peak_equity: req.initial_equity_usd,
-                    }, live)
-                }
-                Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY,
-                                  Json(json!({"detail": e.to_string()}))).into_response(),
-            }
-        }
-        other => return (StatusCode::UNPROCESSABLE_ENTITY,
-                         Json(json!({"detail": format!("unknown execution {other:?}")})))
-            .into_response(),
+                    },
+                    live,
+                )
+            },
+            Err(e) => {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({"detail": e.to_string()})),
+                )
+                    .into_response()
+            },
+        },
+        other => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"detail": format!("unknown execution {other:?}")})),
+            )
+                .into_response()
+        },
     };
 
-    let id = uuid::Uuid::new_v4().simple().to_string()[..12].to_string();
+    let id = fresh_id();
     let journal = match Journal::open(&format!("session-{id}")) {
         Ok(j) => Arc::new(j),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR,
-                          Json(json!({"detail": e.to_string()}))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"detail": e.to_string()})),
+            )
+                .into_response()
+        },
     };
     let (tx, _) = broadcast::channel(512);
     let session = Arc::new(Session {
@@ -312,25 +559,46 @@ async fn session_start(State(state): State<AppState>, headers: HeaderMap,
         })),
     });
 
-    state.sessions.lock().await.insert(id.clone(), session.clone());
+    state
+        .sessions
+        .lock()
+        .await
+        .insert(id.clone(), session.clone());
     let settings = state.settings.clone();
     tokio::spawn(run_session(session, settings, strategy));
-    Json(json!({"session_id": id, "mode": if live { "alpaca_LIVE" } else { "paper" }})).into_response()
+    Json(json!({"session_id": id, "mode": if live { "alpaca_LIVE" } else { "paper" }}))
+        .into_response()
 }
 
-async fn session_status(State(state): State<AppState>, headers: HeaderMap,
-                        Path(id): Path<String>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn session_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     let sessions = state.sessions.lock().await;
     let Some(s) = sessions.get(&id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({"detail": "unknown session"}))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({"detail": "unknown session"})),
+        )
+            .into_response();
     };
     let st = s.state.lock().await;
     let price = st.last_price.unwrap_or(0.0);
     let (equity, cash, units) = match &st.execution {
         Execution::Paper(b) => (b.equity(price), b.cash_usd, b.position_units),
-        Execution::Alpaca { tracked_units, entry_equity, .. } =>
-            (entry_equity + tracked_units * price, f64::NAN, *tracked_units),
+        Execution::Alpaca {
+            tracked_units,
+            entry_equity,
+            ..
+        } => (
+            entry_equity + tracked_units * price,
+            f64::NAN,
+            *tracked_units,
+        ),
     };
     Json(json!({
         "session_id": s.id,
@@ -344,25 +612,41 @@ async fn session_status(State(state): State<AppState>, headers: HeaderMap,
         "cash_usd": cash,
         "position_units": units,
         "events": s.journal.read_tail(200),
-    })).into_response()
+    }))
+    .into_response()
 }
 
-async fn session_stop(State(state): State<AppState>, headers: HeaderMap,
-                      Path(id): Path<String>) -> Response {
-    if !check_token(&state, &headers) { return unauthorized(); }
+async fn session_stop(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
     let sessions = state.sessions.lock().await;
     let Some(s) = sessions.get(&id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({"detail": "unknown session"}))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({"detail": "unknown session"})),
+        )
+            .into_response();
     };
     s.stop.store(true, Ordering::Relaxed);
     Json(json!({"session_id": id, "stopped": true})).into_response()
 }
 
 #[derive(Deserialize)]
-struct WsAuth { token: String }
+struct WsAuth {
+    token: String,
+}
 
-async fn session_stream(State(state): State<AppState>, Path(id): Path<String>,
-                        Query(auth): Query<WsAuth>, ws: WebSocketUpgrade) -> Response {
+async fn session_stream(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(auth): Query<WsAuth>,
+    ws: WebSocketUpgrade,
+) -> Response {
     if !constant_time_eq(auth.token.as_bytes(), state.settings.api_token.as_bytes()) {
         return unauthorized();
     }
@@ -370,8 +654,13 @@ async fn session_stream(State(state): State<AppState>, Path(id): Path<String>,
         let sessions = state.sessions.lock().await;
         match sessions.get(&id) {
             Some(s) => s.events.subscribe(),
-            None => return (StatusCode::NOT_FOUND,
-                            Json(json!({"detail": "unknown session"}))).into_response(),
+            None => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({"detail": "unknown session"})),
+                )
+                    .into_response()
+            },
         }
     };
     ws.on_upgrade(move |socket| pump_events(socket, rx))
@@ -381,8 +670,10 @@ async fn pump_events(mut socket: WebSocket, mut rx: broadcast::Receiver<Value>) 
     loop {
         match rx.recv().await {
             Ok(msg) => {
-                if socket.send(WsMessage::Text(msg.to_string())).await.is_err() { break; }
-            }
+                if socket.send(WsMessage::Text(msg.to_string())).await.is_err() {
+                    break;
+                }
+            },
             Err(broadcast::error::RecvError::Lagged(_)) => continue,
             Err(broadcast::error::RecvError::Closed) => break,
         }
@@ -397,11 +688,16 @@ async fn index(State(state): State<AppState>) -> Response {
                 .replace("__PRISMATIK_TOKEN__", &state.settings.api_token)
                 .replace("__PRISMATIK_VERSION__", VERSION);
             Html(html).into_response()
-        }
-        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, Html(
-            "<h1>Prismatik</h1><p>UI build not found. Run <code>npm run build</code> in ui/ \
-             and set PRISMATIK_UI_DIR, or use the API directly at /api/v1.</p>".to_string()
-        )).into_response(),
+        },
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Html(
+                "<h1>Prismatik</h1><p>UI build not found. Run <code>npm run build</code> in ui/ \
+             and set PRISMATIK_UI_DIR, or use the API directly at /api/v1.</p>"
+                    .to_string(),
+            ),
+        )
+            .into_response(),
     }
 }
 
@@ -411,6 +707,10 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(index))
         .route("/api/v1/health", get(health))
         .route("/api/v1/meta", get(meta))
+        .route("/api/v1/status", get(status))
+        .route("/api/v1/overview", get(overview))
+        .route("/api/v1/jobs", get(jobs_list))
+        .route("/api/v1/sessions", get(sessions_list))
         .route("/api/v1/jobs/backtest", post(post_backtest))
         .route("/api/v1/jobs/walkforward", post(post_walkforward))
         .route("/api/v1/jobs/:id", get(get_job))

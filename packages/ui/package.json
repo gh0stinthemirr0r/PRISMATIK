@@ -1,0 +1,20 @@
+{
+  "name": "@prismatik/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Svelte 5 UI primitives for PRISMATIK · Mythos Systems",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./motion": "./src/motion/index.ts",
+    "./motion.css": "./src/motion/motion.css"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "dependencies": {
+    "@prismatik/chart-contracts": "workspace:*",
+    "@prismatik/design-tokens": "workspace:*",
+    "lightweight-charts": "4.2.0"
+  }
+}

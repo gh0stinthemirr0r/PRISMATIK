@@ -1,0 +1,26 @@
+{
+  "gate": "calendar-quantlib-cross-validation",
+  "tolerance": "zero",
+  "status": "pass",
+  "mode": "validate",
+  "oracle": {
+    "name": "committed-fixture",
+    "detail": "offline CI fixture oracle"
+  },
+  "artifact": "crates/prismatik-calendar/artifacts/demo_sessions_2024_2025.json",
+  "fixture": "crates/prismatik-calendar/fixtures/quantlib_known_holidays.json",
+  "venues": [
+    "nyse",
+    "nasdaq",
+    "arca",
+    "bats"
+  ],
+  "years": [
+    2024,
+    2025
+  ],
+  "checked": 196,
+  "disagreement_count": 0,
+  "disagreements": [],
+  "report_sha256": "fb3dd1e60c3bc541891907004d6c472a937050588259dc9a92f24ac31e4a2ca7"
+}

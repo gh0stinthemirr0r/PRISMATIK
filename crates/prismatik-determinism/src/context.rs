@@ -104,7 +104,11 @@ impl PinnedArtifactSet {
             h.update(v.to_string().as_bytes());
         }
         let mut ds: Vec<_> = self.dataset_versions.iter().collect();
-        ds.sort_by(|a, b| a.dataset_id.cmp(&b.dataset_id).then_with(|| a.version.cmp(&b.version)));
+        ds.sort_by(|a, b| {
+            a.dataset_id
+                .cmp(&b.dataset_id)
+                .then_with(|| a.version.cmp(&b.version))
+        });
         for d in ds {
             h.update(d.dataset_id.as_bytes());
             h.update(&d.version.to_le_bytes());
@@ -177,11 +181,12 @@ mod tests {
     }
 
     fn sample_set() -> PinnedArtifactSet {
-        let mut set = PinnedArtifactSet::default();
-        set.calendar = Some(make_ref("cal-1"));
-        set.symbology_snapshot = Some(make_ref("sym-1"));
-        set.codebooks = vec![make_ref("cb-A"), make_ref("cb-B")];
-        set
+        PinnedArtifactSet {
+            calendar: Some(make_ref("cal-1")),
+            symbology_snapshot: Some(make_ref("sym-1")),
+            codebooks: vec![make_ref("cb-A"), make_ref("cb-B")],
+            ..PinnedArtifactSet::default()
+        }
     }
 
     fn make_ref(id: &str) -> ArtifactRef {
@@ -203,7 +208,7 @@ mod tests {
             run_id: RunId::test(),
             pinned: PinnedArtifactSet::default(),
         };
-        let s = format!("{:?}", ctx);
+        let s = format!("{ctx:?}");
         assert!(s.contains("DeterminismContext"));
         assert!(s.contains("clock_kind"));
     }

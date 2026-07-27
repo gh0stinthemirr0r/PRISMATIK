@@ -9,8 +9,8 @@
 //! reproducible under Rayon**, where completion order is not deterministic
 //! but stream identity is.
 
-use rand_core::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
+use rand_core::{Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
@@ -150,26 +150,21 @@ impl Entropy for SplitEntropy {
     }
 }
 
-/// Convenience helper to assert in tests that two splits with the same
-/// label produce identical sequences.
-#[cfg(test)]
-pub(crate) fn assert_split_deterministic(parent_seed: u64, label: &str, n: usize) {
-    let mut a = SplitEntropy::from_seed(parent_seed).split(label);
-    let mut b = SplitEntropy::from_seed(parent_seed).split(label);
-    for _ in 0..n {
-        assert_eq!(a.next_u64(), b.next_u64());
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[tokio::test]
     async fn same_seed_produces_same_sequence() {
-        let mut a = SplitEntropy::from_seed(8675309);
-        let mut b = SplitEntropy::from_seed(8675309);
-        for _ in 0..1000 {
+        assert_split_deterministic(8675309, "root", 1000);
+    }
+
+    fn assert_split_deterministic(parent_seed: u64, label: &str, n: usize) {
+        let a = SplitEntropy::from_seed(parent_seed);
+        let b = SplitEntropy::from_seed(parent_seed);
+        let mut a = a.split(label);
+        let mut b = b.split(label);
+        for _ in 0..n {
             assert_eq!(a.next_u64(), b.next_u64());
         }
     }
@@ -196,15 +191,14 @@ mod tests {
         let parent = SplitEntropy::from_seed(42);
 
         // Branch A: split "child1" first, consume, then split "child2".
-        let mut parent_a = SplitEntropy::from_seed(parent.root_seed());
+        let parent_a = SplitEntropy::from_seed(parent.root_seed());
         let mut a_child1 = parent_a.split("child1");
         let _ = a_child1.next_u64(); // consume
         let _ = a_child1.next_u64();
-        let a_child2 = parent_a.split("child2");
-        let mut a_child2 = a_child2;
+        let _a_child2 = parent_a.split("child2");
 
         // Branch B: split "child2" first (different order).
-        let mut parent_b = SplitEntropy::from_seed(parent.root_seed());
+        let parent_b = SplitEntropy::from_seed(parent.root_seed());
         let mut b_child2 = parent_b.split("child2");
         let _ = b_child2.next_u64();
         let _ = b_child2.next_u64();

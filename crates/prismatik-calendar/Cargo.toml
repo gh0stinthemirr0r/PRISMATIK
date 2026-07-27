@@ -9,3 +9,6 @@ description = "PRISMATIK prismatik-calendar crate."
 
 [dependencies]
 prismatik-determinism.workspace = true
+serde.workspace = true
+time.workspace = true
+thiserror.workspace = true

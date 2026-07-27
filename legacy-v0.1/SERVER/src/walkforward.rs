@@ -11,7 +11,7 @@ use crate::config::CostModel;
 use crate::engine::{backtest, compute_metrics};
 use crate::strategy::{apply_vol_target, Strategy, StrategySpec};
 use crate::types::{Candle, EquityPoint, Metrics};
-use rand::Rng;
+use prismatik_determinism::{Entropy, SplitEntropy};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -50,9 +50,11 @@ pub fn grid_for(kind: &str) -> Result<Vec<serde_json::Value>, String> {
                 }
             }
             g
-        }
-        "donchian" => [24u32, 48, 96, 168].iter()
-            .map(|lb| serde_json::json!({"lookback": lb})).collect(),
+        },
+        "donchian" => [24u32, 48, 96, 168]
+            .iter()
+            .map(|lb| serde_json::json!({"lookback": lb}))
+            .collect(),
         "rsi" => {
             let mut g = Vec::new();
             for period in [7u32, 14, 21] {
@@ -61,7 +63,7 @@ pub fn grid_for(kind: &str) -> Result<Vec<serde_json::Value>, String> {
                 }
             }
             g
-        }
+        },
         "hold" => vec![serde_json::json!({})],
         other => return Err(format!("no walk forward grid for {other:?}")),
     };
@@ -103,11 +105,19 @@ pub fn walk_forward(
     initial_equity: f64,
     ppy: f64,
 ) -> Result<WalkForwardReport, String> {
-    if grid.is_empty() { return Err("empty parameter grid".into()); }
-    if n_folds < 2 { return Err("need at least two folds".into()); }
-    if !(0.0 < train_ratio && train_ratio < 1.0) { return Err("train_ratio in (0,1)".into()); }
+    if grid.is_empty() {
+        return Err("empty parameter grid".into());
+    }
+    if n_folds < 2 {
+        return Err("need at least two folds".into());
+    }
+    if !(0.0 < train_ratio && train_ratio < 1.0) {
+        return Err("train_ratio in (0,1)".into());
+    }
     let n = candles.len();
-    if n < n_folds * 20 { return Err(format!("not enough bars ({n}) for {n_folds} folds")); }
+    if n < n_folds * 20 {
+        return Err(format!("not enough bars ({n}) for {n_folds} folds"));
+    }
 
     let fold_size = n / n_folds;
     let mut oos_returns: Vec<f64> = Vec::new();
@@ -116,23 +126,45 @@ pub fn walk_forward(
 
     for k in 0..n_folds {
         let lo = k * fold_size;
-        let hi = if k == n_folds - 1 { n } else { (k + 1) * fold_size };
+        let hi = if k == n_folds - 1 {
+            n
+        } else {
+            (k + 1) * fold_size
+        };
         let fold = &candles[lo..hi];
         let split = (fold.len() as f64 * train_ratio) as usize;
-        if split < 10 || fold.len() - split < 5 { continue; }
+        if split < 10 || fold.len() - split < 5 {
+            continue;
+        }
         let (train, test) = (&fold[..split], &fold[split..]);
 
         let mut best: Option<(f64, &serde_json::Value)> = None;
         for params in grid {
-            if let Ok((_, _, m)) = run_once(train, spec, params, cost, max_weight, initial_equity, ppy) {
-                let score = if m.sharpe.is_finite() { m.sharpe } else { f64::NEG_INFINITY };
+            if let Ok((_, _, m)) =
+                run_once(train, spec, params, cost, max_weight, initial_equity, ppy)
+            {
+                let score = if m.sharpe.is_finite() {
+                    m.sharpe
+                } else {
+                    f64::NEG_INFINITY
+                };
                 if best.map_or(true, |(b, _)| score > b) {
                     best = Some((score, params));
                 }
             }
         }
-        let Some((_, best_params)) = best else { continue };
-        let (_, rets, m) = run_once(test, spec, best_params, cost, max_weight, initial_equity, ppy)?;
+        let Some((_, best_params)) = best else {
+            continue;
+        };
+        let (_, rets, m) = run_once(
+            test,
+            spec,
+            best_params,
+            cost,
+            max_weight,
+            initial_equity,
+            ppy,
+        )?;
         tracing::info!(fold = k, oos_return = m.total_return, params = %best_params, "fold_done");
         for (i, r) in rets.iter().enumerate() {
             oos_returns.push(*r);
@@ -149,7 +181,10 @@ pub fn walk_forward(
     let mut oos_equity = Vec::with_capacity(oos_returns.len());
     for (i, r) in oos_returns.iter().enumerate() {
         equity_val *= 1.0 + r;
-        oos_equity.push(EquityPoint { time: oos_times[i], value: equity_val });
+        oos_equity.push(EquityPoint {
+            time: oos_times[i],
+            value: equity_val,
+        });
     }
     let oos_metrics = compute_metrics(&oos_equity, ppy);
 
@@ -159,18 +194,29 @@ pub fn walk_forward(
     for p in &chosen {
         if let Some(obj) = p.as_object() {
             for k in obj.keys() {
-                if !keys.contains(k) { keys.push(k.clone()); }
+                if !keys.contains(k) {
+                    keys.push(k.clone());
+                }
             }
         }
     }
     for key in keys {
-        let vals: Vec<f64> = chosen.iter()
+        let vals: Vec<f64> = chosen
+            .iter()
             .filter_map(|p| p.get(&key).and_then(|v| v.as_f64()))
             .collect();
         if vals.len() >= 2 {
             let mean = vals.iter().sum::<f64>() / vals.len() as f64;
-            let var = vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (vals.len() - 1) as f64;
-            stability.insert(key, if mean.abs() > 0.0 { var.sqrt() / mean.abs() } else { f64::INFINITY });
+            let var =
+                vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (vals.len() - 1) as f64;
+            stability.insert(
+                key,
+                if mean.abs() > 0.0 {
+                    var.sqrt() / mean.abs()
+                } else {
+                    f64::INFINITY
+                },
+            );
         }
     }
     let stable = stability.values().all(|v| *v <= 0.5);
@@ -180,15 +226,22 @@ pub fn walk_forward(
          additional configuration searched raises the odds the winner is luck. \
          Treat marginal out of sample results as noise, and treat this entire \
          report as necessary, not sufficient.",
-        grid.len(), configs_searched,
+        grid.len(),
+        configs_searched,
     );
 
     let bootstrap = block_bootstrap(&oos_returns, 2000, 24).ok();
 
     Ok(WalkForwardReport {
-        oos_equity, oos_metrics, chosen_params: chosen,
+        oos_equity,
+        oos_metrics,
+        chosen_params: chosen,
         n_folds: 0, // set by caller-visible field below
-        configs_searched, param_stability: stability, stable, caution, bootstrap,
+        configs_searched,
+        param_stability: stability,
+        stable,
+        caution,
+        bootstrap,
     }
     .with_folds())
 }
@@ -200,18 +253,27 @@ impl WalkForwardReport {
     }
 }
 
-pub fn block_bootstrap(returns: &[f64], n_sims: usize, block: usize) -> Result<BootstrapReport, String> {
+pub fn block_bootstrap(
+    returns: &[f64],
+    n_sims: usize,
+    block: usize,
+) -> Result<BootstrapReport, String> {
     if returns.len() < block * 3 {
-        return Err(format!("need at least {} bars for a block bootstrap", block * 3));
+        return Err(format!(
+            "need at least {} bars for a block bootstrap",
+            block * 3
+        ));
     }
-    if n_sims < 100 { return Err("n_sims must be >= 100".into()); }
+    if n_sims < 100 {
+        return Err("n_sims must be >= 100".into());
+    }
     let n = returns.len();
-    let mut rng = rand::thread_rng();
+    let mut rng = SplitEntropy::from_seed(returns.len() as u64 ^ 0x9e3779b97f4a7c15);
     let mut totals: Vec<f64> = Vec::with_capacity(n_sims);
     for _ in 0..n_sims {
         let mut sample: Vec<f64> = Vec::with_capacity(n);
         while sample.len() < n {
-            let start = rng.gen_range(0..=(n - block));
+            let start = rng.next_u64() as usize % (n - block + 1);
             sample.extend_from_slice(&returns[start..start + block]);
         }
         sample.truncate(n);
@@ -220,7 +282,8 @@ pub fn block_bootstrap(returns: &[f64], n_sims: usize, block: usize) -> Result<B
     totals.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let pct = |p: f64| totals[((totals.len() as f64 - 1.0) * p) as usize];
     Ok(BootstrapReport {
-        n_sims, block_bars: block,
+        n_sims,
+        block_bars: block,
         total_return_p05: pct(0.05),
         total_return_p50: pct(0.50),
         total_return_p95: pct(0.95),
@@ -237,21 +300,40 @@ mod tests {
         // Deterministic pseudo-random walk (LCG), test fixture only.
         let mut state = seed;
         let mut price = 100.0f64;
-        (0..n).map(|i| {
-            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
-            let u = ((state >> 33) as f64) / (u32::MAX as f64) - 0.5;
-            price *= 1.0 + 0.0004 + u * 0.016;
-            Candle { time: Utc.timestamp_opt(1_700_000_000 + i as i64 * 3600, 0).unwrap(),
-                     open: price, high: price, low: price, close: price, volume: 1.0 }
-        }).collect()
+        (0..n)
+            .map(|i| {
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                let u = ((state >> 33) as f64) / (u32::MAX as f64) - 0.5;
+                price *= 1.0 + 0.0004 + u * 0.016;
+                Candle {
+                    time: Utc
+                        .timestamp_opt(1_700_000_000 + i as i64 * 3600, 0)
+                        .unwrap(),
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                    volume: 1.0,
+                }
+            })
+            .collect()
     }
 
     #[test]
     fn walkforward_reports_shape_and_accounting() {
         let candles = drift_candles(1600, 7);
-        let spec = StrategySpec { kind: "ma".into(), params: Default::default(), vol_target: None };
+        let spec = StrategySpec {
+            kind: "ma".into(),
+            params: Default::default(),
+            vol_target: None,
+        };
         let grid = grid_for("ma").unwrap();
-        let cost = CostModel { fee_rate: 0.006, slippage_rate: 0.0005 };
+        let cost = CostModel {
+            fee_rate: 0.006,
+            slippage_rate: 0.0005,
+        };
         let rep = walk_forward(&candles, &spec, &grid, 4, 0.6, &cost, 1.0, 100.0, 8760.0).unwrap();
         assert_eq!(rep.configs_searched, grid.len() * rep.n_folds);
         assert!(rep.n_folds >= 2);

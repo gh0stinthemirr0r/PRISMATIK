@@ -1,0 +1,22 @@
+{
+  "name": "prismatik",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @prismatik/desktop dev",
+    "build": "pnpm --filter @prismatik/desktop build",
+    "check": "pnpm --filter @prismatik/desktop check",
+    "tauri": "pnpm --filter @prismatik/desktop tauri",
+    "tokens:contrast": "node packages/design-tokens/scripts/check-contrast.mjs",
+    "notice": "node scripts/generate-notice.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

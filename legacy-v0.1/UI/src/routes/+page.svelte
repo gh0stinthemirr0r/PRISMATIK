@@ -5,7 +5,7 @@
   // number.
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { startJob, pollJob, fmtUsd } from '$lib/api';
+  import { startJob, pollJob, fmtUsd, authHeaders } from '$lib/api';
   import type { RunResult, StrategySpec } from '$lib/types';
   import VerdictPlate from '$lib/components/VerdictPlate.svelte';
   import Chart from '$lib/components/Chart.svelte';
@@ -36,21 +36,67 @@
   let alpacaConfigured = false;
   let liveUnlocked = false;
   let ackPhrase = '';
+  let metaState = 'loading';
+  let serverState = 'loading';
+  let barLabel = '1 hour';
+  let strategyLabel = 'Moving average crossover';
 
-  onMount(async () => {
-    try {
-      const resp = await fetch('/api/v1/meta', {
-        headers: { Authorization: `Bearer ${window.PRISMATIK?.token ?? ''}` }
-      });
-      if (resp.ok) {
-        const meta = await resp.json();
-        alpacaConfigured = Boolean(meta.alpaca_configured);
-        liveUnlocked = Boolean(meta.live_unlocked);
-        ackPhrase = String(meta.live_ack_phrase_required ?? '');
+  $: barLabel =
+    granularityS === 900 ? '15 min'
+    : granularityS === 3600 ? '1 hour'
+    : granularityS === 21600 ? '6 hour'
+    : '1 day';
+
+  $: strategyLabel =
+    kind === 'ma' ? 'Moving average crossover'
+    : kind === 'donchian' ? 'Donchian breakout'
+    : kind === 'rsi' ? 'RSI mean reversion'
+    : 'Buy and hold';
+
+  onMount(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'enter') {
+        event.preventDefault();
+        void run('walkforward');
+      } else if (event.shiftKey && key === 'b') {
+        event.preventDefault();
+        void run('backtest');
       }
-    } catch {
-      /* meta is advisory; the workbench still functions */
-    }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    void (async () => {
+      try {
+        const [metaResp, statusResp] = await Promise.all([
+          fetch('/api/v1/meta', { headers: authHeaders() }),
+          fetch('/api/v1/status', { headers: authHeaders() })
+        ]);
+        if (metaResp.ok) {
+          const meta = await metaResp.json();
+          alpacaConfigured = Boolean(meta.alpaca_configured);
+          liveUnlocked = Boolean(meta.live_unlocked);
+          ackPhrase = String(meta.live_ack_phrase_required ?? '');
+          metaState = 'ready';
+        } else {
+          metaState = `locked (${metaResp.status})`;
+        }
+        if (statusResp.ok) {
+          const status = await statusResp.json();
+          serverState = `${status.jobs_queued} jobs · ${status.sessions_open} sessions · ${status.uptime_seconds}s uptime`;
+        } else {
+          serverState = `status locked (${statusResp.status})`;
+        }
+      } catch {
+        metaState = 'offline';
+        serverState = 'offline';
+      }
+    })();
+
+    return () => window.removeEventListener('keydown', onKeyDown);
   });
 
   function spec(): StrategySpec {
@@ -60,6 +106,39 @@
       : kind === 'rsi' ? { period, entry, exit: 55 }
       : {};
     return { kind, params, vol_target: useVolTarget ? volTarget : null };
+  }
+
+  function applyPreset(name: 'conservative' | 'momentum'): void {
+    if (name === 'conservative') {
+      symbol = 'BTC-USD';
+      granularityS = 3600;
+      days = 180;
+      equity = 100;
+      kind = 'ma';
+      fast = 24;
+      slow = 96;
+      lookback = 48;
+      period = 14;
+      entry = 30;
+      useVolTarget = false;
+      volTarget = 0.3;
+      folds = 5;
+      return;
+    }
+
+    symbol = 'ETH-USD';
+    granularityS = 900;
+    days = 365;
+    equity = 250;
+    kind = 'donchian';
+    fast = 24;
+    slow = 96;
+    lookback = 72;
+    period = 14;
+    entry = 28;
+    useVolTarget = true;
+    volTarget = 0.2;
+    folds = 6;
   }
 
   async function run(which: 'walkforward' | 'backtest'): Promise<void> {
@@ -96,7 +175,24 @@
     <header>
       <h1>Prismatik</h1>
       <p class="mono tagline">Mythos Systems · v{typeof window !== 'undefined' ? window.PRISMATIK?.version : ''}</p>
+      <p class="mono meta">{metaState}</p>
     </header>
+
+    <div class="strip">
+      <div class="chip"><span>Instrument</span>{symbol}</div>
+      <div class="chip"><span>Strategy</span>{strategyLabel}</div>
+      <div class="chip"><span>Bar</span>{barLabel}</div>
+      <div class="chip"><span>Server</span>{serverState}</div>
+    </div>
+
+    <div class="preset-row">
+      <button class="btn btn-quiet small-btn" on:click={() => applyPreset('conservative')}>
+        Conservative preset
+      </button>
+      <button class="btn btn-quiet small-btn" on:click={() => applyPreset('momentum')}>
+        Momentum preset
+      </button>
+    </div>
 
     <label class="field"><span>Instrument</span>
       <input bind:value={symbol} placeholder="BTC-USD" spellcheck="false" />
@@ -161,6 +257,7 @@
     <button class="btn btn-quiet" on:click={() => run('backtest')} disabled={phase === 'running'}>
       Plain backtest
     </button>
+    <p class="mono shortcuts">Shortcuts: Ctrl/⌘ + Enter = validate · Ctrl/⌘ + Shift + B = backtest</p>
     <p class="mono note">
       The primary action is the honest one. A plain backtest flatters; the walk-forward
       is the number that has to survive contact with unseen data.
@@ -226,6 +323,43 @@
   }
   h1::after { content: '.'; color: var(--gilt); }
   .tagline { color: var(--porcelain-2); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; margin: 4px 0 8px; }
+  .meta {
+    color: var(--gilt);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .chip {
+    border: 1px solid var(--gilt-faint);
+    border-radius: var(--radius);
+    padding: 10px 11px;
+    background: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    display: grid;
+    gap: 4px;
+  }
+  .chip span {
+    color: var(--porcelain-2);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 10px;
+  }
+  .preset-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .small-btn {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
   .field span {
     display: block; font-family: var(--mono); font-size: 11px;
     letter-spacing: 0.18em; text-transform: uppercase;
@@ -235,6 +369,14 @@
   .check { display: flex; gap: 9px; align-items: center; font-size: 13.5px; }
   .check input { width: auto; }
   .note { font-size: 11.5px; color: var(--porcelain-2); line-height: 1.5; }
+  .shortcuts {
+    margin: -2px 0 0;
+    font-size: 10.5px;
+    color: var(--gilt);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
   .stage { display: grid; gap: 20px; align-content: start; }
   .results { display: grid; gap: 20px; }
   .empty {

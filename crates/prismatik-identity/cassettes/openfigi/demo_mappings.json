@@ -1,0 +1,71 @@
+{
+  "mappings": [
+    {
+      "canonical_key": "apple-inc-common-stock",
+      "figi": "BBG000B9XRY4",
+      "composite_figi": "BBG000B9Y5X2",
+      "identifiers": [
+        {
+          "ticker": "AAPL",
+          "mic": "XNAS",
+          "valid_from": "1980-12-12T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "meta-platforms-class-a",
+      "figi": "BBG000MM2P62",
+      "composite_figi": "BBG000MM2P62",
+      "identifiers": [
+        {
+          "ticker": "FB",
+          "mic": "XNAS",
+          "valid_from": "2012-05-18T00:00:00Z",
+          "valid_to": "2022-06-09T00:00:00Z"
+        },
+        {
+          "ticker": "META",
+          "mic": "XNAS",
+          "valid_from": "2022-06-09T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "alphabet-class-a",
+      "figi": "BBG009S39JX6",
+      "composite_figi": "BBG009S39JX6",
+      "identifiers": [
+        {
+          "ticker": "GOOGL",
+          "mic": "XNAS",
+          "valid_from": "2014-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "berkshire-hathaway-class-b",
+      "figi": "BBG000BLNNH6",
+      "composite_figi": "BBG000BLNNH6",
+      "identifiers": [
+        {
+          "ticker": "BRK.B",
+          "mic": "XNYS",
+          "valid_from": "1996-05-09T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "canonical_key": "meta-platforms-class-a",
+      "effective_at": "2022-06-09T00:00:00Z",
+      "new_tickers": [{ "ticker": "META", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "FB", "mic": "XNAS" }],
+      "memo": "renamed FB → META"
+    }
+  ]
+}

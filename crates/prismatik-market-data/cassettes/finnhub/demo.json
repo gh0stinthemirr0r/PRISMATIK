@@ -1,0 +1,21 @@
+[
+  {
+    "name": "aapl_daily_candles",
+    "request": {
+      "method": "GET",
+      "path": "/stock/candle",
+      "query": {
+        "symbol": "AAPL",
+        "resolution": "D",
+        "from": "1721606400",
+        "to": "1721692800"
+      },
+      "headers": {}
+    },
+    "response": {
+      "status": 200,
+      "headers": {"content-type": "application/json"},
+      "body": "{\"c\":[223.96,225.01],\"h\":[227.78,226.94],\"l\":[223.09,222.68],\"o\":[227.01,224.82],\"s\":\"ok\",\"t\":[1721606400,1721692800],\"v\":[48201835,39960260]}"
+    }
+  }
+]

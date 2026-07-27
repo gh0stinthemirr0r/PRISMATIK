@@ -1,0 +1,18 @@
+<ownershipDocument>
+  <issuer><issuerCik>0000320193</issuerCik></issuer>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerName>DOE JANE</rptOwnerName></reportingOwnerId>
+  </reportingOwner>
+  <periodOfReport>2024-10-15</periodOfReport>
+  <filingDate>2024-10-17</filingDate>
+  <nonDerivativeTransaction>
+    <securityTitle><value>Common Stock</value></securityTitle>
+    <transactionDate><value>2024-10-15</value></transactionDate>
+    <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+    <transactionAmounts>
+      <transactionShares><value>5000</value></transactionShares>
+      <transactionPricePerShare><value>231.25</value></transactionPricePerShare>
+      <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+    </transactionAmounts>
+  </nonDerivativeTransaction>
+</ownershipDocument>

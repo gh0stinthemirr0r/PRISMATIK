@@ -1,0 +1,35 @@
+@keyframes prismatik-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes prismatik-slide-up-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes prismatik-slide-down-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.motion-fade-in {
+  animation: prismatik-fade-in var(--duration-base) var(--ease-decelerate) both;
+}
+
+.motion-slide-up-in {
+  animation: prismatik-slide-up-in var(--duration-base) var(--ease-decelerate) both;
+}
+
+.motion-slide-down-in {
+  animation: prismatik-slide-down-in var(--duration-base) var(--ease-decelerate) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade-in,
+  .motion-slide-up-in,
+  .motion-slide-down-in {
+    animation: none;
+    transform: none;
+  }
+}

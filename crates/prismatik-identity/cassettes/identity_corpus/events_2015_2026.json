@@ -1,0 +1,1661 @@
+{
+  "schema_version": 1,
+  "description": "DoD #1 hand-checked identity events covering 2015–2026 ticker continuity (renames, splits, mergers, spin-offs, class shares). Intervals are half-open [valid_from, valid_to). Synthetic FIGIs are temporally consistent cassette placeholders, not live OpenFIGI rows.",
+  "mappings": [
+    {
+      "canonical_key": "apple-inc-common-stock",
+      "figi": "BBG000B9XRY4",
+      "composite_figi": "BBG000B9Y5X2",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "AAPL",
+          "mic": "XNAS",
+          "valid_from": "1980-12-12T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "meta-platforms-class-a",
+      "figi": "BBG000MM2P62",
+      "composite_figi": "BBG000MM2P62",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "FB",
+          "mic": "XNAS",
+          "valid_from": "2012-05-18T00:00:00Z",
+          "valid_to": "2022-06-09T00:00:00Z"
+        },
+        {
+          "ticker": "META",
+          "mic": "XNAS",
+          "valid_from": "2022-06-09T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "alphabet-class-a",
+      "figi": "BBG009S39JX6",
+      "composite_figi": "BBG009S39JX6",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "GOOGL",
+          "mic": "XNAS",
+          "valid_from": "2014-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "alphabet-class-c",
+      "figi": "BBG009S39LQ6",
+      "composite_figi": "BBG009S39LQ6",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "GOOG",
+          "mic": "XNAS",
+          "valid_from": "2014-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "berkshire-hathaway-class-a",
+      "figi": "BBG000DWG218",
+      "composite_figi": "BBG000DWG218",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "BRK.A",
+          "mic": "XNYS",
+          "valid_from": "1980-01-02T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "berkshire-hathaway-class-b",
+      "figi": "BBG000BLNNH6",
+      "composite_figi": "BBG000BLNNH6",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "BRK.B",
+          "mic": "XNYS",
+          "valid_from": "1996-05-09T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "tesla-inc-common-stock",
+      "figi": "BBG000N9MNX3",
+      "composite_figi": "BBG000N9MNX3",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "TSLA",
+          "mic": "XNAS",
+          "valid_from": "2010-06-29T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "nvidia-corp-common-stock",
+      "figi": "BBG000BBJQV0",
+      "composite_figi": "BBG000BBJQV0",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "NVDA",
+          "mic": "XNAS",
+          "valid_from": "1999-01-22T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "amazon-com-inc-common-stock",
+      "figi": "BBG000BVPV84",
+      "composite_figi": "BBG000BVPV84",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "AMZN",
+          "mic": "XNAS",
+          "valid_from": "1997-05-15T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "microsoft-corp-common-stock",
+      "figi": "BBG000BPH459",
+      "composite_figi": "BBG000BPH459",
+      "synthetic": false,
+      "identifiers": [
+        {
+          "ticker": "MSFT",
+          "mic": "XNAS",
+          "valid_from": "1986-03-13T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "shopify-inc-class-a",
+      "figi": "BBGSYN000001",
+      "composite_figi": "BBGSYN000001",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SHOP",
+          "mic": "XNYS",
+          "valid_from": "2015-05-21T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "chipotle-mexican-grill",
+      "figi": "BBGSYN000002",
+      "composite_figi": "BBGSYN000002",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CMG",
+          "mic": "XNYS",
+          "valid_from": "2006-01-26T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "broadcom-inc-common-stock",
+      "figi": "BBGSYN000003",
+      "composite_figi": "BBGSYN000003",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "AVGO",
+          "mic": "XNAS",
+          "valid_from": "2009-08-06T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "block-inc-class-a",
+      "figi": "BBGSYN000004",
+      "composite_figi": "BBGSYN000004",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SQ",
+          "mic": "XNYS",
+          "valid_from": "2015-11-19T00:00:00Z",
+          "valid_to": "2025-01-21T00:00:00Z"
+        },
+        {
+          "ticker": "XYZ",
+          "mic": "XNYS",
+          "valid_from": "2025-01-21T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "paramount-global-class-b",
+      "figi": "BBGSYN000005",
+      "composite_figi": "BBGSYN000005",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "VIAC",
+          "mic": "XNAS",
+          "valid_from": "2019-12-04T00:00:00Z",
+          "valid_to": "2022-02-16T00:00:00Z"
+        },
+        {
+          "ticker": "PARA",
+          "mic": "XNAS",
+          "valid_from": "2022-02-16T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "elevance-health-inc",
+      "figi": "BBGSYN000006",
+      "composite_figi": "BBGSYN000006",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "ANTM",
+          "mic": "XNYS",
+          "valid_from": "2014-12-03T00:00:00Z",
+          "valid_to": "2022-06-28T00:00:00Z"
+        },
+        {
+          "ticker": "ELV",
+          "mic": "XNYS",
+          "valid_from": "2022-06-28T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "gen-digital-inc",
+      "figi": "BBGSYN000007",
+      "composite_figi": "BBGSYN000007",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SYMC",
+          "mic": "XNAS",
+          "valid_from": "1989-06-23T00:00:00Z",
+          "valid_to": "2019-11-04T00:00:00Z"
+        },
+        {
+          "ticker": "NLOK",
+          "mic": "XNAS",
+          "valid_from": "2019-11-04T00:00:00Z",
+          "valid_to": "2022-11-07T00:00:00Z"
+        },
+        {
+          "ticker": "GEN",
+          "mic": "XNAS",
+          "valid_from": "2022-11-07T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "gap-inc-common-stock",
+      "figi": "BBGSYN000008",
+      "composite_figi": "BBGSYN000008",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "GPS",
+          "mic": "XNYS",
+          "valid_from": "1976-08-03T00:00:00Z",
+          "valid_to": "2024-08-23T00:00:00Z"
+        },
+        {
+          "ticker": "GAP",
+          "mic": "XNYS",
+          "valid_from": "2024-08-23T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "rtx-corporation",
+      "figi": "BBGSYN000009",
+      "composite_figi": "BBGSYN000009",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "RTX",
+          "mic": "XNYS",
+          "valid_from": "2020-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "united-technologies-corp",
+      "figi": "BBGSYN000010",
+      "composite_figi": "BBGSYN000010",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "UTX",
+          "mic": "XNYS",
+          "valid_from": "1975-01-02T00:00:00Z",
+          "valid_to": "2020-04-03T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "raytheon-company",
+      "figi": "BBGSYN000011",
+      "composite_figi": "BBGSYN000011",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "RTN",
+          "mic": "XNYS",
+          "valid_from": "1980-01-02T00:00:00Z",
+          "valid_to": "2020-04-03T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "viatris-inc",
+      "figi": "BBGSYN000012",
+      "composite_figi": "BBGSYN000012",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "MYL",
+          "mic": "XNAS",
+          "valid_from": "1976-01-02T00:00:00Z",
+          "valid_to": "2020-11-16T00:00:00Z"
+        },
+        {
+          "ticker": "VTRS",
+          "mic": "XNAS",
+          "valid_from": "2020-11-16T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "lumen-technologies-inc",
+      "figi": "BBGSYN000013",
+      "composite_figi": "BBGSYN000013",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CTL",
+          "mic": "XNYS",
+          "valid_from": "1968-01-02T00:00:00Z",
+          "valid_to": "2020-09-18T00:00:00Z"
+        },
+        {
+          "ticker": "LUMN",
+          "mic": "XNYS",
+          "valid_from": "2020-09-18T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "corpay-inc",
+      "figi": "BBGSYN000014",
+      "composite_figi": "BBGSYN000014",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "FLT",
+          "mic": "XNYS",
+          "valid_from": "2010-12-15T00:00:00Z",
+          "valid_to": "2024-03-25T00:00:00Z"
+        },
+        {
+          "ticker": "CPAY",
+          "mic": "XNYS",
+          "valid_from": "2024-03-25T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "fiserv-inc",
+      "figi": "BBGSYN000015",
+      "composite_figi": "BBGSYN000015",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "FISV",
+          "mic": "XNAS",
+          "valid_from": "1986-09-25T00:00:00Z",
+          "valid_to": "2023-05-22T00:00:00Z"
+        },
+        {
+          "ticker": "FI",
+          "mic": "XNYS",
+          "valid_from": "2023-05-22T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "warner-bros-discovery-common",
+      "figi": "BBGSYN000016",
+      "composite_figi": "BBGSYN000016",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "WBD",
+          "mic": "XNAS",
+          "valid_from": "2022-04-11T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "discovery-class-c",
+      "figi": "BBGSYN000017",
+      "composite_figi": "BBGSYN000017",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "DISCK",
+          "mic": "XNAS",
+          "valid_from": "2008-09-18T00:00:00Z",
+          "valid_to": "2022-04-11T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "discovery-class-a",
+      "figi": "BBGSYN000018",
+      "composite_figi": "BBGSYN000018",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "DISCA",
+          "mic": "XNAS",
+          "valid_from": "2005-01-02T00:00:00Z",
+          "valid_to": "2022-04-11T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "dupont-de-nemours-inc",
+      "figi": "BBGSYN000019",
+      "composite_figi": "BBGSYN000019",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "DWDP",
+          "mic": "XNYS",
+          "valid_from": "2017-09-01T00:00:00Z",
+          "valid_to": "2019-06-03T00:00:00Z"
+        },
+        {
+          "ticker": "DD",
+          "mic": "XNYS",
+          "valid_from": "2019-06-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "dow-inc",
+      "figi": "BBGSYN000020",
+      "composite_figi": "BBGSYN000020",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "DOW",
+          "mic": "XNYS",
+          "valid_from": "2019-04-01T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "corteva-inc",
+      "figi": "BBGSYN000021",
+      "composite_figi": "BBGSYN000021",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CTVA",
+          "mic": "XNYS",
+          "valid_from": "2019-06-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "fox-corp-class-a",
+      "figi": "BBGSYN000022",
+      "composite_figi": "BBGSYN000022",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "FOXA",
+          "mic": "XNAS",
+          "valid_from": "2019-03-19T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "fox-corp-class-b",
+      "figi": "BBGSYN000023",
+      "composite_figi": "BBGSYN000023",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "FOX",
+          "mic": "XNAS",
+          "valid_from": "2019-03-19T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "organon-co",
+      "figi": "BBGSYN000024",
+      "composite_figi": "BBGSYN000024",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "OGN",
+          "mic": "XNYS",
+          "valid_from": "2021-06-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "merck-co-inc",
+      "figi": "BBGSYN000025",
+      "composite_figi": "BBGSYN000025",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "MRK",
+          "mic": "XNYS",
+          "valid_from": "1970-01-02T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "carrier-global-corp",
+      "figi": "BBGSYN000026",
+      "composite_figi": "BBGSYN000026",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CARR",
+          "mic": "XNYS",
+          "valid_from": "2020-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "otis-worldwide-corp",
+      "figi": "BBGSYN000027",
+      "composite_figi": "BBGSYN000027",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "OTIS",
+          "mic": "XNYS",
+          "valid_from": "2020-04-03T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "ge-healthcare-technologies",
+      "figi": "BBGSYN000028",
+      "composite_figi": "BBGSYN000028",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "GEHC",
+          "mic": "XNAS",
+          "valid_from": "2023-01-04T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "general-electric-co",
+      "figi": "BBGSYN000029",
+      "composite_figi": "BBGSYN000029",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "GE",
+          "mic": "XNYS",
+          "valid_from": "1892-01-02T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "kenvue-inc",
+      "figi": "BBGSYN000030",
+      "composite_figi": "BBGSYN000030",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "KVUE",
+          "mic": "XNYS",
+          "valid_from": "2023-05-04T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "johnson-johnson",
+      "figi": "BBGSYN000031",
+      "composite_figi": "BBGSYN000031",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "JNJ",
+          "mic": "XNYS",
+          "valid_from": "1944-09-25T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "solvay-spin-solv-mmm",
+      "figi": "BBGSYN000032",
+      "composite_figi": "BBGSYN000032",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SOLV",
+          "mic": "XNYS",
+          "valid_from": "2024-04-01T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "3m-company",
+      "figi": "BBGSYN000033",
+      "composite_figi": "BBGSYN000033",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "MMM",
+          "mic": "XNYS",
+          "valid_from": "1946-01-02T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "echostar-corporation",
+      "figi": "BBGSYN000034",
+      "composite_figi": "BBGSYN000034",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SATS",
+          "mic": "XNAS",
+          "valid_from": "2008-01-02T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "canonical_key": "dish-network-corp",
+      "figi": "BBGSYN000035",
+      "composite_figi": "BBGSYN000035",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "DISH",
+          "mic": "XNAS",
+          "valid_from": "1995-01-02T00:00:00Z",
+          "valid_to": "2023-12-29T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "activision-blizzard-inc",
+      "figi": "BBGSYN000036",
+      "composite_figi": "BBGSYN000036",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "ATVI",
+          "mic": "XNAS",
+          "valid_from": "1983-06-10T00:00:00Z",
+          "valid_to": "2023-10-13T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "twitter-inc",
+      "figi": "BBGSYN000037",
+      "composite_figi": "BBGSYN000037",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "TWTR",
+          "mic": "XNYS",
+          "valid_from": "2013-11-07T00:00:00Z",
+          "valid_to": "2022-10-28T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "linkedin-corp",
+      "figi": "BBGSYN000038",
+      "composite_figi": "BBGSYN000038",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "LNKD",
+          "mic": "XNYS",
+          "valid_from": "2011-05-19T00:00:00Z",
+          "valid_to": "2016-12-08T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "slack-technologies-inc",
+      "figi": "BBGSYN000039",
+      "composite_figi": "BBGSYN000039",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "WORK",
+          "mic": "XNYS",
+          "valid_from": "2019-06-20T00:00:00Z",
+          "valid_to": "2021-07-22T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "xilinx-inc",
+      "figi": "BBGSYN000040",
+      "composite_figi": "BBGSYN000040",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "XLNX",
+          "mic": "XNAS",
+          "valid_from": "1990-06-12T00:00:00Z",
+          "valid_to": "2022-02-14T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "maxim-integrated-products",
+      "figi": "BBGSYN000041",
+      "composite_figi": "BBGSYN000041",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "MXIM",
+          "mic": "XNAS",
+          "valid_from": "1988-01-02T00:00:00Z",
+          "valid_to": "2021-08-26T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "celgene-corp",
+      "figi": "BBGSYN000042",
+      "composite_figi": "BBGSYN000042",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CELG",
+          "mic": "XNAS",
+          "valid_from": "1987-01-02T00:00:00Z",
+          "valid_to": "2019-11-21T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "allergan-plc",
+      "figi": "BBGSYN000043",
+      "composite_figi": "BBGSYN000043",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "AGN",
+          "mic": "XNYS",
+          "valid_from": "2015-03-17T00:00:00Z",
+          "valid_to": "2020-05-08T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "tiffany-co",
+      "figi": "BBGSYN000044",
+      "composite_figi": "BBGSYN000044",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "TIF",
+          "mic": "XNYS",
+          "valid_from": "1987-01-02T00:00:00Z",
+          "valid_to": "2021-01-07T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "vmware-inc",
+      "figi": "BBGSYN000045",
+      "composite_figi": "BBGSYN000045",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "VMW",
+          "mic": "XNYS",
+          "valid_from": "2007-08-14T00:00:00Z",
+          "valid_to": "2023-11-22T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "citrix-systems-inc",
+      "figi": "BBGSYN000046",
+      "composite_figi": "BBGSYN000046",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "CTXS",
+          "mic": "XNAS",
+          "valid_from": "1995-12-08T00:00:00Z",
+          "valid_to": "2022-09-30T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "ihs-markit-ltd",
+      "figi": "BBGSYN000047",
+      "composite_figi": "BBGSYN000047",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "INFO",
+          "mic": "XNAS",
+          "valid_from": "2016-07-01T00:00:00Z",
+          "valid_to": "2022-02-28T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "canonical_key": "sp-global-inc",
+      "figi": "BBGSYN000048",
+      "composite_figi": "BBGSYN000048",
+      "synthetic": true,
+      "identifiers": [
+        {
+          "ticker": "SPGI",
+          "mic": "XNYS",
+          "valid_from": "2016-04-27T00:00:00Z",
+          "valid_to": null
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "canonical_key": "meta-platforms-class-a",
+      "effective_at": "2022-06-09T00:00:00Z",
+      "new_tickers": [{ "ticker": "META", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "FB", "mic": "XNAS" }],
+      "memo": "renamed FB → META"
+    },
+    {
+      "canonical_key": "block-inc-class-a",
+      "effective_at": "2025-01-21T00:00:00Z",
+      "new_tickers": [{ "ticker": "XYZ", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "SQ", "mic": "XNYS" }],
+      "memo": "renamed SQ → XYZ"
+    },
+    {
+      "canonical_key": "paramount-global-class-b",
+      "effective_at": "2022-02-16T00:00:00Z",
+      "new_tickers": [{ "ticker": "PARA", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "VIAC", "mic": "XNAS" }],
+      "memo": "renamed VIAC → PARA"
+    },
+    {
+      "canonical_key": "elevance-health-inc",
+      "effective_at": "2022-06-28T00:00:00Z",
+      "new_tickers": [{ "ticker": "ELV", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "ANTM", "mic": "XNYS" }],
+      "memo": "renamed ANTM → ELV"
+    },
+    {
+      "canonical_key": "gen-digital-inc",
+      "effective_at": "2019-11-04T00:00:00Z",
+      "new_tickers": [{ "ticker": "NLOK", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "SYMC", "mic": "XNAS" }],
+      "memo": "renamed SYMC → NLOK"
+    },
+    {
+      "canonical_key": "gen-digital-inc",
+      "effective_at": "2022-11-07T00:00:00Z",
+      "new_tickers": [{ "ticker": "GEN", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "NLOK", "mic": "XNAS" }],
+      "memo": "renamed NLOK → GEN"
+    },
+    {
+      "canonical_key": "gap-inc-common-stock",
+      "effective_at": "2024-08-23T00:00:00Z",
+      "new_tickers": [{ "ticker": "GAP", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "GPS", "mic": "XNYS" }],
+      "memo": "renamed GPS → GAP"
+    },
+    {
+      "canonical_key": "viatris-inc",
+      "effective_at": "2020-11-16T00:00:00Z",
+      "new_tickers": [{ "ticker": "VTRS", "mic": "XNAS" }],
+      "dropped_tickers": [{ "ticker": "MYL", "mic": "XNAS" }],
+      "memo": "renamed MYL → VTRS"
+    },
+    {
+      "canonical_key": "lumen-technologies-inc",
+      "effective_at": "2020-09-18T00:00:00Z",
+      "new_tickers": [{ "ticker": "LUMN", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "CTL", "mic": "XNYS" }],
+      "memo": "renamed CTL → LUMN"
+    },
+    {
+      "canonical_key": "corpay-inc",
+      "effective_at": "2024-03-25T00:00:00Z",
+      "new_tickers": [{ "ticker": "CPAY", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "FLT", "mic": "XNYS" }],
+      "memo": "renamed FLT → CPAY"
+    },
+    {
+      "canonical_key": "fiserv-inc",
+      "effective_at": "2023-05-22T00:00:00Z",
+      "new_tickers": [{ "ticker": "FI", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "FISV", "mic": "XNAS" }],
+      "memo": "renamed FISV → FI"
+    },
+    {
+      "canonical_key": "dupont-de-nemours-inc",
+      "effective_at": "2019-06-03T00:00:00Z",
+      "new_tickers": [{ "ticker": "DD", "mic": "XNYS" }],
+      "dropped_tickers": [{ "ticker": "DWDP", "mic": "XNYS" }],
+      "memo": "renamed DWDP → DD"
+    }
+  ],
+  "events": [
+    {
+      "id": "fb-meta-2022",
+      "event_type": "ticker_change",
+      "effective_date": "2022-06-09",
+      "mic": "XNAS",
+      "old_symbol": "FB",
+      "new_symbol": "META",
+      "canonical_key": "meta-platforms-class-a",
+      "figi": "BBG000MM2P62",
+      "notes": "Facebook, Inc. renamed to Meta Platforms, Inc.; Nasdaq ticker changed FB→META.",
+      "source": "Nasdaq / Meta 8-K (2022-06)",
+      "synthetic": false
+    },
+    {
+      "id": "sq-xyz-2025",
+      "event_type": "ticker_change",
+      "effective_date": "2025-01-21",
+      "mic": "XNYS",
+      "old_symbol": "SQ",
+      "new_symbol": "XYZ",
+      "canonical_key": "block-inc-class-a",
+      "figi": "BBGSYN000004",
+      "notes": "Block, Inc. changed NYSE ticker from SQ to XYZ.",
+      "source": "NYSE / Block press release (2025-01)",
+      "synthetic": true
+    },
+    {
+      "id": "viac-para-2022",
+      "event_type": "ticker_change",
+      "effective_date": "2022-02-16",
+      "mic": "XNAS",
+      "old_symbol": "VIAC",
+      "new_symbol": "PARA",
+      "canonical_key": "paramount-global-class-b",
+      "figi": "BBGSYN000005",
+      "notes": "ViacomCBS rebranded to Paramount Global; ticker VIAC→PARA.",
+      "source": "Nasdaq / company notice (2022-02)",
+      "synthetic": true
+    },
+    {
+      "id": "antm-elv-2022",
+      "event_type": "ticker_change",
+      "effective_date": "2022-06-28",
+      "mic": "XNYS",
+      "old_symbol": "ANTM",
+      "new_symbol": "ELV",
+      "canonical_key": "elevance-health-inc",
+      "figi": "BBGSYN000006",
+      "notes": "Anthem, Inc. renamed to Elevance Health; ticker ANTM→ELV.",
+      "source": "NYSE / Elevance notice (2022-06)",
+      "synthetic": true
+    },
+    {
+      "id": "symc-nlok-2019",
+      "event_type": "ticker_change",
+      "effective_date": "2019-11-04",
+      "mic": "XNAS",
+      "old_symbol": "SYMC",
+      "new_symbol": "NLOK",
+      "canonical_key": "gen-digital-inc",
+      "figi": "BBGSYN000007",
+      "notes": "Symantec rebranded to NortonLifeLock; ticker SYMC→NLOK.",
+      "source": "Nasdaq / company notice (2019-11)",
+      "synthetic": true
+    },
+    {
+      "id": "nlok-gen-2022",
+      "event_type": "ticker_change",
+      "effective_date": "2022-11-07",
+      "mic": "XNAS",
+      "old_symbol": "NLOK",
+      "new_symbol": "GEN",
+      "canonical_key": "gen-digital-inc",
+      "figi": "BBGSYN000007",
+      "notes": "NortonLifeLock renamed to Gen Digital; ticker NLOK→GEN.",
+      "source": "Nasdaq / Gen Digital notice (2022-11)",
+      "synthetic": true
+    },
+    {
+      "id": "gps-gap-2024",
+      "event_type": "ticker_change",
+      "effective_date": "2024-08-23",
+      "mic": "XNYS",
+      "old_symbol": "GPS",
+      "new_symbol": "GAP",
+      "canonical_key": "gap-inc-common-stock",
+      "figi": "BBGSYN000008",
+      "notes": "Gap Inc. changed NYSE ticker from GPS to GAP.",
+      "source": "NYSE / Gap Inc. notice (2024-08)",
+      "synthetic": true
+    },
+    {
+      "id": "myl-vtrs-2020",
+      "event_type": "ticker_change",
+      "effective_date": "2020-11-16",
+      "mic": "XNAS",
+      "old_symbol": "MYL",
+      "new_symbol": "VTRS",
+      "canonical_key": "viatris-inc",
+      "figi": "BBGSYN000012",
+      "notes": "Mylan/Upjohn combination began trading as Viatris (VTRS).",
+      "source": "Nasdaq / Viatris listing notice (2020-11)",
+      "synthetic": true
+    },
+    {
+      "id": "ctl-lumn-2020",
+      "event_type": "ticker_change",
+      "effective_date": "2020-09-18",
+      "mic": "XNYS",
+      "old_symbol": "CTL",
+      "new_symbol": "LUMN",
+      "canonical_key": "lumen-technologies-inc",
+      "figi": "BBGSYN000013",
+      "notes": "CenturyLink renamed to Lumen Technologies; ticker CTL→LUMN.",
+      "source": "NYSE / Lumen notice (2020-09)",
+      "synthetic": true
+    },
+    {
+      "id": "flt-cpay-2024",
+      "event_type": "ticker_change",
+      "effective_date": "2024-03-25",
+      "mic": "XNYS",
+      "old_symbol": "FLT",
+      "new_symbol": "CPAY",
+      "canonical_key": "corpay-inc",
+      "figi": "BBGSYN000014",
+      "notes": "Fleetcor rebranded to Corpay; ticker FLT→CPAY.",
+      "source": "NYSE / Corpay notice (2024-03)",
+      "synthetic": true
+    },
+    {
+      "id": "fisv-fi-2023",
+      "event_type": "ticker_change",
+      "effective_date": "2023-05-22",
+      "mic": "XNYS",
+      "old_mic": "XNAS",
+      "old_symbol": "FISV",
+      "new_symbol": "FI",
+      "canonical_key": "fiserv-inc",
+      "figi": "BBGSYN000015",
+      "notes": "Fiserv moved listing/ticker to FI on NYSE (venue change reflected in mic for new symbol).",
+      "source": "NYSE / Fiserv notice (2023-05)",
+      "synthetic": true
+    },
+    {
+      "id": "dwdp-dd-2019",
+      "event_type": "ticker_change",
+      "effective_date": "2019-06-03",
+      "mic": "XNYS",
+      "old_symbol": "DWDP",
+      "new_symbol": "DD",
+      "canonical_key": "dupont-de-nemours-inc",
+      "figi": "BBGSYN000019",
+      "notes": "DowDuPont remaining materials science entity traded as DuPont (DD) after CTVA separation.",
+      "source": "NYSE / DuPont listing notice (2019-06)",
+      "synthetic": true
+    },
+    {
+      "id": "aapl-split-2020",
+      "event_type": "split",
+      "effective_date": "2020-08-31",
+      "mic": "XNAS",
+      "symbol": "AAPL",
+      "canonical_key": "apple-inc-common-stock",
+      "figi": "BBG000B9XRY4",
+      "ratio": "4:1",
+      "notes": "Apple 4-for-1 forward split; canonical identity unchanged.",
+      "source": "Nasdaq / Apple split FAQ (2020-08)",
+      "synthetic": false
+    },
+    {
+      "id": "tsla-split-2020",
+      "event_type": "split",
+      "effective_date": "2020-08-31",
+      "mic": "XNAS",
+      "symbol": "TSLA",
+      "canonical_key": "tesla-inc-common-stock",
+      "figi": "BBG000N9MNX3",
+      "ratio": "5:1",
+      "notes": "Tesla 5-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / Tesla split notice (2020-08)",
+      "synthetic": false
+    },
+    {
+      "id": "tsla-split-2022",
+      "event_type": "split",
+      "effective_date": "2022-08-25",
+      "mic": "XNAS",
+      "symbol": "TSLA",
+      "canonical_key": "tesla-inc-common-stock",
+      "figi": "BBG000N9MNX3",
+      "ratio": "3:1",
+      "notes": "Tesla 3-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / Tesla split notice (2022-08)",
+      "synthetic": false
+    },
+    {
+      "id": "nvda-split-2021",
+      "event_type": "split",
+      "effective_date": "2021-07-20",
+      "mic": "XNAS",
+      "symbol": "NVDA",
+      "canonical_key": "nvidia-corp-common-stock",
+      "figi": "BBG000BBJQV0",
+      "ratio": "4:1",
+      "notes": "NVIDIA 4-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / NVIDIA split notice (2021-07)",
+      "synthetic": false
+    },
+    {
+      "id": "nvda-split-2024",
+      "event_type": "split",
+      "effective_date": "2024-06-10",
+      "mic": "XNAS",
+      "symbol": "NVDA",
+      "canonical_key": "nvidia-corp-common-stock",
+      "figi": "BBG000BBJQV0",
+      "ratio": "10:1",
+      "notes": "NVIDIA 10-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / NVIDIA split notice (2024-06)",
+      "synthetic": false
+    },
+    {
+      "id": "amzn-split-2022",
+      "event_type": "split",
+      "effective_date": "2022-06-06",
+      "mic": "XNAS",
+      "symbol": "AMZN",
+      "canonical_key": "amazon-com-inc-common-stock",
+      "figi": "BBG000BVPV84",
+      "ratio": "20:1",
+      "notes": "Amazon 20-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / Amazon split notice (2022-06)",
+      "synthetic": false
+    },
+    {
+      "id": "googl-split-2022",
+      "event_type": "split",
+      "effective_date": "2022-07-18",
+      "mic": "XNAS",
+      "symbol": "GOOGL",
+      "canonical_key": "alphabet-class-a",
+      "figi": "BBG009S39JX6",
+      "ratio": "20:1",
+      "notes": "Alphabet Class A 20-for-1 split; class identity preserved.",
+      "source": "Nasdaq / Alphabet split notice (2022-07)",
+      "synthetic": false
+    },
+    {
+      "id": "goog-split-2022",
+      "event_type": "split",
+      "effective_date": "2022-07-18",
+      "mic": "XNAS",
+      "symbol": "GOOG",
+      "canonical_key": "alphabet-class-c",
+      "figi": "BBG009S39LQ6",
+      "ratio": "20:1",
+      "notes": "Alphabet Class C 20-for-1 split; class identity preserved.",
+      "source": "Nasdaq / Alphabet split notice (2022-07)",
+      "synthetic": false
+    },
+    {
+      "id": "shop-split-2022",
+      "event_type": "split",
+      "effective_date": "2022-06-29",
+      "mic": "XNYS",
+      "symbol": "SHOP",
+      "canonical_key": "shopify-inc-class-a",
+      "figi": "BBGSYN000001",
+      "ratio": "10:1",
+      "notes": "Shopify 10-for-1 forward split; identity preserved.",
+      "source": "NYSE / Shopify split notice (2022-06)",
+      "synthetic": true
+    },
+    {
+      "id": "cmg-split-2024",
+      "event_type": "split",
+      "effective_date": "2024-06-26",
+      "mic": "XNYS",
+      "symbol": "CMG",
+      "canonical_key": "chipotle-mexican-grill",
+      "figi": "BBGSYN000002",
+      "ratio": "50:1",
+      "notes": "Chipotle 50-for-1 forward split; identity preserved.",
+      "source": "NYSE / Chipotle split notice (2024-06)",
+      "synthetic": true
+    },
+    {
+      "id": "avgo-split-2024",
+      "event_type": "split",
+      "effective_date": "2024-07-15",
+      "mic": "XNAS",
+      "symbol": "AVGO",
+      "canonical_key": "broadcom-inc-common-stock",
+      "figi": "BBGSYN000003",
+      "ratio": "10:1",
+      "notes": "Broadcom 10-for-1 forward split; identity preserved.",
+      "source": "Nasdaq / Broadcom split notice (2024-07)",
+      "synthetic": true
+    },
+    {
+      "id": "brk-class-shares",
+      "event_type": "class_share",
+      "effective_date": "2020-01-02",
+      "mic": "XNYS",
+      "symbol": "BRK.A",
+      "peer_symbol": "BRK.B",
+      "canonical_key": "berkshire-hathaway-class-a",
+      "peer_canonical_key": "berkshire-hathaway-class-b",
+      "figi": "BBG000DWG218",
+      "peer_figi": "BBG000BLNNH6",
+      "notes": "Berkshire Class A and Class B are distinct share-class identities.",
+      "source": "NYSE listings / Berkshire share-class FAQ",
+      "synthetic": false
+    },
+    {
+      "id": "goog-googl-class-shares",
+      "event_type": "class_share",
+      "effective_date": "2018-06-01",
+      "mic": "XNAS",
+      "symbol": "GOOGL",
+      "peer_symbol": "GOOG",
+      "canonical_key": "alphabet-class-a",
+      "peer_canonical_key": "alphabet-class-c",
+      "figi": "BBG009S39JX6",
+      "peer_figi": "BBG009S39LQ6",
+      "notes": "Alphabet Class A (GOOGL) and Class C (GOOG) remain distinct through 2015–2026.",
+      "source": "Nasdaq / Alphabet share-class disclosures",
+      "synthetic": false
+    },
+    {
+      "id": "fox-foxa-class-shares",
+      "event_type": "class_share",
+      "effective_date": "2019-06-03",
+      "mic": "XNAS",
+      "symbol": "FOXA",
+      "peer_symbol": "FOX",
+      "canonical_key": "fox-corp-class-a",
+      "peer_canonical_key": "fox-corp-class-b",
+      "figi": "BBGSYN000022",
+      "peer_figi": "BBGSYN000023",
+      "notes": "Fox Corp Class A (FOXA) and Class B (FOX) are distinct identities after 2019 separation.",
+      "source": "Nasdaq / Fox Corp listing notices (2019)",
+      "synthetic": true
+    },
+    {
+      "id": "utx-rtn-rtx-merger-2020",
+      "event_type": "merger_delist",
+      "effective_date": "2020-04-03",
+      "mic": "XNYS",
+      "old_symbol": "UTX",
+      "surviving_symbol": "RTX",
+      "canonical_key": "united-technologies-corp",
+      "surviving_canonical_key": "rtx-corporation",
+      "figi": "BBGSYN000010",
+      "notes": "United Technologies merged with Raytheon; UTX ceased; survivor trades as RTX.",
+      "source": "NYSE / RTX combination notices (2020-04)",
+      "synthetic": true
+    },
+    {
+      "id": "rtn-rtx-merger-2020",
+      "event_type": "merger_delist",
+      "effective_date": "2020-04-03",
+      "mic": "XNYS",
+      "old_symbol": "RTN",
+      "surviving_symbol": "RTX",
+      "canonical_key": "raytheon-company",
+      "surviving_canonical_key": "rtx-corporation",
+      "figi": "BBGSYN000011",
+      "notes": "Raytheon Company combined into Raytheon Technologies (RTX); RTN delisted.",
+      "source": "NYSE / RTX combination notices (2020-04)",
+      "synthetic": true
+    },
+    {
+      "id": "disck-wbd-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-04-11",
+      "mic": "XNAS",
+      "old_symbol": "DISCK",
+      "surviving_symbol": "WBD",
+      "canonical_key": "discovery-class-c",
+      "surviving_canonical_key": "warner-bros-discovery-common",
+      "figi": "BBGSYN000017",
+      "notes": "Discovery Class C exchanged into Warner Bros. Discovery (WBD).",
+      "source": "Nasdaq / WBD combination notice (2022-04)",
+      "synthetic": true
+    },
+    {
+      "id": "disca-wbd-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-04-11",
+      "mic": "XNAS",
+      "old_symbol": "DISCA",
+      "surviving_symbol": "WBD",
+      "canonical_key": "discovery-class-a",
+      "surviving_canonical_key": "warner-bros-discovery-common",
+      "figi": "BBGSYN000018",
+      "notes": "Discovery Class A exchanged into Warner Bros. Discovery (WBD).",
+      "source": "Nasdaq / WBD combination notice (2022-04)",
+      "synthetic": true
+    },
+    {
+      "id": "dish-sats-2023",
+      "event_type": "merger_delist",
+      "effective_date": "2023-12-29",
+      "mic": "XNAS",
+      "old_symbol": "DISH",
+      "surviving_symbol": "SATS",
+      "canonical_key": "dish-network-corp",
+      "surviving_canonical_key": "echostar-corporation",
+      "figi": "BBGSYN000035",
+      "notes": "DISH Network combined with EchoStar; DISH delisted, SATS survives.",
+      "source": "Nasdaq / EchoStar–DISH closing notice (2023-12)",
+      "synthetic": true
+    },
+    {
+      "id": "atvi-msft-2023",
+      "event_type": "merger_delist",
+      "effective_date": "2023-10-13",
+      "mic": "XNAS",
+      "old_symbol": "ATVI",
+      "surviving_symbol": "MSFT",
+      "canonical_key": "activision-blizzard-inc",
+      "surviving_canonical_key": "microsoft-corp-common-stock",
+      "figi": "BBGSYN000036",
+      "notes": "Activision Blizzard acquired by Microsoft; ATVI delisted.",
+      "source": "Nasdaq / Microsoft–Activision closing (2023-10)",
+      "synthetic": true
+    },
+    {
+      "id": "twtr-delist-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-10-28",
+      "mic": "XNYS",
+      "old_symbol": "TWTR",
+      "canonical_key": "twitter-inc",
+      "figi": "BBGSYN000037",
+      "notes": "Twitter taken private; TWTR delisted (no public surviving ticker).",
+      "source": "NYSE / Twitter going-private closing (2022-10)",
+      "synthetic": true
+    },
+    {
+      "id": "lnkd-msft-2016",
+      "event_type": "merger_delist",
+      "effective_date": "2016-12-08",
+      "mic": "XNYS",
+      "old_symbol": "LNKD",
+      "surviving_symbol": "MSFT",
+      "surviving_mic": "XNAS",
+      "canonical_key": "linkedin-corp",
+      "surviving_canonical_key": "microsoft-corp-common-stock",
+      "figi": "BBGSYN000038",
+      "notes": "LinkedIn acquired by Microsoft; LNKD delisted.",
+      "source": "NYSE / Microsoft–LinkedIn closing (2016-12)",
+      "synthetic": true
+    },
+    {
+      "id": "work-crm-2021",
+      "event_type": "merger_delist",
+      "effective_date": "2021-07-22",
+      "mic": "XNYS",
+      "old_symbol": "WORK",
+      "canonical_key": "slack-technologies-inc",
+      "figi": "BBGSYN000039",
+      "notes": "Slack acquired by Salesforce; WORK delisted.",
+      "source": "NYSE / Salesforce–Slack closing (2021-07)",
+      "synthetic": true
+    },
+    {
+      "id": "xlnx-amd-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-02-14",
+      "mic": "XNAS",
+      "old_symbol": "XLNX",
+      "canonical_key": "xilinx-inc",
+      "figi": "BBGSYN000040",
+      "notes": "Xilinx acquired by AMD; XLNX delisted.",
+      "source": "Nasdaq / AMD–Xilinx closing (2022-02)",
+      "synthetic": true
+    },
+    {
+      "id": "mxim-adi-2021",
+      "event_type": "merger_delist",
+      "effective_date": "2021-08-26",
+      "mic": "XNAS",
+      "old_symbol": "MXIM",
+      "canonical_key": "maxim-integrated-products",
+      "figi": "BBGSYN000041",
+      "notes": "Maxim Integrated acquired by Analog Devices; MXIM delisted.",
+      "source": "Nasdaq / ADI–Maxim closing (2021-08)",
+      "synthetic": true
+    },
+    {
+      "id": "celg-bmy-2019",
+      "event_type": "merger_delist",
+      "effective_date": "2019-11-21",
+      "mic": "XNAS",
+      "old_symbol": "CELG",
+      "canonical_key": "celgene-corp",
+      "figi": "BBGSYN000042",
+      "notes": "Celgene acquired by Bristol-Myers Squibb; CELG delisted.",
+      "source": "Nasdaq / BMY–Celgene closing (2019-11)",
+      "synthetic": true
+    },
+    {
+      "id": "agn-abbv-2020",
+      "event_type": "merger_delist",
+      "effective_date": "2020-05-08",
+      "mic": "XNYS",
+      "old_symbol": "AGN",
+      "canonical_key": "allergan-plc",
+      "figi": "BBGSYN000043",
+      "notes": "Allergan acquired by AbbVie; AGN delisted.",
+      "source": "NYSE / AbbVie–Allergan closing (2020-05)",
+      "synthetic": true
+    },
+    {
+      "id": "tif-lvmh-2021",
+      "event_type": "merger_delist",
+      "effective_date": "2021-01-07",
+      "mic": "XNYS",
+      "old_symbol": "TIF",
+      "canonical_key": "tiffany-co",
+      "figi": "BBGSYN000044",
+      "notes": "Tiffany & Co. acquired by LVMH; TIF delisted.",
+      "source": "NYSE / LVMH–Tiffany closing (2021-01)",
+      "synthetic": true
+    },
+    {
+      "id": "vmw-avgo-2023",
+      "event_type": "merger_delist",
+      "effective_date": "2023-11-22",
+      "mic": "XNYS",
+      "old_symbol": "VMW",
+      "surviving_symbol": "AVGO",
+      "surviving_mic": "XNAS",
+      "canonical_key": "vmware-inc",
+      "surviving_canonical_key": "broadcom-inc-common-stock",
+      "figi": "BBGSYN000045",
+      "notes": "VMware acquired by Broadcom; VMW delisted.",
+      "source": "NYSE / Broadcom–VMware closing (2023-11)",
+      "synthetic": true
+    },
+    {
+      "id": "ctxs-delist-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-09-30",
+      "mic": "XNAS",
+      "old_symbol": "CTXS",
+      "canonical_key": "citrix-systems-inc",
+      "figi": "BBGSYN000046",
+      "notes": "Citrix taken private by Vista/Elliott consortium; CTXS delisted.",
+      "source": "Nasdaq / Citrix going-private closing (2022-09)",
+      "synthetic": true
+    },
+    {
+      "id": "info-spgi-2022",
+      "event_type": "merger_delist",
+      "effective_date": "2022-02-28",
+      "mic": "XNAS",
+      "old_symbol": "INFO",
+      "surviving_symbol": "SPGI",
+      "surviving_mic": "XNYS",
+      "canonical_key": "ihs-markit-ltd",
+      "surviving_canonical_key": "sp-global-inc",
+      "figi": "BBGSYN000047",
+      "notes": "IHS Markit combined with S&P Global; INFO delisted into SPGI.",
+      "source": "Nasdaq / S&P Global–IHS Markit closing (2022-02)",
+      "synthetic": true
+    },
+    {
+      "id": "ogn-spin-mrk-2021",
+      "event_type": "spinoff",
+      "effective_date": "2021-06-03",
+      "mic": "XNYS",
+      "parent_symbol": "MRK",
+      "child_symbol": "OGN",
+      "canonical_key": "merck-co-inc",
+      "child_canonical_key": "organon-co",
+      "figi": "BBGSYN000025",
+      "notes": "Merck spun off Organon; parent MRK continues, OGN lists.",
+      "source": "NYSE / Organon spin-off notices (2021-06)",
+      "synthetic": true
+    },
+    {
+      "id": "carr-spin-2020",
+      "event_type": "spinoff",
+      "effective_date": "2020-04-03",
+      "mic": "XNYS",
+      "parent_symbol": "UTX",
+      "child_symbol": "CARR",
+      "canonical_key": "united-technologies-corp",
+      "child_canonical_key": "carrier-global-corp",
+      "figi": "BBGSYN000010",
+      "notes": "Carrier spun from United Technologies concurrent with RTX combination.",
+      "source": "NYSE / Carrier distribution notices (2020-04)",
+      "synthetic": true
+    },
+    {
+      "id": "otis-spin-2020",
+      "event_type": "spinoff",
+      "effective_date": "2020-04-03",
+      "mic": "XNYS",
+      "parent_symbol": "UTX",
+      "child_symbol": "OTIS",
+      "canonical_key": "united-technologies-corp",
+      "child_canonical_key": "otis-worldwide-corp",
+      "figi": "BBGSYN000010",
+      "notes": "Otis spun from United Technologies concurrent with RTX combination.",
+      "source": "NYSE / Otis distribution notices (2020-04)",
+      "synthetic": true
+    },
+    {
+      "id": "gehc-spin-ge-2023",
+      "event_type": "spinoff",
+      "effective_date": "2023-01-04",
+      "mic": "XNAS",
+      "parent_symbol": "GE",
+      "child_symbol": "GEHC",
+      "parent_mic": "XNYS",
+      "canonical_key": "general-electric-co",
+      "child_canonical_key": "ge-healthcare-technologies",
+      "figi": "BBGSYN000029",
+      "notes": "GE Healthcare spun from GE; parent continues as GE, child lists as GEHC.",
+      "source": "NYSE–Nasdaq / GEHC spin-off notices (2023-01)",
+      "synthetic": true
+    },
+    {
+      "id": "kvue-spin-jnj-2023",
+      "event_type": "spinoff",
+      "effective_date": "2023-05-04",
+      "mic": "XNYS",
+      "parent_symbol": "JNJ",
+      "child_symbol": "KVUE",
+      "canonical_key": "johnson-johnson",
+      "child_canonical_key": "kenvue-inc",
+      "figi": "BBGSYN000031",
+      "notes": "Kenvue began trading after separation from JNJ; both identities remain listed.",
+      "source": "NYSE / Kenvue separation notices (2023-05)",
+      "synthetic": true
+    },
+    {
+      "id": "dow-spin-dwdp-2019",
+      "event_type": "spinoff",
+      "effective_date": "2019-04-01",
+      "mic": "XNYS",
+      "parent_symbol": "DWDP",
+      "child_symbol": "DOW",
+      "canonical_key": "dupont-de-nemours-inc",
+      "child_canonical_key": "dow-inc",
+      "figi": "BBGSYN000019",
+      "notes": "Dow Inc. separated from DowDuPont; DOW lists while DWDP continues until DD/CTVA steps.",
+      "source": "NYSE / Dow separation notices (2019-04)",
+      "synthetic": true
+    },
+    {
+      "id": "ctva-spin-dwdp-2019",
+      "event_type": "spinoff",
+      "effective_date": "2019-06-03",
+      "mic": "XNYS",
+      "parent_symbol": "DWDP",
+      "child_symbol": "CTVA",
+      "canonical_key": "dupont-de-nemours-inc",
+      "child_canonical_key": "corteva-inc",
+      "figi": "BBGSYN000019",
+      "notes": "Corteva separated from DowDuPont as CTVA; remaining entity became DD.",
+      "source": "NYSE / Corteva separation notices (2019-06)",
+      "synthetic": true
+    },
+    {
+      "id": "solv-spin-mmm-2024",
+      "event_type": "spinoff",
+      "effective_date": "2024-04-01",
+      "mic": "XNYS",
+      "parent_symbol": "MMM",
+      "child_symbol": "SOLV",
+      "canonical_key": "3m-company",
+      "child_canonical_key": "solvay-spin-solv-mmm",
+      "figi": "BBGSYN000033",
+      "notes": "3M spun off Solventum (SOLV); parent MMM continues.",
+      "source": "NYSE / Solventum spin-off notices (2024-04)",
+      "synthetic": true
+    }
+  ]
+}

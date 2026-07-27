@@ -69,19 +69,15 @@ impl AlpacaCreds {
         let key_id = env::var("ALPACA_KEY_ID").ok().filter(|s| !s.is_empty());
         let secret_key = env::var("ALPACA_SECRET_KEY").ok().filter(|s| !s.is_empty());
         let live = ack == LIVE_ACK_PHRASE && key_id.is_some() && secret_key.is_some();
-        Self { key_id, secret_key, live }
+        Self {
+            key_id,
+            secret_key,
+            live,
+        }
     }
 
     pub fn configured(&self) -> bool {
         self.key_id.is_some() && self.secret_key.is_some()
-    }
-
-    pub fn trading_base(&self) -> &'static str {
-        if self.live {
-            "https://api.alpaca.markets"
-        } else {
-            "https://paper-api.alpaca.markets"
-        }
     }
 
     pub fn redacted_key(&self) -> String {
@@ -94,7 +90,10 @@ impl AlpacaCreds {
 }
 
 fn env_f64(name: &str, default: f64) -> f64 {
-    env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    env::var(name)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
 }
 
 #[derive(Clone)]
@@ -119,11 +118,14 @@ impl Settings {
             max_order_usd: env_f64("PRISMATIK_MAX_ORDER", 250.0),
         };
         risk.validate()?;
-        let api_token = env::var("PRISMATIK_API_TOKEN").ok().filter(|s| !s.is_empty())
+        let api_token = env::var("PRISMATIK_API_TOKEN")
+            .ok()
+            .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
-                use rand::Rng;
-                let bytes: Vec<u8> = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(32).collect();
-                String::from_utf8(bytes).expect("alphanumeric is utf8")
+                use rand::RngCore;
+                let mut bytes = [0u8; 16];
+                rand::rngs::OsRng.fill_bytes(&mut bytes);
+                bytes.iter().map(|b| format!("{b:02x}")).collect()
             });
         Ok(Self {
             cost: CostModel {
@@ -138,7 +140,10 @@ impl Settings {
                 .unwrap_or_else(|_| "wss://ws-feed.exchange.coinbase.com".into()),
             rest_timeout_secs: 10,
             host: env::var("PRISMATIK_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
-            port: env::var("PRISMATIK_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8787),
+            port: env::var("PRISMATIK_PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(8787),
             api_token,
         })
     }

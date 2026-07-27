@@ -1,0 +1,17 @@
+<informationTable>
+  <filerCik>0001067983</filerCik>
+  <periodEnd>2024-06-30</periodEnd>
+  <filingDate>2024-08-14</filingDate>
+  <infoTable>
+    <nameOfIssuer>APPLE INC</nameOfIssuer>
+    <cusip>037833100</cusip>
+    <value>48000000</value>
+    <shrsOrPrnAmt><sshPrnamt>120000</sshPrnamt></shrsOrPrnAmt>
+  </infoTable>
+  <infoTable>
+    <nameOfIssuer>AMERICAN EXPRESS CO</nameOfIssuer>
+    <cusip>025816109</cusip>
+    <value>36000000</value>
+    <shrsOrPrnAmt><sshPrnamt>150000</sshPrnamt></shrsOrPrnAmt>
+  </infoTable>
+</informationTable>

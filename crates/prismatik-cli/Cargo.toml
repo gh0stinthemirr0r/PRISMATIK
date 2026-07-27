@@ -9,3 +9,4 @@ description = "PRISMATIK prismatik-cli crate."
 
 [dependencies]
 prismatik-manifest.workspace = true
+prismatik-application.workspace = true

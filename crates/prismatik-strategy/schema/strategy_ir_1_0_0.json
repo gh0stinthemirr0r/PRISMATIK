@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prismatik.dev/schemas/strategy_ir/1.0.0",
+  "title": "StrategyIR",
+  "description": "PRISMATIK StrategyIR schema_version 1.0.0 — mirror of services/research-sidecar/strategy_ir/strategy_ir.schema.json for the strategy crate.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "strategy_id",
+    "name",
+    "capabilities",
+    "universe"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "strategy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "can_access_network",
+        "can_access_filesystem",
+        "can_invoke_ai",
+        "max_compute_per_bar_ms"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "can_access_network": { "type": "boolean" },
+        "can_access_filesystem": { "type": "boolean" },
+        "can_invoke_ai": { "type": "boolean" },
+        "max_compute_per_bar_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "universe": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "static_members"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "static" },
+            "static_members": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "datafusion_plan", "rebalance_frequency"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "dynamic_query" },
+            "datafusion_plan": { "type": "string" },
+            "rebalance_frequency": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "indicators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "alias", "warmup"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string" },
+          "alias": { "type": "string" },
+          "warmup": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "rules": {
+      "type": "object"
+    }
+  }
+}

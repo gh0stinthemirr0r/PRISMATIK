@@ -3,7 +3,9 @@
 import type { RunResult, SessionStatus, StrategySpec } from './types';
 
 declare global {
-  interface Window { PRISMATIK: { token: string; version: string } }
+  interface Window {
+    PRISMATIK: { token: string; version: string };
+  }
 }
 
 const API = '/api/v1';
@@ -15,6 +17,11 @@ function token(): string {
   return window.PRISMATIK?.token ?? '';
 }
 
+export function authHeaders(): HeadersInit {
+  const bearer = token();
+  return bearer ? { Authorization: `Bearer ${bearer}` } : {};
+}
+
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -23,7 +30,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init,
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${token()}`,
+        ...authHeaders(),
         'Content-Type': 'application/json',
         ...(init.headers ?? {})
       }
@@ -81,12 +88,15 @@ export interface SessionStartRequest {
 export async function startSession(req: SessionStartRequest): Promise<{ session_id: string; mode: string }> {
   return call('/sessions/start', { method: 'POST', body: JSON.stringify(req) });
 }
+
 export async function stopSession(id: string): Promise<void> {
   await call(`/sessions/${id}/stop`, { method: 'POST' });
 }
+
 export async function sessionStatus(id: string): Promise<SessionStatus> {
   return call(`/sessions/${id}`);
 }
+
 export function sessionSocket(id: string): WebSocket {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   return new WebSocket(
@@ -103,3 +113,4 @@ export const fmtUsd = (x: number | null | undefined): string =>
     ? '—'
     : x.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 export const signClass = (x: number): string => (x > 0 ? 'pos' : x < 0 ? 'neg' : '');
+

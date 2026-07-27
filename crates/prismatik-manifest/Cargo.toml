@@ -10,3 +10,7 @@ description = "PRISMATIK prismatik-manifest crate."
 [dependencies]
 prismatik-determinism.workspace = true
 prismatik-audit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+thiserror.workspace = true

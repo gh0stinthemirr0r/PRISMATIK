@@ -1,0 +1,156 @@
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "@prismatik/design-tokens/tokens.css";
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% -12%, rgba(0, 240, 255, 0.09), transparent 34rem),
+    radial-gradient(circle at 88% 4%, rgba(168, 85, 247, 0.11), transparent 38rem),
+    radial-gradient(circle at 52% 108%, rgba(0, 240, 255, 0.055), transparent 42rem),
+    linear-gradient(145deg, #06080d 0%, #090d16 48%, #06080d 100%);
+  background-attachment: fixed;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active,
+[role="button"]:active {
+  transform: scale(0.985);
+}
+
+::selection {
+  background: rgba(0, 240, 255, 0.22);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(151, 171, 199, 0.24);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.36);
+  background-clip: padding-box;
+}
+
+/* Shared treatment for all experience routes. */
+.stage .canvas:not(.motion-fade-in) {
+  width: min(100%, 1560px);
+  margin: 0 auto;
+  padding: 32px clamp(20px, 3vw, 46px) 64px !important;
+}
+
+.stage .canvas:not(.motion-fade-in) > header {
+  padding-bottom: 8px;
+}
+
+.stage .canvas:not(.motion-fade-in) h1 {
+  font-size: clamp(1.7rem, 2.6vw, 2.35rem) !important;
+  letter-spacing: -0.045em !important;
+}
+
+.stage .canvas:not(.motion-fade-in) .panel {
+  padding: 24px !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  background:
+    radial-gradient(circle at 100% 0, rgba(0, 240, 255, 0.035), transparent 48%),
+    var(--color-surface-1) !important;
+  box-shadow: var(--shadow-panel) !important;
+  backdrop-filter: blur(var(--blur-panel)) saturate(160%);
+}
+
+.stage .canvas:not(.motion-fade-in) .metrics {
+  gap: 12px;
+  border: 0 !important;
+}
+
+.stage .canvas:not(.motion-fade-in) .metrics > article {
+  padding: 20px !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+.stage input,
+.stage textarea,
+.stage select {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.035);
+  color: var(--color-text-primary);
+  outline: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.stage input:focus,
+.stage textarea:focus,
+.stage select:focus {
+  border-color: rgba(0,240,255,.42);
+  box-shadow: 0 0 0 3px rgba(0,240,255,.08), var(--shadow-cyan);
+}

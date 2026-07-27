@@ -1,0 +1,16 @@
+[
+  {
+    "name": "aapl_daily_bars",
+    "request": {
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "query": {"timeframe":"1Day"},
+      "headers": {}
+    },
+    "response": {
+      "status": 200,
+      "headers": {"content-type":"application/json"},
+      "body": "{\"bars\":[{\"t\":\"2024-07-22T04:00:00Z\",\"o\":227.01,\"h\":227.78,\"l\":223.09,\"c\":223.96,\"v\":48201835,\"n\":598246,\"vw\":225.23},{\"t\":\"2024-07-23T04:00:00Z\",\"o\":224.82,\"h\":226.94,\"l\":222.68,\"c\":225.01,\"v\":39960260,\"n\":521322,\"vw\":224.91}],\"symbol\":\"AAPL\",\"next_page_token\":null}"
+    }
+  }
+]

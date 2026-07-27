@@ -1,0 +1,13 @@
+{
+  "filer_cik": 1067983,
+  "period_end": "2024-06-30",
+  "filing_date": "2024-08-14",
+  "holdings": [
+    {
+      "issuer_name": "APPLE INC",
+      "cusip": "037833100",
+      "shares": "120000",
+      "value_usd": "48000000"
+    }
+  ]
+}

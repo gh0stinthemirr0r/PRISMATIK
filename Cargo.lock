@@ -337,7 +337,12 @@ dependencies = [
 name = "prismatik-audit"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "prismatik-determinism",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -347,6 +352,8 @@ dependencies = [
  "prismatik-calendar",
  "prismatik-features",
  "prismatik-strategy",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -354,6 +361,9 @@ name = "prismatik-calendar"
 version = "0.1.0"
 dependencies = [
  "prismatik-determinism",
+ "serde",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -368,6 +378,7 @@ dependencies = [
 name = "prismatik-cli"
 version = "0.1.0"
 dependencies = [
+ "prismatik-application",
  "prismatik-manifest",
 ]
 
@@ -414,6 +425,7 @@ version = "0.1.0"
 dependencies = [
  "prismatik-determinism",
  "prismatik-identity",
+ "serde",
 ]
 
 [[package]]
@@ -437,8 +449,12 @@ dependencies = [
 name = "prismatik-features"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "prismatik-domain",
  "prismatik-market-data",
+ "serde",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -453,7 +469,12 @@ dependencies = [
 name = "prismatik-identity"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "prismatik-determinism",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -461,6 +482,8 @@ name = "prismatik-indicator-core"
 version = "0.1.0"
 dependencies = [
  "prismatik-domain",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -477,13 +500,23 @@ version = "0.1.0"
 dependencies = [
  "prismatik-audit",
  "prismatik-determinism",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
 name = "prismatik-market-data"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "blake3",
+ "prismatik-determinism",
  "prismatik-domain",
+ "serde",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
@@ -529,6 +562,8 @@ name = "prismatik-quant-kernel"
 version = "0.1.0"
 dependencies = [
  "prismatik-domain",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -559,24 +594,34 @@ version = "0.1.0"
 dependencies = [
  "prismatik-backtest",
  "prismatik-determinism",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
 name = "prismatik-storage"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "prismatik-determinism",
  "prismatik-identity",
+ "serde",
+ "thiserror",
+ "time",
 ]
 
 [[package]]
 name = "prismatik-strategy"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "prismatik-determinism",
  "prismatik-domain",
  "prismatik-features",
  "prismatik-indicator-core",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

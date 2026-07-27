@@ -1,0 +1,13 @@
+[package]
+name = "prismatik-strategy-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PRISMATIK Rust SDK builder for hand-written StrategyIR (P4-EX-03)."
+
+[dependencies]
+prismatik-strategy.workspace = true
+serde.workspace = true
+serde_json.workspace = true

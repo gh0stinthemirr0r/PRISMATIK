@@ -22,3 +22,6 @@ uuid = { version = "1", features = ["v4"] }
 tracing = "0.1"
 tracing-subscriber = { version = "=0.3.18", features = ["json", "env-filter"] }
 thiserror = "1"
+prismatik-determinism = { path = "../../crates/prismatik-determinism" }
+
+[workspace]

@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "golden-data-ingest-001",
+  "run_id": "01010101010101010101010101010101",
+  "kind": "data_ingest",
+  "produced_at": "2026-07-26T14:32:00Z",
+  "producer": {
+    "prismatik_version": "0.1.0",
+    "build_hash": "golden",
+    "build_attestation": null,
+    "profile": "desktop"
+  },
+  "determinism": {
+    "root_seed": 8675309,
+    "clock_kind": "frozen",
+    "clock_start": "2026-07-26T14:32:00Z",
+    "clock_end": null,
+    "clock_tick_step_micros": null,
+    "entropy_streams": [
+      {
+        "label": "ingest.pipeline",
+        "seed": 12345
+      }
+    ],
+    "thread_count": 1,
+    "rayon_parallel": false,
+    "libc_overrides": [],
+    "trace_digest": "ce135dec0c4c4877fc192343dd6113b172ce9b1b2d33fd06b6fd4ae5bdabcd05"
+  },
+  "pinned_artifacts": {
+    "calendar": null,
+    "symbology_snapshot": null,
+    "corporate_actions": null,
+    "codebooks": [],
+    "models": [],
+    "indicator_kernel_version": null,
+    "dataset_versions": []
+  },
+  "lineage": {
+    "transform_id": "data_ingest.trivial",
+    "transform_version": "1.0.0",
+    "strategy_ir_hash": null,
+    "upstream_record_ids": [],
+    "invalidation_hash": "e8a104af239efe42ae58f3adda0abc633858ecbc0286dc42a870eaabc7147f50"
+  },
+  "audit": {
+    "tree_size": 0,
+    "tree_root": "0000000000000000000000000000000000000000000000000000000000000000",
+    "leaf_position": null,
+    "leaf_hash": null
+  },
+  "signature": {
+    "scheme": "ed25519_only",
+    "ed25519": {
+      "public_key": "GX9rI+FshTLGq8g4+s1ep4m+DHaykgM0A5v6iz02jWE=",
+      "signature": "n8oFZ/lou0chwNRl4sLG03li+mCVGifZXAAkk7c64HSFmrFV6Ya6K6EQhOgDppk71Ucgya+cuZmpEPQNTEvBBA==",
+      "identity": {
+        "kind": "ci",
+        "id": "prismatik-golden-corpus",
+        "signed_at": "2026-07-26 14:32:00.0 +00:00:00"
+      }
+    },
+    "ml_dsa": null
+  },
+  "extensions": {}
+}

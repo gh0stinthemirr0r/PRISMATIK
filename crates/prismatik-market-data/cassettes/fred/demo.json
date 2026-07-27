@@ -1,0 +1,16 @@
+[
+  {
+    "name": "gdp_observations",
+    "request": {
+      "method": "GET",
+      "path": "/series/observations",
+      "query": {"series_id":"GDP","file_type":"json"},
+      "headers": {}
+    },
+    "response": {
+      "status": 200,
+      "headers": {"content-type":"application/json"},
+      "body": "{\"realtime_start\":\"2024-04-25\",\"realtime_end\":\"2024-07-24\",\"observations\":[{\"realtime_start\":\"2024-04-25\",\"realtime_end\":\"2024-07-24\",\"date\":\"2024-01-01\",\"value\":\"28624.069\"},{\"realtime_start\":\"2024-07-25\",\"realtime_end\":\"9999-12-31\",\"date\":\"2024-04-01\",\"value\":\"29016.714\"}]}"
+    }
+  }
+]

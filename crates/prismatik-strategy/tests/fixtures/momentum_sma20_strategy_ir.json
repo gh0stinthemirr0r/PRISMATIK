@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "strategy_id": "06d2e7e0-0000-4000-8000-000000000010",
+  "name": "Momentum",
+  "description": null,
+  "capabilities": {
+    "can_access_network": false,
+    "can_access_filesystem": false,
+    "can_invoke_ai": false,
+    "max_compute_per_bar_ms": 50
+  },
+  "universe": {
+    "kind": "static",
+    "static_members": []
+  },
+  "indicators": [
+    {
+      "kind": "sma",
+      "alias": "sma_20",
+      "warmup": 19
+    }
+  ],
+  "rules": {
+    "entries": [],
+    "exits": []
+  }
+}

@@ -27,15 +27,28 @@
   let events: JournalEvent[] = [];
   let error = '';
   let busy = false;
+  let connectionState: 'idle' | 'connecting' | 'open' | 'closed' | 'error' = 'idle';
+  let lastUpdated = '';
   let ws: WebSocket | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   $: liveBlocked = wantLive && (!liveUnlocked || typedAck !== ackPhrase);
   $: startDisabled = busy || (execution === 'alpaca' && !alpacaConfigured) || liveBlocked;
+  $: readiness =
+    execution === 'alpaca'
+      ? !alpacaConfigured
+        ? 'Alpaca credentials are not configured.'
+        : wantLive && !liveUnlocked
+          ? 'Live routing is locked on the server.'
+          : wantLive && typedAck !== ackPhrase
+            ? 'Type the acknowledgment phrase to continue.'
+            : 'Alpaca paper or live routing is ready.'
+      : 'Paper simulator is ready to start.';
 
   async function start(): Promise<void> {
     busy = true;
     error = '';
+    connectionState = 'connecting';
     try {
       const resp = await startSession({
         symbol,
@@ -50,19 +63,37 @@
       sessionId = resp.session_id;
       mode = resp.mode;
       events = [];
-      ws = sessionSocket(sessionId);
-      ws.onmessage = (m) => {
-        try {
-          events = [...events.slice(-149), JSON.parse(m.data)];
-        } catch { /* non-JSON frame, ignore */ }
-      };
+      attachSocket();
       pollTimer = setInterval(refresh, 4000);
       await refresh();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
+      connectionState = 'error';
     } finally {
       busy = false;
     }
+  }
+
+  function attachSocket(): void {
+    if (!sessionId) return;
+    ws?.close();
+    ws = sessionSocket(sessionId);
+    ws.onopen = () => {
+      connectionState = 'open';
+      lastUpdated = new Date().toLocaleTimeString();
+    };
+    ws.onclose = () => {
+      if (sessionId) connectionState = 'closed';
+    };
+    ws.onerror = () => {
+      connectionState = 'error';
+    };
+    ws.onmessage = (m) => {
+      try {
+        events = [...events.slice(-149), JSON.parse(m.data)];
+        lastUpdated = new Date().toLocaleTimeString();
+      } catch { /* non-JSON frame, ignore */ }
+    };
   }
 
   async function refresh(): Promise<void> {
@@ -88,11 +119,18 @@
     }
   }
 
+  function reconnect(): void {
+    if (!sessionId) return;
+    connectionState = 'connecting';
+    attachSocket();
+  }
+
   function teardown(): void {
     ws?.close();
     ws = null;
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+    connectionState = 'idle';
   }
 
   onDestroy(teardown);
@@ -112,6 +150,7 @@
           </option>
         </select>
       </label>
+      <p class="mono small hint">{readiness}</p>
 
       {#if execution === 'alpaca'}
         <label class="check" transition:fade={{ duration: 150 }}>
@@ -154,11 +193,18 @@
         <span class="badge" class:live={mode === 'alpaca_LIVE'}>
           {mode === 'alpaca_LIVE' ? 'ALPACA LIVE' : mode === 'paper' ? 'PAPER' : 'ALPACA PAPER'}
         </span>
+        <span class="badge state" class:open={connectionState === 'open'} class:closed={connectionState === 'closed'}
+              class:error={connectionState === 'error'} class:connecting={connectionState === 'connecting'}>
+          {connectionState}
+        </span>
         <span>{symbol}</span>
         {#if status}
           <span>eq {fmtUsd(status.equity)}</span>
           <span>px {fmtNum(status.last_price, 2)}</span>
           <span>{status.halted ? 'HALTED' : status.running ? 'running' : 'stopped'}</span>
+        {/if}
+        {#if lastUpdated}
+          <span>updated {lastUpdated}</span>
         {/if}
       </div>
       <div class="feed mono" role="log" aria-live="polite">
@@ -175,7 +221,11 @@
           </div>
         {/each}
       </div>
-      <button class="btn btn-quiet" on:click={stop} disabled={busy}>Stop session</button>
+      <div class="actions">
+        <button class="btn btn-quiet" on:click={reconnect} disabled={busy || !sessionId}>Reconnect stream</button>
+        <button class="btn btn-quiet" on:click={refresh} disabled={busy || !sessionId}>Refresh status</button>
+        <button class="btn btn-quiet" on:click={stop} disabled={busy}>Stop session</button>
+      </div>
     </div>
   {/if}
 
@@ -202,6 +252,7 @@
   .check input { width: auto; }
   .gate { border-left: 2px solid var(--oxblood); padding-left: 12px; display: grid; gap: 8px; }
   .small { font-size: 12px; }
+  .hint { color: var(--gilt); margin: -4px 0 0; }
   .dim { color: var(--porcelain-2); }
   .statusline { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 10px; }
   .badge {
@@ -209,10 +260,15 @@
     padding: 3px 8px; border-radius: var(--radius); letter-spacing: 0.14em; font-size: 11px;
   }
   .badge.live { border-color: var(--oxblood); color: var(--oxblood); }
+  .state.open { border-color: var(--patina); color: var(--patina); }
+  .state.closed { border-color: var(--gilt-dim); color: var(--porcelain-2); }
+  .state.error { border-color: var(--oxblood); color: var(--oxblood); }
+  .state.connecting { border-color: var(--gilt); color: var(--gilt); }
   .feed {
     max-height: 220px; overflow-y: auto; font-size: 12px;
     border: 1px solid var(--gilt-faint); border-radius: var(--radius);
     padding: 10px 12px; margin-bottom: 12px; background: var(--ink);
   }
   .ev { display: flex; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 </style>

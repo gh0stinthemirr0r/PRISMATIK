@@ -10,3 +10,7 @@ description = "PRISMATIK prismatik-storage crate."
 [dependencies]
 prismatik-determinism.workspace = true
 prismatik-identity.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true

@@ -1,0 +1,16 @@
+[
+  {
+    "name": "cot_crude_oil",
+    "request": {
+      "method": "GET",
+      "path": "/api/v1/commitments",
+      "query": {"market_code":"067651"},
+      "headers": {}
+    },
+    "response": {
+      "status": 200,
+      "headers": {"content-type":"application/json"},
+      "body": "{\"market_code\":\"067651\",\"market_name\":\"CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE\",\"as_of\":\"2024-07-23\",\"published_at\":\"2024-07-26T19:30:00Z\",\"long_positions\":231445,\"short_positions\":112340,\"open_interest\":1689230}"
+    }
+  }
+]

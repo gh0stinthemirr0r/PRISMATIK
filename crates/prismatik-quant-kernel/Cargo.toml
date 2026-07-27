@@ -9,3 +9,5 @@ description = "PRISMATIK prismatik-quant-kernel crate."
 
 [dependencies]
 prismatik-domain.workspace = true
+serde.workspace = true
+thiserror.workspace = true

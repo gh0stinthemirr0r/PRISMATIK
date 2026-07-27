@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  fmt:
+    name: Rust format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  determinism-grep:
+    name: Determinism guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determinism grep gate (Wave 0 DoD #1)
+        run: python3 scripts/determinism_grep.py
+      - name: Negative test — gate must fail on a violation (Wave 0 DoD #2)
+        run: cargo test --package prismatik-determinism --test grep_gate
+
+  bindings-drift:
+    name: Bindings drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash packages/api-client/scripts/check-bindings-drift.sh
+
+  clippy:
+    name: Clippy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: clippy
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - run: cargo test --workspace
+
+  offline-market-data:
+    name: Market data cassette tests (offline)
+    runs-on: ubuntu-latest
+    env:
+      # Cassette tests must remain hermetic and must never require network access.
+      PRISMATIK_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - run: cargo test -p prismatik-market-data
+
+  registry-coverage:
+    name: OSS registry coverage (P0-SS-05)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - name: Every workspace member appears in component registry
+        run: cargo test -p prismatik-oss-registry registry_coverage -- --nocapture
+
+  calendar-cross-validation:
+    name: Calendar QuantLib cross-validation (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Offline fixture oracle — QuantLib is not installed in this job.
+      - name: Zero-tolerance calendar gate
+        run: bash scripts/run-calendar-cross-validation.sh
+
+  # P0-SS-06 / P0-SS-07 floor: refuse-invalid provenance (no cosign binary).
+  updater-provenance:
+    name: Updater refuse-invalid (P0-SS-07)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - name: Offline updater negative tests
+        run: cargo test -p prismatik-security updater -- --nocapture
+
+  # P0-SS-06: SBOM script is best-effort; default CI must not require cargo-cyclonedx.
+  sbom-generate:
+    name: SBOM generate (P0-SS-06 optional)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - name: Generate SBOM or document install
+        run: bash scripts/generate-sbom.sh
+
+  cargo-vet:
+    name: Cargo vet (supply-chain)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - name: Install cargo-vet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-vet@0.10.2
+      - name: cargo vet check (workspace)
+        run: cargo vet check --locked
+      - name: cargo vet check (trusted-core)
+        run: bash scripts/cargo-vet-trusted-core.sh
+
+  strategy-ir-python:
+    name: StrategyIR Python emitter (P4-QM-15)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python StrategyIR tests
+        run: python services/research-sidecar/strategy_ir/test_strategy_ir.py -v
+
+  dst-replay-256:
+    name: DST replay 256 seeds (Wave 3 DoD)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - name: dst_replay_suite_256
+        run: cargo test -p prismatik-application dst_replay_suite_256 -- --nocapture

@@ -26,12 +26,22 @@ impl Journal {
                 PathBuf::from(home).join(".prismatik").join("journal")
             });
         create_dir_all(&root)?;
-        let safe: String = session_id.chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        let safe: String = session_id
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '-'
+                }
+            })
             .collect();
         let path = root.join(format!("{safe}.jsonl"));
         tracing::info!(path = %path.display(), "journal_open");
-        Ok(Self { path, lock: Mutex::new(()) })
+        Ok(Self {
+            path,
+            lock: Mutex::new(()),
+        })
     }
 
     pub fn write(&self, event: &str, mut fields: Value) {
@@ -42,13 +52,19 @@ impl Journal {
                 "event": event,
             });
             if let (Some(dst), Some(src)) = (base.as_object_mut(), obj) {
-                for (k, v) in src.iter() { dst.insert(k.clone(), v.clone()); }
+                for (k, v) in src.iter() {
+                    dst.insert(k.clone(), v.clone());
+                }
             }
             base
         };
         let _guard = self.lock.lock().expect("journal lock");
-        if let Ok(mut fh) = OpenOptions::new().create(true).append(true).open(&self.path) {
-            let _ = writeln!(fh, "{}", record);
+        if let Ok(mut fh) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+        {
+            let _ = writeln!(fh, "{record}");
         }
     }
 
@@ -56,10 +72,14 @@ impl Journal {
         match std::fs::read_to_string(&self.path) {
             Ok(text) => {
                 let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
-                lines.iter().rev().take(max).rev()
+                lines
+                    .iter()
+                    .rev()
+                    .take(max)
+                    .rev()
                     .filter_map(|l| serde_json::from_str(l).ok())
                     .collect()
-            }
+            },
             Err(_) => Vec::new(),
         }
     }
