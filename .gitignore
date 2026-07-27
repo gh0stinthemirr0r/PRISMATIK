@@ -47,6 +47,14 @@ __pycache__/
 # Generated bindings (regenerated on build)
 packages/api-client/generated/
 
+# Generated SBOMs (P0-SS-06). cargo-cyclonedx writes one *.cdx.json per crate;
+# scripts/generate-sbom.{sh,ps1} sweep them into artifacts/sbom/. They are
+# regenerable inventory output and churn on every dependency bump, so the
+# directory is tracked via its README only.
+*.cdx.json
+artifacts/sbom/*
+!artifacts/sbom/README.md
+
 # Coverage / test artifacts
 .tarpaulin/
 coverage/

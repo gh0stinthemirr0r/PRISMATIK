@@ -29,10 +29,12 @@ if command -v cargo-cyclonedx >/dev/null 2>&1 \
   # Prefer workspace JSON; cyclonedx-cargo writes beside the manifest by default.
   cargo cyclonedx --manifest-path Cargo.toml --format json --output-cdx \
     || cargo cyclonedx --manifest-path Cargo.toml --format json
-  # Move any top-level *.cdx.json / bom.json into artifacts/sbom/ if present.
-  for f in bom.json *.cdx.json; do
+  # cargo-cyclonedx writes beside each manifest, so a workspace run scatters
+  # one *.cdx.json per member crate. Sweep the root AND every member directory,
+  # or the generated files are left stranded in the tree (and get committed).
+  for f in bom.json *.cdx.json crates/*/*.cdx.json apps/*/src-tauri/*.cdx.json; do
     if [ -f "$f" ]; then
-      mv -f "$f" "$OUT_DIR/"
+      mv -f "$f" "$OUT_DIR/$(basename "$f")"
       echo "moved $f → $OUT_DIR/"
     fi
   done

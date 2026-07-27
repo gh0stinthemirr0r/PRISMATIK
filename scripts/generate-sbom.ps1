@@ -35,11 +35,15 @@ if (Test-CargoCyclonedx) {
         cargo cyclonedx --manifest-path Cargo.toml --format json
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
-    foreach ($name in @("bom.json") + (Get-ChildItem -ErrorAction SilentlyContinue "*.cdx.json" | ForEach-Object { $_.Name })) {
-        if ($name -and (Test-Path $name)) {
-            Move-Item -Force $name (Join-Path $OutDir $name)
-            Write-Host "moved $name → $OutDir/"
-        }
+    # cargo-cyclonedx writes beside each manifest, so a workspace run scatters
+    # one *.cdx.json per member crate. Sweep the root AND every member directory,
+    # or the generated files are left stranded in the tree (and get committed).
+    $Scattered = @(Get-ChildItem -ErrorAction SilentlyContinue -Path "bom.json")
+    $Scattered += @(Get-ChildItem -ErrorAction SilentlyContinue -Recurse -Filter "*.cdx.json" `
+        -Path "." | Where-Object { $_.FullName -notlike "*\artifacts\sbom\*" -and $_.FullName -notlike "*\target\*" })
+    foreach ($item in $Scattered) {
+        Move-Item -Force $item.FullName (Join-Path $OutDir $item.Name)
+        Write-Host "moved $($item.Name) → $OutDir/"
     }
     $TargetBom = "target/cyclonedx/bom.json"
     if (Test-Path $TargetBom) {
