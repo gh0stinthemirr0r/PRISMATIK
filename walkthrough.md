@@ -321,6 +321,9 @@ curl -i -H "Authorization: Bearer <token>" http://127.0.0.1:8787/api/v1/meta
 - Backend now exposes a deterministic overview endpoint for downstream UI/ops consumption.
 - Backend now exposes a parameterized events endpoint for custom-sized event tail retrieval on sessions.
 - Backend now exposes a comprehensive config endpoint so UIs can adapt to configured operational constraints.
+- Backend now exposes a pre-flight validation endpoint for strategy specs (returns all validation errors at once).
+- Backend now exposes a metrics endpoint for operational health (job counts, session counts, uptime, capabilities).
+- Backend now exposes a job search endpoint with filtering by symbol, status, and result limits.
 
 ## 6) Placeholder Inventory and Follow-Through
 
@@ -342,3 +345,147 @@ This continuation pass explicitly tracked placeholders previously introduced in 
   - `prismatik-strategy/src/dsl.rs` (DSL parse success/failure coverage)
   - `prismatik-strategy/src/codegen.rs` (IR emission envelope coverage)
   - `prismatik-identity/src/lib.rs` (`OpenFigiMapper` normalize/validation coverage)
+
+## 7) Strategy Validation Endpoint & Backend Expansion (Continued)
+
+Added `/api/v1/validate/strategy` endpoint for pre-flight validation without job submission. Returns all validation errors at once (422 UNPROCESSABLE_ENTITY if any validations fail, 200 OK with `valid: true` if all pass).
+
+### Verification Results
+
+**Build & Linting:**
+```
+cargo fmt && cargo clippy -- -D warnings
+   Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s
+```
+
+**Test 1: Valid Request (BTC/USD, 3600s granularity, 30 days, $10k equity, 5 folds, MA strategy)**
+```
+POST /api/v1/validate/strategy
+Authorization: Bearer <token>
+
+Request:
+{
+  "symbol": "BTC/USD",
+  "granularity_s": 3600,
+  "days": 30,
+  "initial_equity_usd": 10000,
+  "folds": 5,
+  "strategy": {
+   "kind": "ma",
+   "params": {
+     "fast_period": 10,
+     "slow_period": 20
+   }
+  }
+}
+
+Response (200 OK):
+{
+  "valid": true,
+  "symbol": "BTC/USD",
+  "granularity_s": 3600,
+  "days": 30,
+  "initial_equity_usd": 10000.0,
+  "folds": 5
+}
+```
+
+**Test 2: Out of Range Days (5 < 7)**
+```
+Response (422 UNPROCESSABLE_ENTITY):
+{
+  "valid": false,
+  "errors": ["days must be in 7..=1500"]
+}
+```
+
+**Test 3: Multiple Validation Errors (symbol too long, invalid granularity, days out of range, folds out of range, invalid strategy)**
+```
+Response (422 UNPROCESSABLE_ENTITY):
+{
+  "valid": false,
+  "errors": [
+   "symbol must be non-empty, <= 24 chars, and alphanumeric/dash/slash",
+   "granularity must be one of [60, 300, 900, 3600, 21600, 86400]",
+   "days must be in 7..=1500",
+   "folds must be in 2..=12",
+   "strategy specification is invalid"
+  ]
+}
+```
+
+**Endpoint Characteristics:**
+- Fast path for pre-flight validation (no job submission, no backtest computation)
+- All validation errors reported at once (not one-at-a-time), allowing UIs to show all issues to the operator
+- Validation rules consistent with /run and /walkforward endpoints
+- Bearer token required (same as all other /api/v1/* routes except /health)
+
+
+### Metrics Endpoint (\GET /api/v1/metrics\)
+
+Provides operational visibility: job queue health, session counts, uptime, data source configuration, and capabilities.
+
+**Live Probe Response:**
+\\\json
+{
+  "version": "0.1.0",
+  "uptime_seconds": 9,
+  "jobs": {
+    "total": 0,
+    "complete": 0,
+    "pending": 0
+  },
+  "sessions": {
+    "total": 0,
+    "running": 0,
+    "stopped": 0
+  },
+  "data_sources": {
+    "coinbase_rest": "https://api.exchange.coinbase.com",
+    "coinbase_ws": "wss://ws-feed.exchange.coinbase.com"
+  },
+  "broker": {
+    "alpaca_configured": false,
+    "alpaca_live_unlocked": false
+  },
+  "capabilities": {
+    "ui_served": true,
+    "paper_trading_available": true,
+    "live_trading_available": false
+  }
+}
+\\\
+
+### Job Search Endpoint (\GET /api/v1/jobs/search?symbol=BTC&status=running&limit=50\)
+
+Search and filter jobs by symbol, status (running/done/error), and result limit.
+
+**Query Parameters:**
+- \symbol\ (optional): Filter by symbol (substring match). E.g., \?symbol=BTC\ matches \BTC/USD\, \BTC/EUR\
+- \status\ (optional): Filter by job status. Valid values: \unning\, \done\, \rror\
+- \limit\ (optional, default 50, max 1000): Maximum number of results to return
+
+**Search Response (3 jobs, most recent first):**
+\\\json
+{
+  "count": 3,
+  "jobs": [
+    {
+      "job_id": "f029b177a402",
+      "status": "error",
+      "symbol": null,
+      "kind": null,
+      "verdict": null,
+      "error": "http error from venue: 404 Not Found..."
+    }
+  ],
+  "limit": 50
+}
+\\\
+
+**Endpoint Characteristics:**
+- Returns results in reverse chronological order (most recent first)
+- Efficient filtering in-memory on current job map
+- Symbol filtering uses substring match (case-sensitive)
+- Status filter only returns jobs with exact status match
+- Results capped at specified limit (up to 1000 max)

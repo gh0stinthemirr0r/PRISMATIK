@@ -250,6 +250,65 @@ async fn config(State(state): State<AppState>, headers: HeaderMap) -> Response {
     .into_response()
 }
 
+async fn metrics(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let jobs = state.jobs.lock().await;
+    let sessions = state.sessions.lock().await;
+
+    // Count jobs by status (simplified: if it has a "verdict" or "metrics" field, it's complete)
+    let (jobs_complete, jobs_pending) = jobs.iter().fold((0, 0), |(c, p), (_, v)| {
+        if v.get("verdict").is_some() || v.get("metrics").is_some() {
+            (c + 1, p)
+        } else {
+            (c, p + 1)
+        }
+    });
+
+    // Count sessions by state (running vs stopped)
+    let sessions_running = sessions
+        .iter()
+        .filter(|(_, s)| !s.stop.load(Ordering::Relaxed))
+        .count();
+    let sessions_stopped = sessions.len() - sessions_running;
+
+    let uptime_secs = state
+        .clock
+        .monotonic_nanos()
+        .saturating_sub(state.boot_nanos)
+        / 1_000_000_000;
+
+    Json(json!({
+        "version": VERSION,
+        "uptime_seconds": uptime_secs,
+        "jobs": {
+            "total": jobs.len(),
+            "complete": jobs_complete,
+            "pending": jobs_pending,
+        },
+        "sessions": {
+            "total": sessions.len(),
+            "running": sessions_running,
+            "stopped": sessions_stopped,
+        },
+        "data_sources": {
+            "coinbase_rest": state.settings.coinbase_rest,
+            "coinbase_ws": state.settings.coinbase_ws,
+        },
+        "broker": {
+            "alpaca_configured": state.settings.alpaca.configured(),
+            "alpaca_live_unlocked": state.settings.alpaca.live,
+        },
+        "capabilities": {
+            "ui_served": state.ui_dir.join("index.html").exists(),
+            "paper_trading_available": true,
+            "live_trading_available": state.settings.alpaca.live,
+        },
+    }))
+    .into_response()
+}
+
 async fn status(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !check_token(&state, &headers) {
         return unauthorized();
@@ -403,6 +462,72 @@ struct EventTailQuery {
 
 fn default_event_tail() -> usize {
     200
+}
+
+#[derive(Deserialize)]
+struct JobSearchQuery {
+    #[serde(default)]
+    symbol: Option<String>,
+    #[serde(default)]
+    status: Option<String>, // "running", "done", "error"
+    #[serde(default = "default_search_limit")]
+    limit: usize,
+}
+
+fn default_search_limit() -> usize {
+    50
+}
+
+async fn jobs_search(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<JobSearchQuery>,
+) -> Response {
+    if !check_token(&state, &headers) {
+        return unauthorized();
+    }
+    let limit = query.limit.min(1000);
+    let jobs = state.jobs.lock().await;
+    let mut items: Vec<Value> = jobs
+        .iter()
+        .filter_map(|(job_id, entry)| {
+            let status = entry.get("status").and_then(|s| s.as_str());
+            let result = entry.get("result");
+
+            // Filter by status if provided
+            if let Some(ref target_status) = query.status {
+                if status != Some(target_status.as_str()) {
+                    return None;
+                }
+            }
+
+            // Filter by symbol if provided
+            if let Some(ref target_symbol) = query.symbol {
+                if let Some(sym) = result
+                    .and_then(|r| r.get("symbol"))
+                    .and_then(|s| s.as_str())
+                {
+                    if !sym.contains(target_symbol.as_str()) {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+
+            Some(json!({
+                "job_id": job_id,
+                "status": status.unwrap_or("unknown"),
+                "symbol": result.and_then(|r| r.get("symbol")).cloned().unwrap_or(json!(null)),
+                "kind": result.and_then(|r| r.get("kind")).cloned().unwrap_or(json!(null)),
+                "verdict": result.and_then(|r| r.get("verdict")).cloned(),
+                "error": entry.get("error").cloned(),
+            }))
+        })
+        .take(limit)
+        .collect();
+    items.reverse(); // Most recent first
+    Json(json!({ "jobs": items, "count": items.len(), "limit": limit })).into_response()
 }
 
 async fn session_events(
@@ -839,9 +964,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/meta", get(meta))
         .route("/api/v1/config", get(config))
         .route("/api/v1/validate/strategy", post(validate_strategy))
+        .route("/api/v1/metrics", get(metrics))
         .route("/api/v1/status", get(status))
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/jobs", get(jobs_list))
+        .route("/api/v1/jobs/search", get(jobs_search))
         .route("/api/v1/sessions", get(sessions_list))
         .route("/api/v1/jobs/backtest", post(post_backtest))
         .route("/api/v1/jobs/walkforward", post(post_walkforward))
