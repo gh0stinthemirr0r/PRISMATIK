@@ -7,6 +7,7 @@ mod agent_council;
 mod autonomous_research;
 mod autonomy;
 mod backtest_runner;
+mod briefings;
 mod evidence_store;
 mod feed_control;
 mod feed_runtime;
@@ -111,6 +112,7 @@ pub fn run() {
             backtest_runner::run_backtest,
             backtest_runner::list_seed_strategies,
             agent_council::run_agent_council,
+            briefings::get_briefing,
         ])
         .setup(|app| {
             APP_HANDLE

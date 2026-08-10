@@ -27,49 +27,49 @@ pub(crate) struct PaperOrderDraft {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PaperFillView {
-    idempotency_key: String,
-    symbol: String,
-    side: String,
-    quantity: String,
-    price_micros: u64,
-    notional_micros: u64,
-    cash_flow_micros: String,
-    evidence_id: String,
-    occurred_at: String,
-    mode: &'static str,
+    pub(crate) idempotency_key: String,
+    pub(crate) symbol: String,
+    pub(crate) side: String,
+    pub(crate) quantity: String,
+    pub(crate) price_micros: u64,
+    pub(crate) notional_micros: u64,
+    pub(crate) cash_flow_micros: String,
+    pub(crate) evidence_id: String,
+    pub(crate) occurred_at: String,
+    pub(crate) mode: &'static str,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PaperPositionView {
-    symbol: String,
-    quantity: String,
-    mark_price_micros: Option<u64>,
-    market_value_micros: Option<String>,
-    cash_flow_micros: String,
-    unrealized_pnl_micros: Option<String>,
-    mark_evidence_id: Option<String>,
+    pub(crate) symbol: String,
+    pub(crate) quantity: String,
+    pub(crate) mark_price_micros: Option<u64>,
+    pub(crate) market_value_micros: Option<String>,
+    pub(crate) cash_flow_micros: String,
+    pub(crate) unrealized_pnl_micros: Option<String>,
+    pub(crate) mark_evidence_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PaperOmsView {
-    mode: &'static str,
-    live_execution_available: bool,
-    fills: Vec<PaperFillView>,
-    positions: Vec<PaperPositionView>,
-    quote_provider_count: usize,
-    reconciliation_state: &'static str,
-    recovered_commits: usize,
-    released_orphans: usize,
-    gross_exposure_micros: String,
-    net_market_value_micros: String,
-    total_cash_flow_micros: String,
-    total_unrealized_pnl_micros: Option<String>,
-    largest_position_concentration_ppm: Option<u32>,
-    marked_position_count: usize,
-    unmarked_position_count: usize,
-    message: String,
+    pub(crate) mode: &'static str,
+    pub(crate) live_execution_available: bool,
+    pub(crate) fills: Vec<PaperFillView>,
+    pub(crate) positions: Vec<PaperPositionView>,
+    pub(crate) quote_provider_count: usize,
+    pub(crate) reconciliation_state: &'static str,
+    pub(crate) recovered_commits: usize,
+    pub(crate) released_orphans: usize,
+    pub(crate) gross_exposure_micros: String,
+    pub(crate) net_market_value_micros: String,
+    pub(crate) total_cash_flow_micros: String,
+    pub(crate) total_unrealized_pnl_micros: Option<String>,
+    pub(crate) largest_position_concentration_ppm: Option<u32>,
+    pub(crate) marked_position_count: usize,
+    pub(crate) unmarked_position_count: usize,
+    pub(crate) message: String,
 }
 
 #[derive(Debug)]
