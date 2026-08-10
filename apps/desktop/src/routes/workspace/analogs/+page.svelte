@@ -1,126 +1,134 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
+  import { invoke } from '@tauri-apps/api/core';
+  import { onMount } from 'svelte';
+  import UnavailableExperience from '$lib/UnavailableExperience.svelte';
 
-  type Hit = { id: string; score: number; disclosures: string[] };
-  type Payload = {
-    query: string;
-    hits: Hit[];
-    provider: string;
-    retrievedAt: string;
-  };
+  interface IntelligenceCapability {
+    id: string;
+    engine: string;
+    observationCount: number;
+    status: string;
+  }
 
-  const fallback: Payload = {
-    query: "AAPL earnings gap + vol crush",
-    hits: [
-      {
-        id: "analog-2019-q1",
-        score: 0.91,
-        disclosures: [
-          "Leave-one-out sensitivity: score drops to 0.78 when 2019-Q1 removed",
-          "Mandatory: not a forward-looking guarantee",
-        ],
-      },
-      {
-        id: "analog-2022-oct",
-        score: 0.84,
-        disclosures: [
-          "Filter: excludes pre-split symbology",
-          "Sensitivity: ±2σ move threshold applied",
-        ],
-      },
-      {
-        id: "analog-2016-jan",
-        score: 0.76,
-        disclosures: [
-          "Low sample count in matched window (n=3)",
-          "Disclosure: macro regime mismatch flagged",
-        ],
-      },
-    ],
-    provider: "ui-static-fallback",
-    retrievedAt: "2026-07-25T20:00:00Z",
-  };
+  let capabilities = $state<IntelligenceCapability[]>([]);
+  let loading = $state(true);
+  let error = $state('');
 
-  let data = $state<Payload>(fallback);
-  let provenance = $state("static fallback");
-
-  onMount(async () => {
+  async function load() {
+    loading = true;
+    error = '';
     try {
-      data = await invoke<Payload>("get_analog_hits", {
-        query: "AAPL earnings gap + vol crush",
-      });
-      provenance = "trusted core";
-    } catch {
-      provenance = "browser fallback";
+      capabilities = await invoke<IntelligenceCapability[]>('intelligence_capabilities');
+    } catch (e) {
+      error = String(e);
+    } finally {
+      loading = false;
     }
+  }
+
+  onMount(() => {
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
   });
+
+  // The analog-search capability specifically.
+  const analogCapability = $derived(
+    capabilities.find((c) => c.id.includes('analog') || c.id.includes('pit-query') || c.id.includes('resolution')),
+  );
+  const totalObservations = $derived(capabilities.reduce((sum, c) => sum + c.observationCount, 0));
+  const hasCorpus = $derived(totalObservations > 0);
 </script>
 
-<svelte:head><title>Analogs · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="analogs" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label={provenance} />{/snippet}
-  <div class="canvas">
-    <header>
-      <div>
-        <h1>Analog search</h1>
-        <p>Historical pattern matches with mandatory disclosures and sensitivity notes.</p>
-      </div>
-      <div class="chips">
-        <EvidenceChip status="confirmed" label={data.provider} />
-        <StaleDataMarker eventTime={data.retrievedAt} maxAge={86_400_000} />
-      </div>
-    </header>
+<svelte:head><title>Analog search · PRISMATIK</title></svelte:head>
 
-    <section class="query-panel">
-      <div class="label">Query</div>
-      <p class="query">{data.query}</p>
-      <EvidenceChip status="uncertain" label="P55-EX-01 scaffold" />
-    </section>
-
-    <section class="hits" aria-label="Analog hits">
-      {#each data.hits as hit}
-        <article class="hit">
-          <div class="hit-head">
-            <strong>{hit.id}</strong>
-            <EvidenceChip status="confirmed" label="score {(hit.score * 100).toFixed(0)}%" />
-          </div>
-          <ul class="disclosures">
-            {#each hit.disclosures as d}
-              <li>
-                <EvidenceChip status="contradicted" label="disclosure" />
-                <span>{d}</span>
-              </li>
-            {/each}
-          </ul>
-        </article>
-      {/each}
-    </section>
+<div class="pk-page">
+  <div class="pk-page-head">
+    <h1>Analog search</h1>
+    <p>
+      Historical analog discovery and point-in-time replay require a populated, survivorship-safe
+      observation corpus. The intelligence engine below tracks which capabilities have real
+      observations vs. which are awaiting ingestion.
+    </p>
   </div>
-</WorkspaceShell>
+
+  {#if error}
+    <div class="pk-error">{error}</div>
+  {/if}
+
+  {#if loading}
+    <div class="pk-empty">Loading intelligence capabilities…</div>
+  {:else}
+    <div class="pk-corpus-status" class:populated={hasCorpus} class:empty={!hasCorpus}>
+      <span class="pk-corpus-dot"></span>
+      <span>Observation corpus: <strong>{totalObservations > 0 ? `${totalObservations} records` : 'empty'}</strong></span>
+      <span class="pk-dim" style="margin-left:auto">
+        {hasCorpus ? 'Point-in-time analogs available' : 'Connect providers and ingest history to enable analog search'}
+      </span>
+    </div>
+
+    {#if hasCorpus && analogCapability}
+      <section class="pk-panel">
+        <div class="pk-panel-head"><span>Analog search engine</span></div>
+        <div class="pk-engine-body">
+          <p>The observation corpus has {totalObservations} governed records. Analog search uses point-in-time-safe
+          feature vectors to find the nearest historical matches to the current market state, with leave-N-out
+          sensitivity disclosure.</p>
+          <p class="pk-dim">Full analog query UI requires the embedding index and historical feature store to be
+          populated. The capability is active — run a query from the Strategy or Backtest workspace once a
+          strategy is bound to a universe.</p>
+        </div>
+      </section>
+    {/if}
+
+    <section class="pk-panel">
+      <div class="pk-panel-head"><span>Intelligence capability manifest ({capabilities.length})</span></div>
+      <table class="pk-table">
+        <thead>
+          <tr><th>Capability</th><th>Engine</th><th>Observations</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {#each capabilities as cap (cap.id)}
+            <tr>
+              <td class="pk-mono">{cap.id}</td>
+              <td class="pk-mono pk-dim">{cap.engine}</td>
+              <td class="pk-mono">{cap.observationCount}</td>
+              <td class="pk-mono" style="color: {cap.status === 'observed' ? '#34d399' : '#94a3b8'}">
+                {cap.status === 'observed' ? '● observed' : '○ awaiting'}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </section>
+
+    {#if !hasCorpus}
+      <UnavailableExperience
+        active="analogs"
+        title="Analog search"
+        description="Historical analogs require a populated, point-in-time-safe observation corpus. The capability manifest above shows which engines are active but awaiting observations."
+      />
+    {/if}
+  {/if}
+</div>
 
 <style>
-  .canvas { display: grid; gap: var(--space-lg); }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); }
-  h1 { margin: 0; font-size: var(--font-size-xl); }
-  p { margin: 4px 0 0; color: var(--color-text-secondary); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-secondary); }
-  .query-panel {
-    padding: var(--space-md);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-1);
-    display: grid;
-    gap: var(--space-sm);
-  }
-  .query { margin: 0; font-family: var(--font-mono, monospace); font-size: var(--font-size-sm); color: var(--color-text-primary); }
-  .hits { display: grid; gap: var(--space-md); }
-  .hit { padding: var(--space-md); border-radius: var(--radius-lg); background: var(--color-surface-1); display: grid; gap: var(--space-sm); }
-  .hit-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
-  .disclosures { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-  .disclosures li { display: grid; gap: 4px; padding: 8px; border-radius: var(--radius-md); background: var(--color-surface-2); }
-  .disclosures span { font-size: var(--font-size-sm); color: var(--color-text-primary); }
+  .pk-page { padding: 24px; max-width: 1000px; }
+  .pk-page-head h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 6px; color: var(--p-text); }
+  .pk-page-head p { font-size: 0.8125rem; color: var(--p-text-dim); margin: 0 0 20px; max-width: 65ch; line-height: 1.5; }
+  .pk-error { background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); color: #ff9090; padding: 10px 14px; border-radius: 4px; font-size: 0.8125rem; margin-bottom: 16px; }
+  .pk-empty { padding: 40px; text-align: center; color: var(--p-text-dim); }
+  .pk-corpus-status { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 0.75rem; font-family: var(--p-mono); }
+  .pk-corpus-status.populated { background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); color: #34d399; }
+  .pk-corpus-status.empty { background: rgba(148,163,184,0.06); border: 1px solid var(--p-border); color: var(--p-text-dim); }
+  .pk-corpus-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pk-panel { background: var(--p-surface1); border: 1px solid var(--p-border); border-radius: 8px; margin-bottom: 16px; }
+  .pk-panel-head { padding: 12px 16px; border-bottom: 1px solid var(--p-border); font-family: var(--p-mono); font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--p-text-dim); }
+  .pk-engine-body { padding: 16px; font-size: 0.8125rem; line-height: 1.6; color: var(--p-text-dim); }
+  .pk-engine-body p { margin: 0 0 10px; }
+  .pk-table { width: 100%; border-collapse: collapse; }
+  .pk-table th { text-align: left; padding: 10px 16px; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--p-text-dim); border-bottom: 1px solid var(--p-border); }
+  .pk-table td { padding: 8px 16px; font-size: 0.8125rem; border-bottom: 1px solid var(--p-border); }
+  .pk-mono { font-family: var(--p-mono); }
+  .pk-dim { color: var(--p-text-dim); }
 </style>

@@ -27,13 +27,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-
 # Wave 1: cassette-backed CoinGecko via Layer 2 (path deps into root workspace).
 prismatik-market-data = { path = "../../../crates/prismatik-market-data" }
+prismatik-application = { path = "../../../crates/prismatik-application" }
 prismatik-determinism = { path = "../../../crates/prismatik-determinism" }
 prismatik-domain = { path = "../../../crates/prismatik-domain" }
 prismatik-identity = { path = "../../../crates/prismatik-identity" }
 prismatik-strategy = { path = "../../../crates/prismatik-strategy" }
+prismatik-indicator-core = { path = "../../../crates/prismatik-indicator-core" }
 prismatik-simulation = { path = "../../../crates/prismatik-simulation" }
 prismatik-calibration = { path = "../../../crates/prismatik-calibration" }
 prismatik-backtest = { path = "../../../crates/prismatik-backtest" }
@@ -47,7 +48,11 @@ prismatik-tsfm = { path = "../../../crates/prismatik-tsfm" }
 prismatik-plugin-host = { path = "../../../crates/prismatik-plugin-host" }
 prismatik-manifest = { path = "../../../crates/prismatik-manifest" }
 prismatik-events = { path = "../../../crates/prismatik-events" }
+prismatik-crypto = { path = "../../../crates/prismatik-crypto" }
+prismatik-renderer = { path = "../../../crates/prismatik-renderer" }
+prismatik-storage = { path = "../../../crates/prismatik-storage" }
 prismatik-security = { path = "../../../crates/prismatik-security" }
+polars = "0.24.0"
 
 # Keep this application independent of the root Rust workspace until it needs
 # shared Rust crates. This avoids coupling desktop-toolchain dependencies to CI.

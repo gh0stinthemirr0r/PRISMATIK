@@ -2,12 +2,13 @@ use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
 
-mod audit_timeline;
 mod agent_council;
+mod audit_timeline;
 mod autonomous_research;
 mod autonomy;
 mod backtest_runner;
 mod briefings;
+mod chart_indicators;
 mod dex_scanner;
 mod evidence_store;
 mod feed_control;
@@ -115,6 +116,7 @@ pub fn run() {
             agent_council::run_agent_council,
             briefings::get_briefing,
             dex_scanner::scan_dex_arbitrage,
+            chart_indicators::compute_chart_indicators,
         ])
         .setup(|app| {
             APP_HANDLE

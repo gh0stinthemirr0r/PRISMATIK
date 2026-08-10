@@ -39,17 +39,7 @@ pub enum DexVenue {
     Phoenix,
 }
 
-impl DexVenue {
-    fn label(self) -> &'static str {
-        match self {
-            DexVenue::Jupiter => "Jupiter",
-            DexVenue::Raydium => "Raydium",
-            DexVenue::Orca => "Orca",
-            DexVenue::Meteora => "Meteora",
-            DexVenue::Phoenix => "Phoenix",
-        }
-    }
-}
+impl DexVenue {}
 
 /// A price quote from a single DEX venue.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -105,12 +95,10 @@ fn estimated_round_trip_fee_usd(sol_price_usd: f64) -> f64 {
     let base_fee_sol = 0.00001;
     // Priority fee: conservative 0.0001 SOL for competitive inclusion
     let priority_fee_sol = 0.0001;
-    // Network fee subtotal in USD
-    let network_fee_usd = (base_fee_sol + priority_fee_sol) * sol_price_usd;
-    // DEX swap fees: ~0.3% per swap × 2 swaps = 0.6% (on a $1000 trade = $6)
-    // We return the network component; swap fees are computed per-trade-size
-    // in the feasibility check.
-    network_fee_usd
+    // Network fee subtotal in USD. DEX swap fees (~0.3% per swap × 2 = 0.6%)
+    // are computed per-trade-size in the feasibility check; we return the
+    // network component here.
+    (base_fee_sol + priority_fee_sol) * sol_price_usd
 }
 
 /// Detect arbitrage opportunities from a set of cross-venue quotes for the
@@ -171,16 +159,12 @@ pub fn detect_opportunities(
         let sell_liq = priciest.liquidity_usd.unwrap_or(0.0);
         if buy_liq > 0.0 && buy_liq < reference_trade_size_usd {
             notes.push(format!(
-                "Buy venue liquidity (${:.0}) is below the reference trade size (${:.0}) — slippage would erode the edge.",
-                buy_liq,
-                reference_trade_size_usd
+                "Buy venue liquidity (${buy_liq:.0}) is below the reference trade size (${reference_trade_size_usd:.0}) — slippage would erode the edge."
             ));
         }
         if sell_liq > 0.0 && sell_liq < reference_trade_size_usd {
             notes.push(format!(
-                "Sell venue liquidity (${:.0}) is below the reference trade size (${:.0}).",
-                sell_liq,
-                reference_trade_size_usd
+                "Sell venue liquidity (${sell_liq:.0}) is below the reference trade size (${reference_trade_size_usd:.0})."
             ));
         }
         notes.push(
