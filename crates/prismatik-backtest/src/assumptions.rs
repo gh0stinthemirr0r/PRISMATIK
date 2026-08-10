@@ -40,7 +40,20 @@ pub struct ExecutionAssumptions {
     /// Fill model.
     pub fill_model: FillModel,
     /// Slippage model.
-    pub slippage_model: SlippageModel,
-    /// Commission model.
-    pub commission_model: CommissionModel,
+    pub slippage_bps: u32,
+    /// Commission per share in currency micros.
+    pub commission_per_share_micros: u64,
+    /// Whether options assignment simulation is enabled.
+    pub assignment_enabled: bool,
+}
+
+impl Default for ExecutionAssumptions {
+    fn default() -> Self {
+        Self {
+            fill_model: FillModel::NextOpen,
+            slippage_bps: 0,
+            commission_per_share_micros: 0,
+            assignment_enabled: false,
+        }
+    }
 }

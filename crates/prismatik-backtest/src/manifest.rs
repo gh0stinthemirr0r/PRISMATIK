@@ -87,7 +87,7 @@ impl BacktestManifestBuilder {
     }
 
     /// Produce a signed manifest (Ed25519-only transitional).
-    pub fn build_signed(&self) -> Result<ManifestV1, serde_json::Error> {
+    pub fn build_signed(&self) -> Result<ManifestV1, String> {
         let key = signing_key_from_seed(BACKTEST_TEST_SIGNING_SEED);
         let identity = SigningIdentity {
             kind: SigningIdentityKind::Ci,
@@ -148,17 +148,17 @@ impl BacktestManifestBuilder {
         manifest.lineage.strategy_ir_hash = Some(strategy_ir_hash);
         manifest.extensions.insert(
             "io.prismatik.backtest".into(),
-            serde_json::to_value(self.extension())?,
+            serde_json::to_value(self.extension()).map_err(|error| error.to_string())?,
         );
 
-        sign_manifest_ed25519(&mut manifest, &key, identity)?;
+        sign_manifest_ed25519(&mut manifest, &key, identity).map_err(|error| error.to_string())?;
         Ok(manifest)
     }
 
     /// Produce pretty-printed signed manifest JSON.
-    pub fn build_signed_json(&self) -> Result<String, serde_json::Error> {
+    pub fn build_signed_json(&self) -> Result<String, String> {
         let manifest = self.build_signed()?;
-        serde_json::to_string_pretty(&manifest)
+        serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())
     }
 }
 
