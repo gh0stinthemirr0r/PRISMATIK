@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 use tauri::{AppHandle, Manager};
 
 mod audit_timeline;
+mod agent_council;
 mod autonomous_research;
 mod autonomy;
 mod backtest_runner;
@@ -109,6 +110,7 @@ pub fn run() {
             risk_runtime::size_position_by_risk,
             backtest_runner::run_backtest,
             backtest_runner::list_seed_strategies,
+            agent_council::run_agent_council,
         ])
         .setup(|app| {
             APP_HANDLE
