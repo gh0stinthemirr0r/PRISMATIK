@@ -6,6 +6,7 @@ mod agent_council;
 mod audit_timeline;
 mod autonomous_research;
 mod autonomy;
+mod autonomous_trader;
 mod backtest_runner;
 mod briefings;
 mod chart_indicators;
@@ -117,6 +118,11 @@ pub fn run() {
             briefings::get_briefing,
             dex_scanner::scan_dex_arbitrage,
             chart_indicators::compute_chart_indicators,
+            autonomous_trader::get_autonomous_trader,
+            autonomous_trader::configure_autonomous_trader,
+            autonomous_trader::run_trader_loop,
+            autonomous_trader::rearm_trader_ladder,
+            autonomous_trader::de_escalate_trader_ladder,
         ])
         .setup(|app| {
             APP_HANDLE
@@ -137,6 +143,7 @@ pub fn run() {
             autonomous_research::initialize(&data_dir)?;
             strategy_authoring::initialize(&data_dir)?;
             risk_runtime::initialize(&data_dir)?;
+            autonomous_trader::initialize(&data_dir)?;
             feed_runtime::start_scheduler();
             Ok(())
         })

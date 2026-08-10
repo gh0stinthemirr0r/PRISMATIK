@@ -18,10 +18,10 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PaperOrderDraft {
-    symbol: String,
-    side: String,
-    quantity: String,
-    idempotency_key: String,
+    pub(crate) symbol: String,
+    pub(crate) side: String,
+    pub(crate) quantity: String,
+    pub(crate) idempotency_key: String,
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { Activity, BrainCircuit, Boxes, CandlestickChart, ChartNoAxesCombined, FlaskConical, Gauge, History, Landmark, Library, Network, Orbit, PlugZap, Puzzle, ScrollText, Settings2, ShieldCheck, TestTube2, Waypoints, Scale, Rss, Bot, Newspaper } from 'lucide-svelte';
+  import { Activity, BrainCircuit, Boxes, CandlestickChart, ChartNoAxesCombined, FlaskConical, Gauge, History, Landmark, Library, Network, Orbit, PlugZap, Puzzle, ScrollText, Settings2, ShieldCheck, TestTube2, Waypoints, Scale, Rss, Bot, Newspaper, Cpu } from 'lucide-svelte';
   import { aesthetics } from './aesthetics.svelte';
   import { page } from '$app/state';
 
   const modules = [
     { label: 'Markets', detail: 'Multi-asset pulse', href: '/workspace', icon: ChartNoAxesCombined },
     { label: 'Equities', detail: 'Security graph', href: '/workspace/equity', icon: CandlestickChart },
+    { label: 'Trader', detail: 'Autonomous engine', href: '/workspace/trader', icon: Cpu },
     { label: 'Agent', detail: 'Council debate', href: '/workspace/agent', icon: Bot },
     { label: 'Briefings', detail: 'Daily digest', href: '/workspace/briefings', icon: Newspaper },
     { label: 'Intelligence', detail: 'Evidence fabric', href: '/workspace/intelligence', icon: BrainCircuit },
