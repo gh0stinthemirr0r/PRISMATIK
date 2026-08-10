@@ -2,11 +2,23 @@ use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
 
-mod equity_fixtures;
-mod market;
-mod research_fixtures;
-mod state;
-mod watchlist;
+mod audit_timeline;
+mod autonomous_research;
+mod autonomy;
+mod backtest_runner;
+mod evidence_store;
+mod feed_control;
+mod feed_runtime;
+mod forecast_candidates;
+mod institutional_data;
+mod integrations;
+mod intelligence;
+mod model_integrations;
+mod paper_oms;
+mod provider_policy;
+mod risk_runtime;
+mod strategy_authoring;
+mod terminal_feed;
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
@@ -28,20 +40,22 @@ fn install_panic_hook() {
         default_hook(panic_info);
 
         if let Some(app) = APP_HANDLE.get() {
-            // Best-effort graceful exit after a panic (crash recovery path).
             app.exit(1);
         }
     }));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "Tauri's generated context owns its internal map type"
+)]
 pub fn run() {
+    // WebKit inherits the POSIX `C` locale on some Linux desktops. `C` is not
+    // a valid BCP-47 language tag and crashes Intl consumers such as charts.
+    std::env::set_var("LANG", "en_US.UTF-8");
+    std::env::set_var("LC_ALL", "en_US.UTF-8");
     install_panic_hook();
-
-    // P0-EX-02: tauri-specta export is scaffolded under packages/api-client.
-    // Specta 2.0.0-rc.25 currently requires unstable `debug_closure_helpers`
-    // (beyond MSRV 1.88). Re-enable export when Specta stabilizes or MSRV
-    // bumps — see ADR-0031 / packages/api-client/README.md.
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -51,57 +65,71 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        // Persists and restores the main window's geometry between launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .manage(state::MarketRuntime::new())
         .invoke_handler(tauri::generate_handler![
             ping,
             app_version,
-            market::get_crypto_markets,
-            market::get_crypto_global,
-            market::get_crypto_trending,
-            market::get_crypto_ohlc,
-            market::get_coin_detail,
-            market::get_crypto_categories,
-            market::get_crypto_exchanges,
-            market::search_crypto,
-            state::get_rate_budget_state,
-            state::spend_rate_budget,
-            watchlist::get_watchlist,
-            watchlist::save_watchlist,
-            watchlist::get_scanner_filters,
-            watchlist::save_scanner_filters,
-            watchlist::list_alert_rules,
-            watchlist::upsert_alert_rule,
-            watchlist::get_data_mode,
-            equity_fixtures::get_equity_bars,
-            equity_fixtures::get_filing_summaries,
-            equity_fixtures::get_insider_transactions,
-            equity_fixtures::get_macro_series,
-            equity_fixtures::get_cot_report,
-            equity_fixtures::get_options_chain,
-            equity_fixtures::get_options_flow,
-            equity_fixtures::get_dealer_exposure,
-            equity_fixtures::get_catalyst_calendar,
-            equity_fixtures::get_next_session,
-            research_fixtures::get_backtest_summary,
-            research_fixtures::get_portfolio_snapshot,
-            research_fixtures::get_marketplace_listings,
-            research_fixtures::get_strategy_ir_preview,
-            research_fixtures::get_monte_carlo_paths,
-            research_fixtures::preview_order_ticket,
-            research_fixtures::get_calibration_ribbon,
-            research_fixtures::get_model_card,
-            research_fixtures::get_analog_hits,
-            research_fixtures::get_journal_entries,
-            research_fixtures::get_plugin_host_status,
-            research_fixtures::preview_plugin_install,
-            research_fixtures::get_workspace_auth_floor,
+            audit_timeline::get_audit_timeline,
+            integrations::test_integration,
+            integrations::integration_runtime_status,
+            integrations::disconnect_integration,
+            intelligence::intelligence_capabilities,
+            institutional_data::get_macro_series,
+            institutional_data::get_filing_summaries,
+            terminal_feed::get_terminal_feed,
+            autonomy::get_autonomy_budget,
+            autonomy::configure_autonomy_budget,
+            model_integrations::test_model_provider,
+            model_integrations::model_runtime_status,
+            model_integrations::disconnect_model_provider,
+            model_integrations::run_market_research,
+            autonomous_research::get_autonomous_research,
+            autonomous_research::configure_autonomous_research,
+            feed_control::list_feed_sources,
+            feed_control::upsert_feed_source,
+            feed_control::import_feed_sources,
+            feed_control::test_feed_source,
+            feed_runtime::feed_runtime_status,
+            feed_runtime::run_feed_scheduler_once,
+            forecast_candidates::list_forecast_candidates,
+            forecast_candidates::generate_forecast_candidate,
+            forecast_candidates::resolve_due_forecast_candidates,
+            forecast_candidates::forecast_calibration_health,
+            paper_oms::get_paper_oms,
+            paper_oms::submit_paper_order,
+            provider_policy::list_provider_policies,
+            provider_policy::upsert_provider_policy,
+            strategy_authoring::get_strategy_authoring_contract,
+            strategy_authoring::validate_strategy,
+            strategy_authoring::list_strategy_drafts,
+            strategy_authoring::save_strategy,
+            risk_runtime::get_risk_state,
+            risk_runtime::configure_risk_budget,
+            risk_runtime::rearm_circuit_breaker,
+            risk_runtime::size_position_by_risk,
+            backtest_runner::run_backtest,
+            backtest_runner::list_seed_strategies,
         ])
         .setup(|app| {
             APP_HANDLE
                 .set(app.handle().clone())
                 .map_err(|_| "application handle was initialized twice")?;
+            let data_dir = app
+                .path()
+                .app_local_data_dir()
+                .map_err(|error| format!("resolve app data directory: {error}"))?;
+            intelligence::initialize(&data_dir)?;
+            feed_control::initialize(&data_dir)?;
+            feed_runtime::initialize(&data_dir)?;
+            forecast_candidates::initialize(&data_dir)?;
+            autonomy::initialize(&data_dir)?;
+            paper_oms::initialize(&data_dir)?;
+            provider_policy::initialize(&data_dir)?;
+            evidence_store::initialize(&data_dir)?;
+            autonomous_research::initialize(&data_dir)?;
+            strategy_authoring::initialize(&data_dir)?;
+            risk_runtime::initialize(&data_dir)?;
+            feed_runtime::start_scheduler();
             Ok(())
         })
         .run(tauri::generate_context!())

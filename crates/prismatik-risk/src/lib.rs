@@ -13,6 +13,13 @@ pub use catalog::PreTradeCatalog;
 pub use checks::{CheckContext, CheckId, CheckResult, PreTradeCheck, Severity};
 pub use policy::{DefaultRiskPolicy, RiskError, RiskPolicy};
 
+/// Position sizing and drawdown circuit breaker (directive #8).
+pub mod budget;
+pub use budget::{
+    evaluate_trade, size_by_risk, CircuitBreaker, CircuitBreakerState, PositionSize, RiskBudget,
+    DEFAULT_DRAWDOWN_HALT_PCT, DEFAULT_MAX_RISK_PER_TRADE_PCT,
+};
+
 /// Risk-approval contracts.
 pub mod approved {
     use crate::checks::CheckContext;

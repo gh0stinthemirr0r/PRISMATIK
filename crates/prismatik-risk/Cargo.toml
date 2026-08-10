@@ -10,3 +10,4 @@ description = "PRISMATIK prismatik-risk crate."
 [dependencies]
 prismatik-domain.workspace = true
 prismatik-portfolio.workspace = true
+serde.workspace = true
