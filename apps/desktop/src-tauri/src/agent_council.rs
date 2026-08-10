@@ -215,6 +215,12 @@ async fn invoke_llm(
             ModelSession::Google { api_key } => {
                 (ModelProvider::Google, Some(api_key.clone()), None)
             }
+            ModelSession::OpenAiCompatible { base_url, api_key } => {
+                // xAI/DeepSeek/Groq/Cohere/OpenRouter/Together/Fireworks all
+                // speak the OpenAI-compatible protocol. Route through the
+                // local-compatible adapter with the cloud base URL.
+                (ModelProvider::LocalCompatible, Some(api_key.clone()), Some(base_url.clone()))
+            }
             ModelSession::Local { endpoint, api_key } => {
                 (ModelProvider::LocalCompatible, api_key.clone(), Some(endpoint.clone()))
             }
@@ -254,10 +260,22 @@ pub(crate) async fn run_agent_council(
         return Err("model is required".into());
     }
     // Use whichever provider has an active session. Try them in priority order.
-    let active_session = ["openai", "anthropic", "google", "local"]
-        .into_iter()
-        .find_map(|p| session(p).map(|s| (p, s)))
-        .ok_or_else(|| "no active model provider session — connect a provider first".to_string())?;
+    let active_session = [
+        "openai",
+        "anthropic",
+        "google",
+        "xai",
+        "deepseek",
+        "groq",
+        "cohere",
+        "openrouter",
+        "together",
+        "fireworks",
+        "local",
+    ]
+    .into_iter()
+    .find_map(|p| session(p).map(|s| (p, s)))
+    .ok_or_else(|| "no active model provider session — connect a provider first".to_string())?;
     let max_tokens = req.max_output_tokens.unwrap_or(500).clamp(100, 2000);
 
     // Gather real governed evidence.

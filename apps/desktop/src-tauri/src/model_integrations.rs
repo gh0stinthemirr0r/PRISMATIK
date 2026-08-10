@@ -27,11 +27,31 @@ pub(crate) enum ModelSession {
     Google {
         api_key: String,
     },
+    /// OpenAI-compatible cloud providers (xAI Grok, DeepSeek, Groq, Cohere,
+    /// Together, Fireworks, OpenRouter). They all expose the
+    /// /v1/chat/completions surface; only the base URL differs.
+    OpenAiCompatible {
+        base_url: String,
+        api_key: String,
+    },
     Local {
         endpoint: String,
         api_key: Option<String>,
     },
 }
+
+/// Known OpenAI-compatible cloud providers and their documented base URLs.
+/// These all use `Authorization: Bearer <key>` and the standard chat
+/// completions schema — the only difference is the host.
+const OPENAI_COMPATIBLE_PROVIDERS: &[(&str, &str)] = &[
+    ("xai", "https://api.x.ai/v1/"),
+    ("deepseek", "https://api.deepseek.com/v1/"),
+    ("groq", "https://api.groq.com/openai/v1/"),
+    ("cohere", "https://api.cohere.ai/v1/"),
+    ("openrouter", "https://openrouter.ai/api/v1/"),
+    ("together", "https://api.together.xyz/v1/"),
+    ("fireworks", "https://api.fireworks.ai/inference/v1/"),
+];
 
 pub(crate) fn session(provider: &str) -> Option<ModelSession> {
     SESSIONS.read().ok()?.get(provider).cloned()
@@ -125,7 +145,21 @@ pub(crate) async fn test_model_provider(
             let count = get_models(&format!("{endpoint}/"), "v1/models", headers, BTreeMap::new()).await?;
             (ModelSession::Local { endpoint, api_key }, count)
         }
-        _ => return Err("This provider requires a native credential/workload-identity adapter before activation.".into()),
+        // OpenAI-compatible cloud providers: xAI, DeepSeek, Groq, Cohere,
+        // OpenRouter, Together, Fireworks. All use Bearer auth + the
+        // standard /v1/models catalog.
+        provider_id if OPENAI_COMPATIBLE_PROVIDERS.iter().any(|(id, _)| *id == provider_id) => {
+            let api_key = required(&credentials, "apiKey")?;
+            let base_url = OPENAI_COMPATIBLE_PROVIDERS
+                .iter()
+                .find(|(id, _)| *id == provider_id)
+                .map(|(_, url)| *url)
+                .unwrap_or("");
+            let headers = BTreeMap::from([("authorization".into(), format!("Bearer {api_key}"))]);
+            let count = get_models(base_url, "models", headers, BTreeMap::new()).await?;
+            (ModelSession::OpenAiCompatible { base_url: base_url.to_string(), api_key }, count)
+        }
+        _ => return Err("This provider requires a native credential/workload-identity adapter before activation. Supported: openai, anthropic, google, local, xai, deepseek, groq, cohere, openrouter, together, fireworks.".into()),
     };
     SESSIONS
         .write()
@@ -144,7 +178,20 @@ pub(crate) async fn test_model_provider(
 #[tauri::command]
 pub(crate) fn model_runtime_status() -> Vec<ModelRuntimeStatus> {
     let sessions = SESSIONS.read().ok();
-    ["openai", "anthropic", "google", "local"]
+    let providers = [
+        "openai",
+        "anthropic",
+        "google",
+        "local",
+        "xai",
+        "deepseek",
+        "groq",
+        "cohere",
+        "openrouter",
+        "together",
+        "fireworks",
+    ];
+    providers
         .into_iter()
         .map(|provider| ModelRuntimeStatus {
             provider_id: provider.into(),
@@ -274,6 +321,9 @@ pub(crate) async fn run_market_research(
         ModelSession::OpenAi { api_key } => (ModelProvider::OpenAi, Some(api_key), None),
         ModelSession::Anthropic { api_key } => (ModelProvider::Anthropic, Some(api_key), None),
         ModelSession::Google { api_key } => (ModelProvider::Google, Some(api_key), None),
+        ModelSession::OpenAiCompatible { base_url, api_key } => {
+            (ModelProvider::LocalCompatible, Some(api_key), Some(base_url))
+        },
         ModelSession::Local { endpoint, api_key } => {
             (ModelProvider::LocalCompatible, api_key, Some(endpoint))
         },
