@@ -35,6 +35,12 @@ pub use thesis::{
 pub mod constitution;
 pub use constitution::{KillSwitchScope, OperationalMode, TradeAction, TradingConstitution};
 
+/// Signal Time-to-Live envelope (Fabric §9).
+pub mod signal_ttl;
+pub use signal_ttl::{
+    earnings_ttl, intraday_ttl, macro_ttl, microstructure_ttl, ttl_with_lifetime, SignalTtl,
+};
+
 /// Risk-approval contracts.
 pub mod approved {
     use crate::checks::CheckContext;
