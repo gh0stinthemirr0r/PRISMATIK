@@ -22,6 +22,13 @@
     suggested_target: number | null;
     risk_approved: boolean;
     risk_caveats: string[];
+    net_confidence: number;
+    alpha_strength: number;
+    regime_compatibility: number;
+    data_reliability: number;
+    cost_feasibility: number;
+    portfolio_compatibility: number;
+    risk_acceptability: number;
     agents_consulted: number;
   }
 
@@ -158,6 +165,20 @@
             Risk: {result.recommendation.risk_approved ? 'APPROVED' : 'FLAGGED'}
           </span>
         </div>
+        <div class="pk-net-confidence">
+          <span class="pk-nc-label">Net Trade Confidence</span>
+          <span class="pk-nc-value" style="color: {result.recommendation.net_confidence > 0.1 ? '#34d399' : result.recommendation.net_confidence > 0.03 ? '#fbbf24' : '#f87171'}">
+            {(result.recommendation.net_confidence * 100).toFixed(2)}%
+          </span>
+          <div class="pk-nc-breakdown">
+            <span title="Alpha strength">α {(result.recommendation.alpha_strength * 100).toFixed(0)}</span>
+            <span>× regime {(result.recommendation.regime_compatibility * 100).toFixed(0)}</span>
+            <span>× data {(result.recommendation.data_reliability * 100).toFixed(0)}</span>
+            <span>× cost {(result.recommendation.cost_feasibility * 100).toFixed(0)}</span>
+            <span>× portfolio {(result.recommendation.portfolio_compatibility * 100).toFixed(0)}</span>
+            <span>× risk {(result.recommendation.risk_acceptability * 100).toFixed(0)}</span>
+          </div>
+        </div>
         {#if result.recommendation.risk_caveats.length > 0}
           <ul class="pk-caveats">
             {#each result.recommendation.risk_caveats as caveat}<li>{caveat}</li>{/each}
@@ -226,6 +247,10 @@
   .pk-caveats { margin: 0 0 12px; padding-left: 16px; font-size: 0.75rem; color: #fbbf24; }
   .pk-exec-note { font-size: 0.75rem; color: var(--p-text-dim); padding: 10px; background: rgba(250, 200, 80, 0.06); border-radius: 4px; margin: 0; }
   .pk-exec-note a { color: var(--p-accent); }
+  .pk-net-confidence { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid var(--p-border); margin-top: 10px; flex-wrap: wrap; }
+  .pk-nc-label { font-family: var(--p-mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--p-text-dim); }
+  .pk-nc-value { font-family: var(--p-mono); font-size: 1.25rem; font-weight: 700; }
+  .pk-nc-breakdown { display: flex; gap: 6px; font-family: var(--p-mono); font-size: 0.625rem; color: var(--p-text-dim); width: 100%; flex-wrap: wrap; }
   .pk-debate { padding: 8px; }
   .pk-turn { padding: 14px 16px; border-radius: 6px; margin-bottom: 8px; background: var(--p-surface2); border-left: 2px solid var(--p-border); }
   .pk-turn.bull { border-left-color: rgba(52, 211, 153, 0.5); }

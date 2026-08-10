@@ -79,6 +79,17 @@ pub struct AgentRecommendation {
     pub risk_approved: bool,
     /// Risk manager's caveats.
     pub risk_caveats: Vec<String>,
+    /// Net Trade Confidence — the multiplicative product of all critic
+    /// scores (§13). Lower than any individual score; one weak critic drags
+    /// the whole trade down.
+    pub net_confidence: f64,
+    /// Individual critic scores (0..1) for transparency.
+    pub alpha_strength: f64,
+    pub regime_compatibility: f64,
+    pub data_reliability: f64,
+    pub cost_feasibility: f64,
+    pub portfolio_compatibility: f64,
+    pub risk_acceptability: f64,
     /// Configurations-searched disclosure (honesty: how many agents ran).
     pub agents_consulted: usize,
 }
@@ -117,6 +128,10 @@ const ROLE_FUNDAMENTAL: &str = "fundamental_analyst";
 const ROLE_BULL: &str = "bull_researcher";
 const ROLE_BEAR: &str = "bear_researcher";
 const ROLE_RISK: &str = "risk_manager";
+const ROLE_REGIME: &str = "regime_critic";
+const ROLE_DATA: &str = "data_critic";
+const ROLE_COST: &str = "cost_critic";
+const ROLE_PORTFOLIO: &str = "portfolio_critic";
 const ROLE_PM: &str = "portfolio_manager";
 
 fn system_prompt(role: &str, subject: &str) -> String {
@@ -133,7 +148,11 @@ fn system_prompt(role: &str, subject: &str) -> String {
         ROLE_BULL => format!("{base} Your ONLY job is to build the strongest possible long case. Be persuasive but evidence-based."),
         ROLE_BEAR => format!("{base} Your ONLY job is to build the strongest possible short case and falsify the bull thesis. Default to skeptical. This is adversarial falsification — find the weakness."),
         ROLE_RISK => format!("{base} Evaluate position sizing, drawdown risk, and whether a trade here respects a 1%-of-equity risk budget with a defined stop. Flag circuit-breaker concerns."),
-        ROLE_PM => format!("{base} Synthesize the analysts' and researchers' debate into ONE decision. Weigh the bull vs bear cases. Produce a final stance, conviction, entry/stop/target if actionable, and a one-paragraph rationale."),
+        ROLE_REGIME => format!("{base} You are the REGIME CRITIC. Does this strategy belong in the present market regime? If the regime is wrong for this trade type, say so plainly. A momentum trade in a ranging market is a different proposition than in a trending one."),
+        ROLE_DATA => format!("{base} You are the DATA CRITIC. Can the input data be trusted? Are there gaps, staleness, provider disagreement, or survivorship concerns? If the evidence is thin or unreliable, the conclusion must be weakened regardless of how attractive it looks."),
+        ROLE_COST => format!("{base} You are the COST CRITIC. Will transaction costs (spread, slippage, fees, funding, market impact) consume the expected edge? If the edge does not survive realistic costs, the trade should be abstained from."),
+        ROLE_PORTFOLIO => format!("{base} You are the PORTFOLIO CRITIC. Is this simply another correlated bet already present elsewhere in the portfolio? Adding a NVDA long when you already hold QQQ long and AAPL long is not three independent bets — it is one large tech exposure."),
+        ROLE_PM => format!("{base} Synthesize the analysts' and researchers' debate into ONE decision. Weigh the bull vs bear cases AND the critic assessments. Produce a final stance, conviction, entry/stop/target if actionable, and a one-paragraph rationale."),
         _ => base,
     }
 }
@@ -208,22 +227,28 @@ async fn invoke_llm(
         match session {
             ModelSession::OpenAi { api_key } => {
                 (ModelProvider::OpenAi, Some(api_key.clone()), None)
-            }
+            },
             ModelSession::Anthropic { api_key } => {
                 (ModelProvider::Anthropic, Some(api_key.clone()), None)
-            }
+            },
             ModelSession::Google { api_key } => {
                 (ModelProvider::Google, Some(api_key.clone()), None)
-            }
+            },
             ModelSession::OpenAiCompatible { base_url, api_key } => {
                 // xAI/DeepSeek/Groq/Cohere/OpenRouter/Together/Fireworks all
                 // speak the OpenAI-compatible protocol. Route through the
                 // local-compatible adapter with the cloud base URL.
-                (ModelProvider::LocalCompatible, Some(api_key.clone()), Some(base_url.clone()))
-            }
-            ModelSession::Local { endpoint, api_key } => {
-                (ModelProvider::LocalCompatible, api_key.clone(), Some(endpoint.clone()))
-            }
+                (
+                    ModelProvider::LocalCompatible,
+                    Some(api_key.clone()),
+                    Some(base_url.clone()),
+                )
+            },
+            ModelSession::Local { endpoint, api_key } => (
+                ModelProvider::LocalCompatible,
+                api_key.clone(),
+                Some(endpoint.clone()),
+            ),
         };
     let provider_label = format!("{provider:?}").to_ascii_lowercase();
     let request = ModelHttpRequest {
@@ -250,9 +275,7 @@ async fn invoke_llm(
 /// surface — it produces a structured, evidence-cited recommendation but
 /// NEVER auto-executes. The operator decides; the risk gate enforces.
 #[tauri::command]
-pub(crate) async fn run_agent_council(
-    req: CouncilRequest,
-) -> Result<AgentCouncilResult, String> {
+pub(crate) async fn run_agent_council(req: CouncilRequest) -> Result<AgentCouncilResult, String> {
     if req.subject.trim().is_empty() || req.question.trim().is_empty() {
         return Err("subject and question are required".into());
     }
@@ -290,7 +313,10 @@ pub(crate) async fn run_agent_council(
     let evidence_block = if relevant_quotes.is_empty() && durable_evidence.is_empty() {
         return Err("no real governed evidence available for this subject; the agent council refuses to reason without evidence".into());
     } else if relevant_quotes.is_empty() {
-        format!("Durable observations (macro/filings):\n{}", durable_evidence_summary(&durable_evidence))
+        format!(
+            "Durable observations (macro/filings):\n{}",
+            durable_evidence_summary(&durable_evidence)
+        )
     } else {
         let mut block = String::new();
         for q in relevant_quotes.iter().take(10) {
@@ -300,7 +326,10 @@ pub(crate) async fn run_agent_council(
             ));
         }
         if !durable_evidence.is_empty() {
-            block.push_str(&format!("\n{}", durable_evidence_summary(&durable_evidence)));
+            block.push_str(&format!(
+                "\n{}",
+                durable_evidence_summary(&durable_evidence)
+            ));
         }
         block
     };
@@ -390,15 +419,114 @@ pub(crate) async fn run_agent_council(
         max_tokens,
     })
     .await?;
-    let risk_approved = risk.stance != Stance::Short || risk.conviction < 0.7;
-    let risk_caveats: Vec<String> = if risk_approved {
-        vec![]
-    } else {
-        vec!["Risk manager flagged elevated downside risk.".into()]
-    };
 
-    // Phase 4: PM synthesizes.
-    let full_debate = format!("{debate_summary}\n\nRISK MANAGER: {}", risk.analysis);
+    // Phase 3b: adversarial critics (§13) — Regime, Data, Cost, Portfolio.
+    // Each sees the full bull/bear debate and challenges a specific dimension.
+    // They run in parallel since they're independent critiques.
+    let debate_with_risk = format!("{debate_summary}\n\nRISK MANAGER: {}", risk.analysis);
+    let (regime, data, cost, portfolio) = tokio::join!(
+        run_agent_turn(AgentTurnArgs {
+            session: &session,
+            model: &req.model,
+            role: ROLE_REGIME,
+            label: "Regime Critic",
+            subject,
+            question,
+            evidence_block: &evidence_block,
+            prior_debate: &debate_with_risk,
+            max_tokens,
+        }),
+        run_agent_turn(AgentTurnArgs {
+            session: &session,
+            model: &req.model,
+            role: ROLE_DATA,
+            label: "Data Critic",
+            subject,
+            question,
+            evidence_block: &evidence_block,
+            prior_debate: &debate_with_risk,
+            max_tokens,
+        }),
+        run_agent_turn(AgentTurnArgs {
+            session: &session,
+            model: &req.model,
+            role: ROLE_COST,
+            label: "Cost Critic",
+            subject,
+            question,
+            evidence_block: &evidence_block,
+            prior_debate: &debate_with_risk,
+            max_tokens,
+        }),
+        run_agent_turn(AgentTurnArgs {
+            session: &session,
+            model: &req.model,
+            role: ROLE_PORTFOLIO,
+            label: "Portfolio Critic",
+            subject,
+            question,
+            evidence_block: &evidence_block,
+            prior_debate: &debate_with_risk,
+            max_tokens,
+        }),
+    );
+    let regime = regime?;
+    let data = data?;
+    let cost = cost?;
+    let portfolio = portfolio?;
+
+    // Compute Net Trade Confidence using the canon's multiplicative formula
+    // (§13): Alpha × Regime × Data × Cost × Portfolio × Risk. Each critic's
+    // conviction (0..1) multiplies into the net. This is more honest than
+    // averaging — a single low score drags the whole thing down, which is
+    // the correct behavior (one fatal flaw kills the trade).
+    let alpha_strength = bull.conviction.max(bear.conviction);
+    let regime_compat = regime.conviction;
+    let data_reliability = data.conviction;
+    let cost_feasibility = cost.conviction;
+    let portfolio_compat = portfolio.conviction;
+    let risk_acceptability = risk.conviction;
+    let net_confidence = alpha_strength
+        * regime_compat
+        * data_reliability
+        * cost_feasibility
+        * portfolio_compat
+        * risk_acceptability;
+
+    // Collect caveats from any critic with low conviction.
+    let mut risk_caveats = Vec::new();
+    if regime_compat < 0.5 {
+        risk_caveats.push(format!(
+            "Regime critic skeptical ({:.0}%): {}",
+            regime_compat * 100.0,
+            regime.analysis.lines().next().unwrap_or("regime mismatch")
+        ));
+    }
+    if data_reliability < 0.5 {
+        risk_caveats.push(format!(
+            "Data critic skeptical ({:.0}%): evidence quality concerns",
+            data_reliability * 100.0
+        ));
+    }
+    if cost_feasibility < 0.5 {
+        risk_caveats.push(format!(
+            "Cost critic skeptical ({:.0}%): edge may not survive costs",
+            cost_feasibility * 100.0
+        ));
+    }
+    if portfolio_compat < 0.5 {
+        risk_caveats.push(format!(
+            "Portfolio critic skeptical ({:.0}%): correlated exposure concern",
+            portfolio_compat * 100.0
+        ));
+    }
+    let risk_approved = risk_acceptability >= 0.5 && net_confidence > 0.05;
+
+    // Phase 4: PM synthesizes everything.
+    let full_debate = format!(
+        "{debate_with_risk}\n\nREGIME CRITIC: {}\n\nDATA CRITIC: {}\n\nCOST CRITIC: {}\n\nPORTFOLIO CRITIC: {}\n\nNET TRADE CONFIDENCE: {:.4}",
+        regime.analysis, data.analysis, cost.analysis, portfolio.analysis, net_confidence
+    );
     let pm = run_agent_turn(AgentTurnArgs {
         session: &session,
         model: &req.model,
@@ -412,7 +540,18 @@ pub(crate) async fn run_agent_council(
     })
     .await?;
 
-    let turns = vec![technical, fundamental, bull, bear, risk.clone(), pm.clone()];
+    let turns = vec![
+        technical,
+        fundamental,
+        bull,
+        bear,
+        risk.clone(),
+        regime,
+        data,
+        cost,
+        portfolio,
+        pm.clone(),
+    ];
 
     // Extract suggested levels from PM analysis if present.
     let (suggested_entry, suggested_stop, suggested_target) = extract_levels(&turns[5].analysis);
@@ -431,6 +570,13 @@ pub(crate) async fn run_agent_council(
         suggested_target,
         risk_approved,
         risk_caveats,
+        net_confidence,
+        alpha_strength,
+        regime_compatibility: regime_compat,
+        data_reliability,
+        cost_feasibility,
+        portfolio_compatibility: portfolio_compat,
+        risk_acceptability,
         agents_consulted: turns.len(),
     };
 
@@ -462,11 +608,7 @@ fn extract_levels(text: &str) -> (Option<f64>, Option<f64>, Option<f64>) {
                 .filter(|v| *v > 0.0)
         })
     };
-    (
-        find_num("entry"),
-        find_num("stop"),
-        find_num("target"),
-    )
+    (find_num("entry"), find_num("stop"), find_num("target"))
 }
 
 fn durable_evidence_summary(evidence: &[crate::evidence_store::ModelEvidenceRecord]) -> String {

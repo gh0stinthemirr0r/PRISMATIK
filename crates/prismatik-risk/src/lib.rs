@@ -20,6 +20,21 @@ pub use budget::{
     DEFAULT_DRAWDOWN_HALT_PCT, DEFAULT_MAX_RISK_PER_TRADE_PCT,
 };
 
+/// Hierarchical drawdown ladder (Trading Intelligence Fabric §20).
+pub mod drawdown;
+pub use drawdown::{DrawdownLadder, DrawdownLevel, DrawdownThresholds};
+
+/// Trade Thesis Contract (Trading Intelligence Fabric §11).
+pub mod thesis;
+pub use thesis::{
+    validate_thesis, EvidenceRef, EvidenceStance, ExecutionStyle, ThesisDirection, TradeThesis,
+};
+
+/// Trading Constitution, action vocabulary, operational modes (Fabric §1, §14,
+/// §79).
+pub mod constitution;
+pub use constitution::{KillSwitchScope, OperationalMode, TradeAction, TradingConstitution};
+
 /// Risk-approval contracts.
 pub mod approved {
     use crate::checks::CheckContext;
