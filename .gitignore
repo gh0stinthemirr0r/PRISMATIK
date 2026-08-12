@@ -62,3 +62,25 @@ lcov.info
 
 # Reference corpus (build-excluded per spec)
 reference/
+
+# Working design documents. Kept on disk, out of the repository: they are
+# drafting material rather than deliverables, and DOCS2 alone is ~10MB.
+/DOCS/
+/DOCS2/
+
+# Vendored third-party source kept locally for reading, not for distribution.
+# 1.8GB of other projects' code under their own licences; committing it would
+# make every clone enormous and muddle this repository's provenance.
+/references/
+
+# Sidecar services that carry their own git history. Committing them as plain
+# directories would produce a repository whose clones silently lack them; if
+# they are ever needed in CI they should be added as submodules.
+/services/mirofish/
+/services/kronos-sidecar/kronos/
+
+# Stray import: a URL saved as a filename.
+/https:--github.com-aarora4-Awesome-Prediction-Market-.txt
+
+# Superseded v0.1 tree, kept on disk for reference only.
+/legacy-v0.1/

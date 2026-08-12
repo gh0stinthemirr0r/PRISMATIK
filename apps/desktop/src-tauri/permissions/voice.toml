@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-tts-speak"
+description = "Synthesize speech from text using local TTS engine."
+commands.allow = ["tts_speak"]
+
+[[permission]]
+identifier = "allow-stt-transcribe"
+description = "Transcribe speech from audio using local STT engine."
+commands.allow = ["stt_transcribe"]

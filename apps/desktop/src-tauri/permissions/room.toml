@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-open-room"
+description = "Open an agent room and convene its participants."
+commands.allow = ["open_room"]
+
+[[permission]]
+identifier = "allow-list-rooms"
+description = "List open agent rooms and their transcripts."
+commands.allow = ["list_rooms"]
+
+[[permission]]
+identifier = "allow-close-room"
+description = "Close an agent room."
+commands.allow = ["close_room"]
+
+[[permission]]
+identifier = "allow-say"
+description = "Post the operator's message into an agent room."
+commands.allow = ["say"]
+
+[[permission]]
+identifier = "allow-advance-room"
+description = "Let the next participants speak in an agent room."
+commands.allow = ["advance_room"]
+
+[[permission]]
+identifier = "allow-list-critic-roles"
+description = "List the adversarial council roles a room can convene."
+commands.allow = ["list_critic_roles"]

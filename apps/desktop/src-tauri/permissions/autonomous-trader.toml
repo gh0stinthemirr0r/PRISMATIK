@@ -1,0 +1,39 @@
+[[permission]]
+identifier = "allow-get-autonomous-trader"
+description = "Read the autonomous trader state and configuration."
+commands.allow = ["get_autonomous_trader"]
+
+[[permission]]
+identifier = "allow-configure-autonomous-trader"
+description = "Configure the autonomous trader policy and parameters."
+commands.allow = ["configure_autonomous_trader"]
+
+[[permission]]
+identifier = "allow-run-trader-loop"
+description = "Execute one iteration of the autonomous trader loop."
+commands.allow = ["run_trader_loop"]
+
+[[permission]]
+identifier = "allow-rearm-trader-ladder"
+description = "Rearm the trader risk ladder after de-escalation."
+commands.allow = ["rearm_trader_ladder"]
+
+[[permission]]
+identifier = "allow-de-escalate-trader-ladder"
+description = "De-escalate the trader risk ladder."
+commands.allow = ["de_escalate_trader_ladder"]
+
+[[permission]]
+identifier = "allow-arm-live-trading"
+description = "Arm live broker execution for a bounded, expiring window."
+commands.allow = ["arm_live_trading"]
+
+[[permission]]
+identifier = "allow-disarm-live-trading"
+description = "Revoke live broker execution immediately."
+commands.allow = ["disarm_live_trading"]
+
+[[permission]]
+identifier = "allow-get-live-arming"
+description = "Read the current live-execution authorisation."
+commands.allow = ["get_live_arming"]

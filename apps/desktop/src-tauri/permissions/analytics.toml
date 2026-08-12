@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-analyze-instrument"
+description = "Classify regime and derive analytics for one tracked instrument."
+commands.allow = ["analyze_instrument"]
+
+[[permission]]
+identifier = "allow-regime-snapshot"
+description = "Classify the regime of every tracked instrument."
+commands.allow = ["regime_snapshot"]
+
+[[permission]]
+identifier = "allow-sweep-empirical-forecasts"
+description = "File regime-conditional forecast candidates for tracked instruments."
+commands.allow = ["sweep_empirical_forecasts"]
+
+[[permission]]
+identifier = "allow-regime-catalog"
+description = "List the regime labels the classifier can produce."
+commands.allow = ["regime_catalog"]

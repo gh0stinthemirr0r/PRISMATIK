@@ -111,7 +111,7 @@ impl CoinGeckoAdapter {
     }
 
     fn require(&self, need: Entitlement) -> Result<(), CoinGeckoError> {
-        if self.entitlements.contains(need) {
+        if self.entitlements.contains(&need) {
             Ok(())
         } else {
             Err(CoinGeckoError::NotEntitled(need))
@@ -147,6 +147,7 @@ impl CoinGeckoAdapter {
                 path: path.to_string(),
                 query,
                 headers,
+                body: None,
             })
             .await?;
         Ok((res.status, res.headers, res.body))

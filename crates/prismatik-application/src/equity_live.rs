@@ -214,6 +214,7 @@ mod tests {
                 path: request.path.clone(),
                 query: request.query.clone(),
                 headers: request.headers.clone(),
+                body: None,
             });
             Ok(HttpResponse {
                 status: 200,
@@ -265,6 +266,7 @@ mod tests {
                 path: "/v2/stocks/AAPL/bars".into(),
                 query: BTreeMap::new(),
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await
             .unwrap();

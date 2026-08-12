@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-compute-chart-indicators"
+description = "Compute technical indicators for the chart view."
+commands.allow = ["compute_chart_indicators"]

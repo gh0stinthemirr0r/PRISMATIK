@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-add-document"
+description = "Store a document in the knowledge base."
+commands.allow = ["add_document"]
+
+[[permission]]
+identifier = "allow-remove-document"
+description = "Remove a document from the knowledge base."
+commands.allow = ["remove_document"]
+
+[[permission]]
+identifier = "allow-list-documents"
+description = "List stored knowledge documents and their instrument links."
+commands.allow = ["list_documents"]
+
+[[permission]]
+identifier = "allow-query-knowledge"
+description = "Retrieve from the knowledge base with coverage gaps reported."
+commands.allow = ["query_knowledge"]

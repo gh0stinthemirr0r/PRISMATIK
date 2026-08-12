@@ -8,6 +8,14 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use derivatives::{analyze_derivatives, DerivativesObservation, DerivativesState};
+pub use public_address::{analyze_public_address, AddressActivity, PublicAddressProfile};
+
+/// Fixed-point derivatives and liquidation analytics.
+pub mod derivatives;
+/// Privacy-constrained public-address analytics.
+pub mod public_address;
+
 /// Normalized crypto instruments and bars.
 /// Crypto type contracts.
 pub mod types {

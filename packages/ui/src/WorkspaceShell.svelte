@@ -271,9 +271,18 @@
     100% { opacity: 0; transform: translate3d(42px, -92vh, 0) scale(1.4); }
   }
   @media (max-width: 960px) {
-    .top { grid-template-columns: auto 1fr; }
+    .shell { grid-template-rows: 54px 1fr; }
+    .top { grid-template-columns: auto minmax(180px,1fr); padding:0 14px; }
     .top__end { display: none; }
     .body { grid-template-columns: 1fr; }
     .rail { display: none; }
+  }
+  @media (min-width: 961px) and (max-width: 1240px) {
+    .top { grid-template-columns: 176px minmax(240px, 1fr) auto; padding:0 18px; }
+    .body { grid-template-columns: 176px minmax(0,1fr); }
+  }
+  @media (max-width: 620px) {
+    .brand__sub,.finder__keys { display:none; }
+    .finder__placeholder { font-size:.7rem; }
   }
 </style>

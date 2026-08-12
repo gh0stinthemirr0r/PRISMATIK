@@ -12,6 +12,34 @@ use prismatik_application::{AppConfig, DefaultPrismatikApp, PrismatikApp};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
+pub use public_verify::{PublicTreeHead, PublicVerifyService, VerifyReport};
+
+pub mod public_verify;
+
+/// CLI service failure.
+#[derive(Debug, thiserror::Error)]
+pub enum CliError {
+    /// File access failed.
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+    /// Verification input was invalid.
+    #[error("verification error: {0}")]
+    Verify(String),
+}
+
+/// Verify a manifest file at a caller-supplied instant.
+pub fn verify_manifest_file(
+    path: &str,
+    transitional: bool,
+    verified_at: time::OffsetDateTime,
+) -> Result<prismatik_manifest::VerificationReport, CliError> {
+    let json = std::fs::read_to_string(path)?;
+    let verifier = prismatik_manifest::StandaloneVerifier { transitional };
+    verifier
+        .verify_json(&json, None, None, verified_at)
+        .map_err(|error| CliError::Verify(error.to_string()))
+}
+
 /// CLI subcommand definitions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {

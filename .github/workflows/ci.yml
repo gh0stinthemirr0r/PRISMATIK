@@ -9,6 +9,14 @@ permissions:
   contents: read
 
 jobs:
+  reference-boundary:
+    name: Native reference boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse production dependencies on references
+        run: python3 scripts/reference_boundary.py
+
   fmt:
     name: Rust format
     runs-on: ubuntu-latest
@@ -43,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -58,13 +66,65 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.88.0
       - run: cargo test --workspace
+
+
+  # apps/desktop/src-tauri is deliberately outside the root cargo workspace, so
+  # `cargo test --workspace` above never touches it. Without this job the Tauri
+  # shell — the only cross-platform surface in the repo — is compiled by CI on
+  # no platform at all.
+  desktop-app:
+    name: Desktop app (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+      # WebKitGTK and its build deps are preinstalled on macOS and Windows
+      # runners but not on Ubuntu.
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck frontend
+        run: pnpm --filter @prismatik/desktop check
+      - name: Build frontend
+        run: pnpm --filter @prismatik/desktop build
+      # Not yet `-D warnings`: the shell carries 12 pre-existing warnings,
+      # including two determinism-policy violations (SystemTime::now in
+      # chat.rs and predictions.rs). Compilation and tests are the hard gate
+      # until that debt is cleared; the warnings stay visible in the log.
+      # The root `cargo fmt --all` job cannot see this crate either.
+      - name: Format desktop shell
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt -- --check
+      - name: Clippy desktop shell
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --all-targets
+      - name: Test desktop shell
+        working-directory: apps/desktop/src-tauri
+        run: cargo test
 
   offline-market-data:
     name: Market data cassette tests (offline)

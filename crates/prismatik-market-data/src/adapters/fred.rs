@@ -66,6 +66,7 @@ impl FredAdapter {
                 path: "/series/observations".into(),
                 query,
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await?;
         if response.status != 200 {

@@ -9,36 +9,6 @@ description = "Allows reading the desktop package version."
 commands.allow = ["app_version"]
 
 [[permission]]
-identifier = "allow-get-watchlist"
-description = "Allows reading the app-local watchlist."
-commands.allow = ["get_watchlist"]
-
-[[permission]]
-identifier = "allow-save-watchlist"
-description = "Allows saving the app-local watchlist."
-commands.allow = ["save_watchlist"]
-
-[[permission]]
-identifier = "allow-get-scanner-filters"
-description = "Allows reading saved scanner filters."
-commands.allow = ["get_scanner_filters"]
-
-[[permission]]
-identifier = "allow-save-scanner-filters"
-description = "Allows saving scanner filters."
-commands.allow = ["save_scanner_filters"]
-
-[[permission]]
-identifier = "allow-list-alert-rules"
-description = "Allows reading local alert rules."
-commands.allow = ["list_alert_rules"]
-
-[[permission]]
-identifier = "allow-upsert-alert-rule"
-description = "Allows creating and updating local alert rules."
-commands.allow = ["upsert_alert_rule"]
-
-[[permission]]
-identifier = "allow-get-data-mode"
-description = "Allows reading the configured market data mode."
-commands.allow = ["get_data_mode"]
+identifier = "allow-host-platform"
+description = "Report the host operating system so the frontend can draw platform-correct window chrome."
+commands.allow = ["host_platform"]

@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-list-feed-sources"
+description = "Allows the feed control plane to list reviewed source-policy records."
+commands.allow = ["list_feed_sources"]
+
+[[permission]]
+identifier = "allow-upsert-feed-source"
+description = "Allows an explicit user action to append a new reviewed feed-source policy version."
+commands.allow = ["upsert_feed_source"]
+
+[[permission]]
+identifier = "allow-import-feed-sources"
+description = "Allows an explicit user action to validate and append a batch of reviewed feed-source policies."
+commands.allow = ["import_feed_sources"]
+
+[[permission]]
+identifier = "allow-test-feed-source"
+description = "Allows an explicit bounded conditional HTTP probe of one reviewed feed source."
+commands.allow = ["test_feed_source"]

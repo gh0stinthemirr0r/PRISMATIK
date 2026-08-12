@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-run-agent-council"
+description = "Run the multi-agent council for market analysis."
+commands.allow = ["run_agent_council"]

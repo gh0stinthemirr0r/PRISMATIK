@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-autonomous-research"
+description = "Allows the autonomy pane to read the durable research-loop configuration, lifecycle, and verified journal status."
+commands.allow = ["get_autonomous_research"]
+
+[[permission]]
+identifier = "allow-configure-autonomous-research"
+description = "Allows an explicit user action to append an enable, disable, or reconfiguration transition to the budgeted research journal."
+commands.allow = ["configure_autonomous_research"]

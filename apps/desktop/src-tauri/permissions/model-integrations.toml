@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-test-model-provider"
+description = "Allows explicit validation of a documented model API credential or loopback endpoint."
+commands.allow = ["test_model_provider"]
+
+[[permission]]
+identifier = "allow-model-runtime-status"
+description = "Allows the model plane to report active native process sessions."
+commands.allow = ["model_runtime_status"]
+
+[[permission]]
+identifier = "allow-disconnect-model-provider"
+description = "Allows the user to clear an in-memory model provider session."
+commands.allow = ["disconnect_model_provider"]
+
+[[permission]]
+identifier = "allow-run-market-research"
+description = "Allows an active model session to analyze only real governed terminal observations after an operating-budget reservation."
+commands.allow = ["run_market_research"]

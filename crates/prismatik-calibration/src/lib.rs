@@ -9,9 +9,16 @@
 #![warn(missing_docs, missing_debug_implementations)]
 
 pub use drift::{DriftAction, DriftAssessment, DriftBaseline, DriftDetector, DriftSignal};
+pub use scoring::{
+    calibration_report, participant_skill, CalibrationBin, CalibrationReport, ForecastObservation,
+    ParticipantSkill,
+};
 pub use trait_def::{
     CalibrationError, CalibrationMethod, CalibrationRecord, Calibrator, Coverage, RealizedCoverage,
 };
+
+/// Fixed-point forecast scoring and participant-skill analytics.
+pub mod scoring;
 
 /// Calibration trait contracts.
 pub mod trait_def {

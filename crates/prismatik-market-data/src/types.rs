@@ -266,3 +266,18 @@ pub struct EquityBar {
     /// Retrieval time.
     pub retrieved_at: OffsetDateTime,
 }
+
+/// Normalized equity symbol-search hit (Finnhub `/search`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EquitySearchHit {
+    /// Tradable symbol, e.g. `AAPL`.
+    pub symbol: String,
+    /// Human-readable security description.
+    pub description: String,
+    /// Listing venue or instrument type as reported by the provider.
+    pub exchange: String,
+    /// Provider actually used.
+    pub provider: ProviderId,
+    /// Retrieval time.
+    pub retrieved_at: OffsetDateTime,
+}

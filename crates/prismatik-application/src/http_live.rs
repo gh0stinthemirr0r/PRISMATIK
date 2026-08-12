@@ -1,7 +1,9 @@
 //! Live and chaos implementations of the market-data HTTP port.
 
 use async_trait::async_trait;
-use prismatik_market_data::{HttpMethod, HttpRequest, HttpResponse, HttpTransport, TransportError};
+use prismatik_market_data::http::{
+    HttpMethod, HttpRequest, HttpResponse, HttpTransport, TransportError,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -39,11 +41,6 @@ impl ReqwestTransport {
 #[async_trait]
 impl HttpTransport for ReqwestTransport {
     async fn execute(&self, request: &HttpRequest) -> Result<HttpResponse, TransportError> {
-        if request.method != HttpMethod::Get {
-            return Err(TransportError::Io(
-                "Wave 1 live transport supports GET only".into(),
-            ));
-        }
         let url = if let Ok(url) = reqwest::Url::parse(&request.path) {
             url
         } else {
@@ -51,7 +48,21 @@ impl HttpTransport for ReqwestTransport {
                 .join(&request.path)
                 .map_err(|error| TransportError::Io(error.to_string()))?
         };
-        let mut builder = self.client.get(url).query(&request.query);
+        // POST is needed by query-style endpoints that take a JSON filter body
+        // rather than a query string. The body is passed through verbatim so
+        // the caller owns its encoding and the cassette records exactly what
+        // went on the wire.
+        let mut builder = match &request.method {
+            HttpMethod::Get => self.client.get(url),
+            HttpMethod::Post => {
+                let builder = self.client.post(url);
+                match request.body.as_ref() {
+                    Some(body) => builder.body(body.clone()),
+                    None => builder,
+                }
+            },
+        }
+        .query(&request.query);
         for (name, value) in &request.headers {
             builder = builder.header(name, value);
         }
@@ -107,6 +118,7 @@ mod tests {
             path: "/ping".into(),
             query: BTreeMap::new(),
             headers: BTreeMap::new(),
+            body: None,
         };
         assert!(matches!(
             BlackholeTransport.execute(&request).await,

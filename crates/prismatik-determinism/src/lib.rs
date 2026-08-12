@@ -47,7 +47,10 @@ pub use context::{DeterminismContext, PinnedArtifactSet, RunId};
 pub use entropy::{Entropy, EntropyError, SplitEntropy};
 pub use error::DeterminismError;
 pub use hashing::{DetHasher, DetMap, DetSet};
-pub use signature::{DualSignature, SigningIdentity};
+pub use signature::{
+    signing_key_from_seed, Bytes64, DualSignature, Ed25519Signature, SignatureScheme,
+    SigningIdentity, SigningIdentityKind,
+};
 
 /// Re-export of common types for ergonomic imports.
 ///

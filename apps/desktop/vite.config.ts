@@ -1,5 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [sveltekit()],
@@ -7,12 +8,13 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 1420,
-    strictPort: true
+    strictPort: true,
+    fs: {
+      allow: [fileURLToPath(new URL('../..', import.meta.url))]
+    }
   },
   envPrefix: ['VITE_', 'TAURI_'],
   optimizeDeps: {
-    include: ['chroma-js'],
-    needsInterop: ['chroma-js'],
     exclude: [
       '@finos/perspective'
     ]

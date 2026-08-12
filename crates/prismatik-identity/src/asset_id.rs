@@ -17,6 +17,20 @@ impl AssetId {
         let bytes = serde_json::to_vec(rec).expect("canonical identity record must serialize");
         Self(*blake3::hash(&bytes).as_bytes())
     }
+
+    /// Derive an `AssetId` directly from canonical key bytes (BLAKE3 of the
+    /// key). Used by cassette loaders that carry an explicit canonical key
+    /// string: the same key always yields the same id (invariant I3), so a
+    /// pinned cassette resolves identically on any machine.
+    pub fn from_canonical_bytes(key: &[u8]) -> Self {
+        Self(*blake3::hash(key).as_bytes())
+    }
+
+    /// Wrap a content hash directly into an `AssetId`. Used by the entropy
+    /// factory for synthetic ids; the hash is already a 32-byte digest.
+    pub fn from_hash(hash: prismatik_determinism::ContentHash) -> Self {
+        Self(hash.as_bytes())
+    }
 }
 
 /// Stable venue identifier.
@@ -43,9 +57,41 @@ impl MicCode {
         Ok(Self(value))
     }
 
+    /// Construct a MIC from a four-byte literal.
+    ///
+    /// Intended for fixed MIC literals (e.g. `MicCode::new(*b"XNAS")`). The
+    /// bytes are upper-cased; callers are responsible for supplying valid
+    /// ISO 10383 codes.
+    pub fn new(bytes: [u8; 4]) -> Self {
+        let upper = [
+            upper_ascii(bytes[0]),
+            upper_ascii(bytes[1]),
+            upper_ascii(bytes[2]),
+            upper_ascii(bytes[3]),
+        ];
+        Self(String::from_utf8(upper.to_vec()).expect("ASCII bytes are valid UTF-8"))
+    }
+
+    /// Construct a MIC from a string slice without validation.
+    ///
+    /// Used by cassette loaders that have already validated the field length
+    /// and character set; avoids a second allocation-generating parse pass.
+    pub fn from_str_unchecked(value: &str) -> Self {
+        Self(value.trim().to_ascii_uppercase())
+    }
+
     /// Return the MIC string.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+/// Map an ASCII byte to its upper-case form.
+fn upper_ascii(b: u8) -> u8 {
+    if b.is_ascii_lowercase() {
+        b - 32
+    } else {
+        b
     }
 }
 

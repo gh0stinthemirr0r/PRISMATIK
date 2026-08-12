@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-chat-send"
+description = "Send a message to the AI model and receive a response."
+commands.allow = ["chat_send"]
+
+[[permission]]
+identifier = "allow-chat-get-state"
+description = "Read the current chat conversation state."
+commands.allow = ["chat_get_state"]
+
+[[permission]]
+identifier = "allow-chat-clear"
+description = "Clear the chat conversation history."
+commands.allow = ["chat_clear"]
+
+[[permission]]
+identifier = "allow-chat-set-active-provider"
+description = "Set the active model provider for chat."
+commands.allow = ["chat_set_active_provider"]

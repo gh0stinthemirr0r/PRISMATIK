@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-autonomy-budget"
+description = "Allows the settings UI to read the active autonomy budget posture."
+commands.allow = ["get_autonomy_budget"]
+
+[[permission]]
+identifier = "allow-configure-autonomy-budget"
+description = "Allows an explicit user action to append a policy reset to the durable autonomy budget journal."
+commands.allow = ["configure_autonomy_budget"]

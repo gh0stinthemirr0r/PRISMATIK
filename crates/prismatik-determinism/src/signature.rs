@@ -7,7 +7,19 @@
 //! `ml_dsa` field present but `signature: null`. Retrofit is field population,
 //! not schema migration.
 
+use ed25519_dalek::SigningKey;
 use serde::{Deserialize, Serialize};
+
+/// Derive a deterministic Ed25519 signing key from a 32-byte seed.
+///
+/// Used by the manifest golden corpus and by any caller that needs a run's
+/// signing identity to be reproducible from the determinism context (same seed
+/// → same key → same signature → same signed manifest, invariant I3). This is
+/// the only sanctioned way to obtain a signing key inside the platform; ad-hoc
+/// key generation would violate determinism.
+pub fn signing_key_from_seed(seed: [u8; 32]) -> SigningKey {
+    SigningKey::from_bytes(&seed)
+}
 
 /// A signature over an artifact or manifest digest. Dual scheme by default.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +38,7 @@ pub struct DualSignature {
 
 /// Signature-scheme identifier recorded in the manifest.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SignatureScheme {
     /// No signature present.
     #[default]

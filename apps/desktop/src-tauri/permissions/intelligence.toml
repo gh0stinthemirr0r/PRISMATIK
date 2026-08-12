@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-intelligence-capabilities"
+description = "Allows reading compiled native intelligence capability status and durable observation counts."
+commands.allow = ["intelligence_capabilities"]

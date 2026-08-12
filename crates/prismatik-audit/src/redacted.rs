@@ -1,15 +1,7 @@
 //! Redacted JSON wrapper for audit details.
+//!
+//! The canonical type lives in [`crate::entry::RedactedJson`]: a typed,
+//! order-stable map of non-secret string fields. This module re-exports it so
+//! the historical import path `prismatik_audit::RedactedJson` keeps working.
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-/// JSON detail payload with pre-redacted content.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct RedactedJson(pub Value);
-
-impl Default for RedactedJson {
-    fn default() -> Self {
-        Self(Value::Object(Default::default()))
-    }
-}
+pub use crate::entry::RedactedJson;

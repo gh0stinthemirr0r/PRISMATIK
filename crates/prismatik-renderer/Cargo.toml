@@ -9,3 +9,4 @@ description = "PRISMATIK prismatik-renderer crate."
 
 [dependencies]
 prismatik-domain.workspace = true
+serde.workspace = true

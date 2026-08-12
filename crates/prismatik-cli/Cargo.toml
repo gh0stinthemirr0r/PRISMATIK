@@ -10,3 +10,11 @@ description = "PRISMATIK prismatik-cli crate."
 [dependencies]
 prismatik-manifest.workspace = true
 prismatik-application.workspace = true
+prismatik-determinism.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

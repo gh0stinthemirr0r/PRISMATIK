@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-list-provider-policies"
+description = "Allows Integrations to read reviewed native API retention policies."
+commands.allow = ["list_provider_policies"]
+
+[[permission]]
+identifier = "allow-upsert-provider-policy"
+description = "Allows an explicit user action to append a reviewed native API retention-policy version."
+commands.allow = ["upsert_provider_policy"]

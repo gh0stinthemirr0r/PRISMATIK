@@ -60,6 +60,7 @@ impl CftcAdapter {
                 path: "/api/v1/commitments".into(),
                 query,
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await?;
         if response.status != 200 {

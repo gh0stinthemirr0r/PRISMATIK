@@ -1,113 +1,26 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
-
-  type Ticket = {
-    symbol: string;
-    side: string;
-    quantity: number;
-    orderType: string;
-    limitPrice: number | null;
-    timeInForce: string;
-    idempotencyKey: string;
-    signedQuantity?: number;
-    riskOk?: boolean;
-    riskFailure?: string | null;
-    provider: string;
-    retrievedAt: string;
-  };
-
-  const fallback: Ticket = {
-    symbol: "AAPL",
-    side: "buy",
-    quantity: 10,
-    orderType: "limit",
-    limitPrice: 214.5,
-    timeInForce: "day",
-    idempotencyKey: "demo-idempotency-key-001",
-    provider: "ui-static-fallback",
-    retrievedAt: "2026-07-25T20:00:00Z",
-  };
-
-  let ticket = $state<Ticket>(fallback);
-  let provenance = $state("static fallback");
-  let symbol = $state("AAPL");
-  let side = $state("buy");
-  let quantity = $state(10);
-
-  async function refresh() {
-    try {
-      ticket = await invoke<Ticket>("preview_order_ticket", { symbol, side, quantity });
-      provenance = "trusted core";
-    } catch {
-      provenance = "browser fallback";
-    }
-  }
-
-  onMount(refresh);
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { onMount } from 'svelte';
+  import { RefreshCw, ShieldCheck } from 'lucide-svelte';
+  type Fill={idempotencyKey:string;symbol:string;side:string;quantity:string;priceMicros:number;notionalMicros:number;cashFlowMicros:string;evidenceId:string;occurredAt:string;mode:'paper'};
+  type Position={symbol:string;quantity:string;markPriceMicros?:number;marketValueMicros?:string;cashFlowMicros:string;unrealizedPnlMicros?:string;markEvidenceId?:string};
+  type Oms={mode:'paper';liveExecutionAvailable:false;fills:Fill[];positions:Position[];quoteProviderCount:number;reconciliationState:'verified';recoveredCommits:number;releasedOrphans:number;message:string};
+  let oms=$state<Oms|null>(null);let symbol=$state('SPY');let side=$state('buy');let quantity=$state('1');let idempotencyKey=$state('');let busy=$state(false);let error=$state('');
+  const money=(micros:number|string|undefined)=>micros===undefined?'—':`${Number(micros)<0?'-':''}$${(Math.abs(Number(micros))/1e6).toLocaleString('en-US',{maximumFractionDigits:2})}`;
+  function nextKey(){idempotencyKey=`paper-${Date.now().toString(36)}-${symbol.toLowerCase()}-${side}`}
+  async function load(){if(!isTauri())return;try{oms=await invoke<Oms>('get_paper_oms')}catch(cause){error=String(cause)}}
+  async function submit(){busy=true;error='';try{oms=await invoke<Oms>('submit_paper_order',{draft:{symbol,side,quantity,idempotencyKey}});nextKey()}catch(cause){error=String(cause)}finally{busy=false}}
+  onMount(()=>{nextKey();void load()});
 </script>
-
-<svelte:head><title>Orders · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="orders" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label={provenance} />{/snippet}
-  <div class="canvas">
-    <header>
-      <div>
-        <h1>Order ticket</h1>
-        <p>Paper-only preview — idempotency key + risk gates enforced in core, not live broker.</p>
-      </div>
-      <EvidenceChip status="confirmed" label={ticket.provider} />
-      <StaleDataMarker eventTime={ticket.retrievedAt} maxAge={86_400_000} />
-    </header>
-    <section class="grid">
-      <form class="panel" onsubmit={(e) => { e.preventDefault(); refresh(); }}>
-        <div class="label">Draft order</div>
-        <label>Symbol <input bind:value={symbol} /></label>
-        <label>Side
-          <select bind:value={side}>
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
-          </select>
-        </label>
-        <label>Quantity <input type="number" bind:value={quantity} min="1" /></label>
-        <button type="submit">Preview ticket</button>
-      </form>
-      <aside class="panel">
-        <div class="label">Preview</div>
-        <dl>
-          <div><dt>Symbol</dt><dd>{ticket.symbol}</dd></div>
-          <div><dt>Side</dt><dd>{ticket.side}</dd></div>
-          <div><dt>Qty</dt><dd>{ticket.quantity}</dd></div>
-          <div><dt>Type</dt><dd>{ticket.orderType}</dd></div>
-          <div><dt>Limit</dt><dd>{ticket.limitPrice != null ? `$${ticket.limitPrice.toFixed(2)}` : "—"}</dd></div>
-          <div><dt>TIF</dt><dd>{ticket.timeInForce}</dd></div>
-          <div><dt>Idempotency</dt><dd><code>{ticket.idempotencyKey}</code></dd></div>
-          <div><dt>Signed qty</dt><dd>{ticket.signedQuantity ?? "—"}</dd></div>
-          <div><dt>Risk</dt><dd>{ticket.riskOk === false ? (ticket.riskFailure ?? "denied") : ticket.riskOk === true ? "ok" : "—"}</dd></div>
-        </dl>
-        <EvidenceChip status={ticket.riskOk === false ? "contradicted" : "uncertain"} label="P7-EX-01 scaffold — paper broker only" />
-      </aside>
-    </section>
-  </div>
-</WorkspaceShell>
-
+<svelte:head><title>Paper OMS · PRISMATIK</title></svelte:head>
+<main class="oms">
+  <header><div><span>EXECUTION LAB / REAL MARKS · PAPER FILLS</span><h1>Order management</h1><p>Exercise the native risk, idempotency, capital, position, and evidence pipeline without a live broker transport. Every fill is visibly paper-only and requires a current real quote.</p></div><div class="posture"><i></i><b>PAPER ONLY</b><small>LIVE EXECUTION UNAVAILABLE</small></div></header>
+  <section class="telemetry"><article><span>FILLS</span><b>{oms?.fills.length??0}</b><small>Durable paper ledger</small></article><article><span>POSITIONS</span><b>{oms?.positions.length??0}</b><small>Derived from immutable fills</small></article><article><span>QUOTE PROVIDERS</span><b>{oms?.quoteProviderCount??0}</b><small>Real marks only</small></article><article><span>CAPITAL RECONCILIATION</span><b>{oms?.reconciliationState?.toUpperCase()??'CHECKING'}</b><small>{oms ? `${oms.recoveredCommits} committed · ${oms.releasedOrphans} orphan releases` : 'Restart audit pending'}</small></article><article><span>BROKER ROUTE</span><b>NONE</b><small>Structurally paper-only</small></article></section>
+  <section class="ticket"><div><span>NEW PAPER TICKET</span><h2>Risk-gated immediate fill</h2><p>Uses the latest governed quote as execution evidence. Notional must fit the configured trading and per-trade envelopes.</p></div><div class="fields"><label>Symbol<input bind:value={symbol} oninput={nextKey}/></label><label>Side<select bind:value={side} onchange={nextKey}><option value="buy">Buy</option><option value="sell">Sell</option></select></label><label>Quantity<input bind:value={quantity} inputmode="decimal"/></label><label>Idempotency key<input bind:value={idempotencyKey}/></label></div><button onclick={submit} disabled={busy||!symbol.trim()||!quantity.trim()||!idempotencyKey.trim()}>{busy?'CHECKING RISK & CAPITAL…':'SUBMIT PAPER ORDER'}</button></section>
+  {#if error}<section class="notice"><ShieldCheck size={17}/><div><b>Order denied</b><p>{error}</p></div><a href="/workspace/autonomy">Review capital gates</a></section>{/if}
+  <section class="positions"><div class="section-head"><div><span>PAPER POSITIONS</span><b>Real-mark reconciliation</b></div><button onclick={load}><RefreshCw size={13}/>REFRESH MARKS</button></div><div class="position-grid">{#each oms?.positions??[] as position}<article><header><b>{position.symbol}</b><span>{Number(position.quantity)>=0?'LONG / FLAT':'SHORT'}</span></header><strong>{position.quantity}</strong><dl><dt>MARK</dt><dd>{money(position.markPriceMicros)}</dd><dt>MARKET VALUE</dt><dd>{money(position.marketValueMicros)}</dd><dt>PAPER P&L</dt><dd class:positive={Number(position.unrealizedPnlMicros)>0} class:negative={Number(position.unrealizedPnlMicros)<0}>{money(position.unrealizedPnlMicros)}</dd></dl><small>{position.markEvidenceId??'No current real mark'}</small></article>{:else}<div class="empty">No paper positions. Connect a real market provider, configure a non-zero trading envelope, and submit a paper ticket.</div>{/each}</div></section>
+  <section class="blotter"><div class="section-head"><div><span>IMMUTABLE PAPER BLOTTER</span><b>{oms?.message??'Loading native OMS'}</b></div></div><div class="table"><div class="row head"><span>Time</span><span>Symbol</span><span>Side / Qty</span><span>Price</span><span>Notional</span><span>Evidence / Idempotency</span></div>{#each (oms?.fills??[]).slice().reverse() as fill}<div class="row"><span>{new Date(fill.occurredAt).toLocaleString()}</span><b>{fill.symbol}<small>PAPER</small></b><span class:buy={fill.side==='buy'} class:sell={fill.side==='sell'}>{fill.side.toUpperCase()} {fill.quantity}</span><span>{money(fill.priceMicros)}</span><span>{money(fill.notionalMicros)}</span><code>{fill.evidenceId}<small>{fill.idempotencyKey}</small></code></div>{:else}<div class="empty">The paper blotter is empty. No fabricated orders are shown.</div>{/each}</div></section>
+</main>
 <style>
-  .canvas { display: grid; gap: var(--space-lg); }
-  header { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-  h1 { margin: 0; width: 100%; }
-  header p { margin: 4px 0 0; color: var(--color-text-secondary); width: 100%; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
-  .panel { padding: var(--space-md); border-radius: var(--radius-lg); background: var(--color-surface-1); display: grid; gap: var(--space-sm); }
-  .label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-secondary); }
-  label { display: grid; gap: 4px; font-size: var(--font-size-sm); }
-  input, select { padding: 8px; border-radius: var(--radius-md); border: 1px solid var(--color-border, #333); background: var(--color-surface-2); color: var(--color-text-primary); }
-  button { padding: 10px 16px; border-radius: var(--radius-md); border: none; background: var(--color-accent, #4f8); color: #000; font-weight: 600; cursor: pointer; }
-  dl { margin: 0; display: grid; gap: 8px; }
-  dl div { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
-  dt { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-  dd { margin: 0; }
-  code { font-size: var(--font-size-xs); word-break: break-all; }
+.oms{height:100%;overflow:auto;padding:34px clamp(20px,3vw,46px) 80px;color:var(--p-text)}.oms>header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:1px solid var(--p-border)}header>div>span,.ticket>div>span,.section-head span,.telemetry span{color:var(--p-accent);font:700 .56rem var(--font-mono);letter-spacing:.14em}.oms h1{margin:8px 0 5px;font-size:clamp(2.7rem,5vw,5.4rem);letter-spacing:-.07em}.oms header p,.ticket p{max-width:780px;margin:0;color:var(--p-dim);line-height:1.55}.posture{display:grid;grid-template-columns:auto 1fr;align-content:center;gap:3px 8px;min-width:190px;padding:13px;border:1px solid #ffcb7b55;background:var(--p-panel-fill)}.posture i{grid-row:1/3;width:7px;height:7px;margin:auto;border-radius:50%;background:#ffcb7b;box-shadow:0 0 10px #ffcb7b}.posture b,.posture small{font:.6rem var(--font-mono)}.posture small{color:var(--p-dim)}.telemetry{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:15px 0}.telemetry article,.ticket,.positions,.blotter{border:1px solid var(--p-border);background:var(--p-panel-fill)}.telemetry article{display:grid;gap:5px;padding:13px}.telemetry b{font:1.1rem var(--font-mono)}.telemetry small{color:var(--p-dim);font-size:.6rem}.ticket{display:grid;grid-template-columns:minmax(220px,.8fr) 1.7fr auto;gap:20px;align-items:end;padding:18px}.ticket h2{margin:6px 0;font-size:1.2rem}.fields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.fields label{display:grid;gap:5px;color:var(--p-dim);font-size:.62rem}.fields input,.fields select{padding:9px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text);font:inherit}.ticket>button{padding:11px 14px;border:1px solid var(--p-accent);background:color-mix(in srgb,var(--p-accent) 15%,var(--p-surface));color:var(--p-accent);font:700 .58rem var(--font-mono)}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.45}.notice{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin-top:10px;padding:13px;border:1px solid #ff637d66;background:#ff637d09;color:#ff637d}.notice p{margin:3px 0 0;color:var(--p-dim);font-size:.7rem}.notice a{color:var(--p-accent);font:.58rem var(--font-mono)}.positions,.blotter{margin-top:10px}.section-head{display:flex;justify-content:space-between;align-items:center;padding:13px;border-bottom:1px solid var(--p-border)}.section-head b{display:block;margin-top:4px;font:.72rem var(--font-mono)}.section-head button{display:flex;gap:6px;align-items:center;border:0;background:transparent;color:var(--p-accent);font:.55rem var(--font-mono)}.position-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:10px}.position-grid article{padding:13px;border:1px solid var(--p-border);background:var(--p-surface2)}.position-grid header{display:flex;justify-content:space-between}.position-grid header span{color:var(--p-dim);font:.52rem var(--font-mono)}.position-grid>article>strong{display:block;margin:12px 0;font:1.5rem var(--font-mono)}.position-grid dl{display:grid;grid-template-columns:1fr auto;gap:6px;margin:0}.position-grid dt,.position-grid dd{font:.58rem var(--font-mono)}.position-grid dt{color:var(--p-dim)}.position-grid dd{margin:0}.positive{color:#67efba}.negative{color:#ff637d}.position-grid article>small{display:block;margin-top:12px;overflow-wrap:anywhere;color:var(--p-dim);font:.5rem var(--font-mono)}.table{overflow:auto}.row{display:grid;grid-template-columns:1fr .6fr .8fr .7fr .8fr 1.8fr;gap:10px;min-width:900px;padding:10px 13px;border-bottom:1px solid var(--p-grid);font:.6rem var(--font-mono)}.row.head{color:var(--p-dim);text-transform:uppercase}.row b small,.row code small{display:block;margin-top:3px;color:var(--p-dim)}.row code{overflow-wrap:anywhere}.buy{color:#67efba}.sell{color:#ff637d}.empty{grid-column:1/-1;padding:50px;text-align:center;color:var(--p-dim)}@media(max-width:1150px){.telemetry{grid-template-columns:repeat(2,1fr)}.ticket{grid-template-columns:1fr}.ticket>button{justify-self:end}}@media(max-width:600px){.oms>header{display:block}.posture{margin-top:12px}.telemetry,.fields{grid-template-columns:1fr}}
 </style>

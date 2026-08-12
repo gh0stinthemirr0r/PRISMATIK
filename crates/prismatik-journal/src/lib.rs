@@ -8,9 +8,15 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use behavior::{
+    analyze_behavior, BehaviorConfig, BehaviorError, BehaviorFinding, BehaviorKind, TradeReview,
+};
 pub use entry::{EntryId, JournalEntry, Outcome, OutcomeTag, Thesis};
 pub use feedback::{FeedbackSignal, ScoreAdjustment};
 pub use memory::{MemoryLayer, MemoryLoop, MemoryRecord, TriggerWinRate};
+
+/// Deterministic behavioral review of completed trading activity.
+pub mod behavior;
 
 /// Entry contracts.
 pub mod entry {

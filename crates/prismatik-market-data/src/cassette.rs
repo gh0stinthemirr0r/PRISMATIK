@@ -119,6 +119,7 @@ mod tests {
                 path: "/coins/markets".into(),
                 query: q,
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await
             .unwrap();

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-generate-compliance-report"
+description = "Generate a compliance report."
+commands.allow = ["generate_compliance_report"]
+
+[[permission]]
+identifier = "allow-check-pdt-rules"
+description = "Check pattern day trading rules."
+commands.allow = ["check_pdt_rules"]

@@ -74,6 +74,7 @@
     chart = createChart(host, {
       height,
       width: host.clientWidth || 640,
+      localization: { locale: "en-US" },
       layout: {
         background: { color: theme.background },
         textColor: theme.text,

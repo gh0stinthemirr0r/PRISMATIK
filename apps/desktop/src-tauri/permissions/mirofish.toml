@@ -1,0 +1,39 @@
+[[permission]]
+identifier = "allow-mirofish-connect"
+description = "Connect to a MiroFish simulation server."
+commands.allow = ["mirofish_connect"]
+
+[[permission]]
+identifier = "allow-mirofish-status"
+description = "Check MiroFish connection status."
+commands.allow = ["mirofish_status"]
+
+[[permission]]
+identifier = "allow-mirofish-run-simulation"
+description = "Run a MiroFish multi-agent simulation."
+commands.allow = ["mirofish_run_simulation"]
+
+[[permission]]
+identifier = "allow-mirofish-check-status"
+description = "Check simulation progress."
+commands.allow = ["mirofish_check_status"]
+
+[[permission]]
+identifier = "allow-mirofish-get-prediction"
+description = "Get simulation prediction report."
+commands.allow = ["mirofish_get_prediction"]
+
+[[permission]]
+identifier = "allow-mirofish-history"
+description = "Get simulation history."
+commands.allow = ["mirofish_history"]
+
+[[permission]]
+identifier = "allow-mirofish-build-seeds"
+description = "Build seed documents from market data."
+commands.allow = ["mirofish_build_seeds"]
+
+[[permission]]
+identifier = "allow-tsfm-forecast"
+description = "Generate zero-shot time-series forecast."
+commands.allow = ["tsfm_forecast"]

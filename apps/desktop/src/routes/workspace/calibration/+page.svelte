@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import UnavailableExperience from '$lib/UnavailableExperience.svelte';
+  import Visualizations from '$lib/prismatik/Visualizations.svelte';
 
   interface CalibrationHealth {
     cohortId: string;
@@ -13,6 +14,9 @@
     overallBrierPpm: number | null;
     overallEcePpm: number | null;
     baselineBrierPpm: number | null;
+    climatologyBrierPpm: number | null;
+    skillPpm: number | null;
+    skillSampleCount: number;
     recentBrierPpm: number | null;
     driftPpm: number | null;
     state: string;
@@ -45,6 +49,30 @@
   const ppm = (v: number | null) => (v === null ? '—' : (v / 1_000_000).toFixed(4));
   const stateColor = (s: string) =>
     s === 'stable' ? '#34d399' : s === 'regressed' ? '#f87171' : '#94a3b8';
+
+  /**
+   * Skill is the only column that answers "is this cohort worth running".
+   * Positive beat the base rate, zero matched it, negative lost to it.
+   */
+  function skillLabel(c: CalibrationHealth): string {
+    if (c.skillPpm === null) return '—';
+    const pct = (c.skillPpm / 10_000).toFixed(1);
+    return `${c.skillPpm >= 0 ? '+' : ''}${pct}%`;
+  }
+
+  function skillColor(skillPpm: number | null): string {
+    if (skillPpm === null) return 'var(--p-text-dim)';
+    if (skillPpm > 20_000) return '#34d399';
+    if (skillPpm < -20_000) return '#f87171';
+    return 'var(--p-text-dim)';
+  }
+
+  function skillTitle(c: CalibrationHealth): string {
+    if (c.skillPpm === null) {
+      return 'This forecaster did not record a base rate, so its skill cannot be measured. Only the statistical forecaster files one.';
+    }
+    return `Brier ${ppm(c.overallBrierPpm)} against a climatology Brier of ${ppm(c.climatologyBrierPpm)}, over ${c.skillSampleCount} resolved forecasts. Zero means no better than always predicting the base rate.`;
+  }
 </script>
 
 <svelte:head><title>Calibration · PRISMATIK</title></svelte:head>
@@ -68,6 +96,13 @@
   {:else if hasData}
     <section class="pk-panel">
       <div class="pk-panel-head">
+        <span>Skill atlas — cohort skill against baseline</span>
+      </div>
+      <div class="pk-viz-host"><Visualizations only={['atlas']} /></div>
+    </section>
+
+    <section class="pk-panel">
+      <div class="pk-panel-head">
         <span>Calibration cohorts ({cohorts.length})</span>
         <button class="pk-refresh" onclick={load}>Refresh</button>
       </div>
@@ -76,6 +111,7 @@
           <tr>
             <th>Cohort</th><th>Provider</th><th>Model</th><th>Target</th>
             <th>Horizon</th><th>Samples</th><th>Brier</th><th>ECE</th>
+            <th title="Brier skill against the base rate. 0 means the forecaster added nothing.">Skill</th>
             <th>Drift</th><th>State</th><th>Exec</th>
           </tr>
         </thead>
@@ -90,6 +126,9 @@
               <td class="pk-mono">{c.sampleCount}</td>
               <td class="pk-mono">{ppm(c.overallBrierPpm)}</td>
               <td class="pk-mono">{ppm(c.overallEcePpm)}</td>
+              <td class="pk-mono" style="color: {skillColor(c.skillPpm)}" title={skillTitle(c)}>
+                {skillLabel(c)}
+              </td>
               <td class="pk-mono" style="color: {c.driftPpm !== null && c.driftPpm > 50_000 ? '#f87171' : 'var(--p-text-dim)'}">{ppm(c.driftPpm)}</td>
               <td class="pk-mono" style="color: {stateColor(c.state)}">{c.state}</td>
               <td class="pk-mono pk-dim">{c.executionEligible ? '✓' : '✗'}</td>
@@ -100,6 +139,8 @@
     </section>
     <p class="pk-note">
       Execution eligibility is permanently false. Calibration does not make a forecast tradeable — it measures honesty.
+      Brier and ECE say whether a forecaster's probabilities are truthful; <strong>Skill</strong> says whether they carry
+      information. A forecaster can be perfectly calibrated and still score zero skill by restating the base rate.
       Generate and resolve forecasts from <a href="/workspace/models">Models</a> to populate this table.
     </p>
   {:else}
@@ -124,6 +165,7 @@
   .pk-table { width: 100%; border-collapse: collapse; }
   .pk-table th { text-align: left; padding: 10px 16px; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--p-text-dim); border-bottom: 1px solid var(--p-border); }
   .pk-table td { padding: 8px 16px; font-size: 0.75rem; border-bottom: 1px solid var(--p-border); }
+  .pk-viz-host { height: 320px; }
   .pk-mono { font-family: var(--p-mono); }
   .pk-dim { color: var(--p-text-dim); }
   .pk-note { font-size: 0.75rem; color: var(--p-text-dim); line-height: 1.5; }

@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-screen-instruments"
+description = "Sweep a market for candidate instruments via the unofficial TradingView screener."
+commands.allow = ["screen_instruments"]
+
+[[permission]]
+identifier = "allow-list-unofficial-sources"
+description = "List unofficial data sources and whether each is enabled."
+commands.allow = ["list_unofficial_sources"]
+
+[[permission]]
+identifier = "allow-set-unofficial-source"
+description = "Enable or disable an unofficial data source."
+commands.allow = ["set_unofficial_source"]

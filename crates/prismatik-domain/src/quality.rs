@@ -16,6 +16,11 @@ impl DataQualityScore {
     pub fn get(self) -> f32 {
         self.0
     }
+
+    /// Perfect-quality constant (1.0). Used by providers that return
+    /// provider-native identifiers (e.g. SEC EDGAR, FRED) where the value is
+    /// authoritative rather than observed and reconciled.
+    pub const PERFECT: DataQualityScore = DataQualityScore(1.0);
 }
 
 #[cfg(test)]

@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-start-autonomy-loop"
+description = "Start the supervised autonomous trading loop."
+commands.allow = ["start_autonomy_loop"]
+
+[[permission]]
+identifier = "allow-stop-autonomy-loop"
+description = "Stop the autonomous trading loop."
+commands.allow = ["stop_autonomy_loop"]
+
+[[permission]]
+identifier = "allow-autonomy-loop-status"
+description = "Read scheduler state and recent loop ticks."
+commands.allow = ["autonomy_loop_status"]

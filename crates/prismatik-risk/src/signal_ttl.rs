@@ -86,16 +86,19 @@ pub fn microstructure_ttl(now: &str) -> SignalTtl {
     ttl_with_lifetime(now, 5, 2, "order book rebalances")
 }
 
+/// TTL envelope for an intraday momentum or reversion signal.
 pub fn intraday_ttl(now: &str) -> SignalTtl {
     // Intraday momentum/reversion: minutes to hours.
     ttl_with_lifetime(now, 3_600, 1_800, "session close or signal reversal")
 }
 
+/// TTL envelope for a macro-regime signal.
 pub fn macro_ttl(now: &str) -> SignalTtl {
     // Macro signal: hours.
     ttl_with_lifetime(now, 28_800, 14_400, "macro regime change")
 }
 
+/// TTL envelope for an earnings thesis.
 pub fn earnings_ttl(now: &str) -> SignalTtl {
     // Earnings thesis: days.
     ttl_with_lifetime(now, 259_200, 129_600, "next earnings or guidance revision")

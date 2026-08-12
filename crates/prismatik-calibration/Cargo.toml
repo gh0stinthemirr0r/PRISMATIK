@@ -10,3 +10,4 @@ description = "PRISMATIK prismatik-calibration crate."
 [dependencies]
 prismatik-tsfm.workspace = true
 prismatik-determinism.workspace = true
+serde.workspace = true

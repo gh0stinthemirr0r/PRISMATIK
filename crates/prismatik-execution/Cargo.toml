@@ -11,3 +11,6 @@ description = "PRISMATIK prismatik-execution crate."
 prismatik-domain.workspace = true
 prismatik-identity.workspace = true
 prismatik-risk.workspace = true
+serde.workspace = true
+time.workspace = true
+thiserror.workspace = true

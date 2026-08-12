@@ -65,6 +65,7 @@ impl AlpacaAdapter {
                 path: format!("/v2/stocks/{symbol}/bars"),
                 query,
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await?;
         if response.status != 200 {

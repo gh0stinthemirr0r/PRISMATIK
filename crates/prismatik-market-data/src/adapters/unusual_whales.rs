@@ -77,6 +77,7 @@ impl UnusualWhalesAdapter {
                 path: "/api/option-trades/flow-alerts".into(),
                 query,
                 headers,
+                body: None,
             })
             .await?;
         match response.status {

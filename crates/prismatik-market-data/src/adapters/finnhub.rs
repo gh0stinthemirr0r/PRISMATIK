@@ -8,7 +8,7 @@ use crate::provider::{
     Capability, Entitlement, EntitlementSet, Provider, ProviderCapabilities, ProviderHealth,
 };
 use crate::request::{CostUnits, ProviderRequest};
-use crate::types::EquityBar;
+use crate::types::{EquityBar, EquitySearchHit};
 use async_trait::async_trait;
 use prismatik_domain::ProviderId;
 use serde::Deserialize;
@@ -80,6 +80,7 @@ impl FinnhubAdapter {
                 path: "/stock/candle".into(),
                 query,
                 headers: BTreeMap::new(),
+                body: None,
             })
             .await?;
         if response.status != 200 {
@@ -127,6 +128,49 @@ impl FinnhubAdapter {
             })
             .collect()
     }
+
+    /// Resolve free text to tradable equity symbols.
+    ///
+    /// Finnhub returns instrument types (`Common Stock`, `ETP`, …) rather than a
+    /// listing venue, so that is what lands in [`EquitySearchHit::exchange`];
+    /// it is the label a desk actually needs to disambiguate two same-named
+    /// rows. Entries without a symbol are dropped — they cannot be tracked.
+    pub async fn search(
+        &self,
+        query_text: &str,
+        retrieved_at: OffsetDateTime,
+    ) -> Result<Vec<EquitySearchHit>, FinnhubError> {
+        let mut query = BTreeMap::new();
+        query.insert("q".into(), query_text.to_owned());
+        query.insert("token".into(), self.token.clone());
+        let response = self
+            .transport
+            .execute(&HttpRequest {
+                method: HttpMethod::Get,
+                path: "/search".into(),
+                query,
+                headers: BTreeMap::new(),
+                body: None,
+            })
+            .await?;
+        if response.status != 200 {
+            return Err(FinnhubError::Status(response.status));
+        }
+        let envelope: SearchEnvelope = serde_json::from_str(&response.body)
+            .map_err(|error| FinnhubError::Decode(error.to_string()))?;
+        Ok(envelope
+            .result
+            .into_iter()
+            .filter(|row| !row.symbol.trim().is_empty())
+            .map(|row| EquitySearchHit {
+                symbol: row.symbol.to_uppercase(),
+                description: row.description,
+                exchange: row.kind,
+                provider: ProviderId::FINNHUB,
+                retrieved_at,
+            })
+            .collect())
+    }
 }
 
 #[async_trait]
@@ -167,6 +211,22 @@ struct CandleEnvelope {
     v: Vec<u64>,
     #[serde(default)]
     t: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct SearchEnvelope {
+    #[serde(default)]
+    result: Vec<SearchRow>,
+}
+
+#[derive(Deserialize)]
+struct SearchRow {
+    #[serde(default)]
+    symbol: String,
+    #[serde(default)]
+    description: String,
+    #[serde(rename = "type", default)]
+    kind: String,
 }
 
 /// Built-in Wave 2 AAPL daily-candle cassette.

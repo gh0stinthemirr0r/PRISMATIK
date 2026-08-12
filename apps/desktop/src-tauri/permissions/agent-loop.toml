@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-run-agent"
+description = "Run the bounded research agent loop over read-only tools."
+commands.allow = ["run_agent"]

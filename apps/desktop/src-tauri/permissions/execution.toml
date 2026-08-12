@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-connect-broker"
+description = "Connect to a broker (Alpaca, Coinbase, Kraken)."
+commands.allow = ["connect_broker"]
+
+[[permission]]
+identifier = "allow-get-broker-account"
+description = "Read broker account state and positions."
+commands.allow = ["get_broker_account"]
+
+[[permission]]
+identifier = "allow-submit-order"
+description = "Submit an order to a connected broker."
+commands.allow = ["submit_order"]
+
+[[permission]]
+identifier = "allow-list-orders"
+description = "List orders from a connected broker."
+commands.allow = ["list_orders"]

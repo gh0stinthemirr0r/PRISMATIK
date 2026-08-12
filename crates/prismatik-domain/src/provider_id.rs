@@ -25,4 +25,10 @@ impl ProviderId {
     pub const CCXT: ProviderId = ProviderId(8);
     /// Tiingo provider id.
     pub const TIINGO: ProviderId = ProviderId(9);
+    /// Finnhub provider id.
+    pub const FINNHUB: ProviderId = ProviderId(10);
+    /// Polymarket provider id.
+    pub const POLYMARKET: ProviderId = ProviderId(11);
+    /// Kalshi provider id.
+    pub const KALSHI: ProviderId = ProviderId(12);
 }

@@ -10,11 +10,18 @@
 
 pub use analyst_scope::{AnalystRole, AnalystScope, EvidenceScope, FactBundle};
 pub use gateway::{ToolError, ToolGateway, TrustLevel};
+pub use research::{
+    build_research_packet, CitedClaim, ClaimStance, EvidenceDocument, ResearchContradiction,
+    ResearchError, ResearchPacket, ResearchRole,
+};
 pub use router::{
     AiRouter, AuthMethod, DeterminismProfile, EgressPolicy, InferenceCapabilities,
     InferenceProvider, RouterError,
 };
 pub use tool::{ControlledTool, ToolClass, ToolInvocationRecord};
+
+/// Evidence graph and cited multi-role research packets.
+pub mod research;
 
 /// Tool-gateway contracts.
 pub mod gateway {

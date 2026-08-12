@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-briefing"
+description = "Generate and retrieve a market briefing."
+commands.allow = ["get_briefing"]

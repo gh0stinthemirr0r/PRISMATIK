@@ -1,16 +1,27 @@
-//! # prismatik-prismatik-identity
+//! # prismatik-identity
 //!
-//! Layer 0 — Foundational (no workspace deps)
+//! Layer 0 — Foundational (no workspace deps beyond determinism).
 //!
-//! Spec: DOCS/spec/CRATE_ARCHITECTURE.md
-//! Status: PARTIAL — foundational identity contracts for Wave 0 floor.
+//! Canonical, content-addressed, bitemporal asset identity (invariant I5).
+//! Every venue-specific ticker, FIGI, ISIN, or on-chain address resolves to a
+//! single [`AssetId`] *as of* a point in time; transitions (renames, splits,
+//! mergers, spin-offs) are an append-only chain that never rewrites history.
+//!
+//! Spec: `DOCS/spec/CRATE_ARCHITECTURE.md` §1.2; Wave 2 DoD #1.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
 pub mod asset_id;
 pub mod corporate_action;
+/// Hand-checked identity continuity corpus (Wave 2 DoD #1).
+pub mod corpus;
 pub mod external_id;
+/// Entropy-backed synthetic `AssetId` factory.
+pub mod factory;
+/// Bitemporal OpenFIGI mapping surface.
+pub mod openfigi;
+/// Symbology resolver contract + in-memory implementation.
 pub mod resolver;
 
 pub use asset_id::{AssetId, MicCode, VenueId};
@@ -19,45 +30,13 @@ pub use corporate_action::{
     OccMemoRef, Ratio,
 };
 pub use external_id::ExternalIdentifier;
-pub use resolver::{IdentityTransition, SymbologyError, SymbologyResolver};
+pub use openfigi::{FigiMapping, OpenFigiMapper};
+pub use resolver::{
+    CanonicalIdentityRecord, IdentityTransition, InMemoryResolver, SymbologyError,
+    SymbologyResolver, ValidityInterval,
+};
 
-/// OpenFIGI mapper helper.
-#[derive(Debug, Default, Clone)]
-pub struct OpenFigiMapper;
-
-impl OpenFigiMapper {
-    /// Normalize raw FIGI text to upper-case canonical form.
-    pub fn normalize_figi(raw: &str) -> Result<String, SymbologyError> {
-        let normalized = raw.trim().to_ascii_uppercase();
-        let is_valid = normalized.len() == 12
-            && normalized
-                .chars()
-                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit());
-        if !is_valid {
-            return Err(SymbologyError::Storage(format!("invalid FIGI '{raw}'")));
-        }
-        Ok(normalized)
-    }
-
-    /// Convert raw FIGI text into canonical external identifier.
-    pub fn to_external_id(raw: &str) -> Result<ExternalIdentifier, SymbologyError> {
-        Ok(ExternalIdentifier::Figi(Self::normalize_figi(raw)?))
-    }
-}
-
-#[cfg(test)]
-mod mapper_tests {
-    use super::*;
-
-    #[test]
-    fn normalizes_valid_figi() {
-        let normalized = OpenFigiMapper::normalize_figi("bbg000blnnh6").expect("valid figi");
-        assert_eq!(normalized, "BBG000BLNNH6");
-    }
-
-    #[test]
-    fn rejects_invalid_figi() {
-        let error = OpenFigiMapper::normalize_figi("bad").expect_err("invalid figi");
-        assert!(error.to_string().contains("invalid FIGI"));
-    }
-}
+// Re-export the corpus surface at the crate root so the Wave 2 DoD #1 test
+// (`tests/identity_corpus.rs`) and downstream callers can import
+// `IdentityCorpus`, `IdentityEventType`, and `assert_event_as_of` directly.
+pub use corpus::{assert_event_as_of, IdentityCorpus, IdentityEvent, IdentityEventType};

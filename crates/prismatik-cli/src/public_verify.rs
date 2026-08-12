@@ -56,7 +56,9 @@ impl PublicVerifyService {
 
         let tree_head_ok = tree_head.map(|head| tree_head_matches(&manifest, head));
 
-        let verifier = StandaloneVerifier::transitional();
+        let verifier = StandaloneVerifier {
+            transitional: false,
+        };
         // CLI is the outermost shell; real wall-clock time is the correct
         // source for "when did the operator run this verification".
         let verified_at = SystemClock::new().now();

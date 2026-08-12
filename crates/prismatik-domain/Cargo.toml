@@ -11,3 +11,5 @@ description = "PRISMATIK prismatik-domain crate."
 prismatik-determinism.workspace = true
 prismatik-identity.workspace = true
 serde.workspace = true
+time.workspace = true
+thiserror.workspace = true

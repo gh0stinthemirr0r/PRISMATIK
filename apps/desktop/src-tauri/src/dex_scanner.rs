@@ -212,7 +212,7 @@ pub(crate) async fn scan_dex_arbitrage(
     // For a true cross-DEX scan, the operator would need to connect Solana
     // DEX RPC adapters — those are execution-gated and require an approved
     // RPC endpoint + source policy.
-    let snapshot = crate::terminal_feed::get_terminal_feed().await?;
+    let snapshot = crate::terminal_feed::get_terminal_feed(crate::app_handle()?).await?;
     let quotes: Vec<DexQuote> = snapshot
         .quotes
         .iter()

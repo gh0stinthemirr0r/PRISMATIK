@@ -8,6 +8,24 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use attention::{analyze_attention, AttentionSignal, FeedObservation};
+pub use discovery::{discover_event_changes, EventLifecycleObservation, EventSignal};
+pub use feed_pipeline::{
+    FeedDocumentParser, FeedNormalizer, MarketEvidencePacket, ParsedFeedEntry,
+};
+pub use transcript::{
+    analyze_transcript, MentionExpectation, TranscriptAnalysis, TranscriptSegment,
+};
+
+/// Point-in-time attention, novelty, diffusion, and silence analytics.
+pub mod attention;
+/// Event lifecycle discovery and material-change detection.
+pub mod discovery;
+/// Feed normalization, deduplication, and cited model-evidence packets.
+pub mod feed_pipeline;
+/// Cited speaker-aware transcript intelligence.
+pub mod transcript;
+
 /// Event domain types.
 /// Event type contracts.
 pub mod types {

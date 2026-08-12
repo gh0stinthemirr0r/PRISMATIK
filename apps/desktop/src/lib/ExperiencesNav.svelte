@@ -3,6 +3,7 @@
 
   const destinations = [
     { id: "crypto", label: "Crypto", href: "/workspace" },
+    { id: "intelligence", label: "Intelligence", href: "/workspace/intelligence" },
     { id: "equity", label: "Equity", href: "/workspace/equity" },
     { id: "options", label: "Options", href: "/workspace/options" },
     { id: "macro", label: "Macro", href: "/workspace/macro" },
@@ -17,6 +18,7 @@
     { id: "journal", label: "Journal", href: "/workspace/journal" },
     { id: "orders", label: "Orders", href: "/workspace/orders" },
     { id: "marketplace", label: "Marketplace", href: "/workspace/marketplace" },
+    { id: "integrations", label: "Integrations", href: "/workspace/integrations" },
   ];
 </script>
 
@@ -24,6 +26,7 @@
   {#each destinations as destination, index}
     <a
       href={destination.href}
+      class:utility={destination.id === "integrations"}
       class:active={active === destination.id}
       aria-current={active === destination.id ? "page" : undefined}
     >
@@ -62,6 +65,15 @@
     background: linear-gradient(90deg, rgba(0, 240, 255, 0.09), rgba(168, 85, 247, 0.035));
     color: var(--color-text-primary);
     box-shadow: inset 2px 0 0 rgba(0,240,255,.52);
+  }
+  a.utility {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-default);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+  a.utility.active {
+    border-top-color: var(--color-border-default);
   }
   .nav__index {
     color: var(--color-text-tertiary);

@@ -1,0 +1,24 @@
+[[permission]]
+identifier = "allow-get-tracked-instruments"
+description = "Read the tracked-instrument list the terminal follows."
+commands.allow = ["get_tracked_instruments"]
+
+[[permission]]
+identifier = "allow-add-tracked-instrument"
+description = "Track an equity or crypto instrument."
+commands.allow = ["add_tracked_instrument"]
+
+[[permission]]
+identifier = "allow-remove-tracked-instrument"
+description = "Stop tracking an instrument."
+commands.allow = ["remove_tracked_instrument"]
+
+[[permission]]
+identifier = "allow-reorder-tracked-instruments"
+description = "Persist the display order of tracked instruments."
+commands.allow = ["reorder_tracked_instruments"]
+
+[[permission]]
+identifier = "allow-search-instruments"
+description = "Search connected market providers for instruments to track."
+commands.allow = ["search_instruments"]

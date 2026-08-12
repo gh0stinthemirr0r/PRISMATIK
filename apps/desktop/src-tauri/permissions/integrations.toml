@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-test-integration"
+description = "Allows an explicit provider connection test using transient credentials."
+commands.allow = ["test_integration"]

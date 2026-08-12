@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-get-strategy-authoring-contract"
+description = "Allows reading the native StrategyIR authoring contract."
+commands.allow = ["get_strategy_authoring_contract"]
+
+[[permission]]
+identifier = "allow-validate-strategy"
+description = "Allows validating an unsigned StrategyIR draft."
+commands.allow = ["validate_strategy"]
+
+[[permission]]
+identifier = "allow-list-strategy-drafts"
+description = "Allows listing durable unsigned StrategyIR drafts."
+commands.allow = ["list_strategy_drafts"]
+
+[[permission]]
+identifier = "allow-save-strategy"
+description = "Allows persisting a validated unsigned StrategyIR draft."
+commands.allow = ["save_strategy"]

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-yield-curve"
+description = "Fetch US Treasury yield curve from FRED."
+commands.allow = ["get_yield_curve"]
+
+[[permission]]
+identifier = "allow-get-credit-spreads"
+description = "Fetch credit spread data from FRED."
+commands.allow = ["get_credit_spreads"]

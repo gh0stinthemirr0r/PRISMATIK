@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-get-terminal-feed"
+description = "Allows the terminal to read a governed snapshot from active in-memory provider sessions."
+commands.allow = ["get_terminal_feed"]
+
+[[permission]]
+identifier = "allow-integration-runtime-status"
+description = "Allows the integration screen to reconcile saved setup history with active native sessions."
+commands.allow = ["integration_runtime_status"]
+
+[[permission]]
+identifier = "allow-disconnect-integration"
+description = "Allows the user to clear an in-memory provider session."
+commands.allow = ["disconnect_integration"]

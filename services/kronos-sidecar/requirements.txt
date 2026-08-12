@@ -1,0 +1,9 @@
+# Kronos Sidecar Service Dependencies
+flask>=3.0
+numpy>=1.24
+pandas>=2.0
+torch>=2.0
+transformers>=4.30
+huggingface-hub>=0.16
+sentencepiece>=0.1.99
+protobuf>=4.21

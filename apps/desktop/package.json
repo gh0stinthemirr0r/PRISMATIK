@@ -19,7 +19,11 @@
     "@prismatik/chart-contracts": "workspace:*",
     "@prismatik/design-tokens": "workspace:*",
     "@prismatik/ui": "workspace:*",
-    "@tauri-apps/api": "^2.8.0"
+    "@tauri-apps/api": "^2.8.0",
+    "@types/three": "^0.185.4",
+    "lightweight-charts": "4.2.0",
+    "lucide-svelte": "^1.0.1",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.8",

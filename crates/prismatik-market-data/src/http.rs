@@ -31,6 +31,13 @@ pub struct HttpRequest {
     /// Headers.
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
+    /// Request body, for methods that carry one.
+    ///
+    /// Optional and defaulted so that cassettes recorded before POST was
+    /// supported still deserialize: a GET has no body and its absence must not
+    /// invalidate a stored interaction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
 }
 
 /// Transport response.

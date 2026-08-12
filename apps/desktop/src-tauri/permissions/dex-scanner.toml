@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-scan-dex-arbitrage"
+description = "Scan DEX pools for arbitrage opportunities."
+commands.allow = ["scan_dex_arbitrage"]

@@ -21,6 +21,7 @@ async-trait.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 rand_core = "0.10"
+ed25519-dalek = { workspace = true }
 
 [dev-dependencies]
 tokio-test.workspace = true

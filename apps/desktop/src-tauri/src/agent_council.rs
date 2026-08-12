@@ -135,20 +135,19 @@ const ROLE_PORTFOLIO: &str = "portfolio_critic";
 const ROLE_PM: &str = "portfolio_manager";
 
 fn system_prompt(role: &str, subject: &str) -> String {
-    let base = format!(
-        "You are a {role} on a systematic trading desk analyzing {subject}. \
-        You receive real governed market evidence. Reason rigorously. \
-        Be honest about uncertainty — never claim certainty you do not have. \
-        Respond in under 300 words. End with a line: \
-        'STANCE: long|short|neutral' and 'CONVICTION: 0.0-1.0'."
-    );
+    // Versioned so that editing it starts a new scoring cohort rather than
+    // silently pooling with the previous prompt's results.
+    let base = crate::prompts::COUNCIL_BASE
+        .template
+        .replace("{role}", role)
+        .replace("{subject}", subject);
     match role {
         ROLE_TECHNICAL => format!("{base} Focus on price action, trend, momentum, volatility regime, and support/resistance."),
         ROLE_FUNDAMENTAL => format!("{base} Focus on macro conditions, filings, and fundamental drivers visible in the evidence."),
         ROLE_BULL => format!("{base} Your ONLY job is to build the strongest possible long case. Be persuasive but evidence-based."),
         ROLE_BEAR => format!("{base} Your ONLY job is to build the strongest possible short case and falsify the bull thesis. Default to skeptical. This is adversarial falsification — find the weakness."),
         ROLE_RISK => format!("{base} Evaluate position sizing, drawdown risk, and whether a trade here respects a 1%-of-equity risk budget with a defined stop. Flag circuit-breaker concerns."),
-        ROLE_REGIME => format!("{base} You are the REGIME CRITIC. Does this strategy belong in the present market regime? If the regime is wrong for this trade type, say so plainly. A momentum trade in a ranging market is a different proposition than in a trending one."),
+        ROLE_REGIME => format!("{base} You are the REGIME CRITIC. The packet states the measured volatility regime, how long it has held, and the forecaster's edge over the base rate — do not re-derive or second-guess these from the price data; they are computed deterministically. Your job is to judge whether the proposed trade belongs in THAT regime, and to call out when a large probability rests on a negligible edge. A momentum trade in a mean-reverting regime is a different proposition than in a trending one."),
         ROLE_DATA => format!("{base} You are the DATA CRITIC. Can the input data be trusted? Are there gaps, staleness, provider disagreement, or survivorship concerns? If the evidence is thin or unreliable, the conclusion must be weakened regardless of how attractive it looks."),
         ROLE_COST => format!("{base} You are the COST CRITIC. Will transaction costs (spread, slippage, fees, funding, market impact) consume the expected edge? If the edge does not survive realistic costs, the trade should be abstained from."),
         ROLE_PORTFOLIO => format!("{base} You are the PORTFOLIO CRITIC. Is this simply another correlated bet already present elsewhere in the portfolio? Adding a NVDA long when you already hold QQQ long and AAPL long is not three independent bets — it is one large tech exposure."),
@@ -223,39 +222,14 @@ async fn invoke_llm(
     user_prompt: &str,
     max_tokens: u32,
 ) -> Result<(String, String, Option<u64>, Option<u64>), String> {
-    let (provider, api_key, local_endpoint): (ModelProvider, Option<String>, Option<String>) =
-        match session {
-            ModelSession::OpenAi { api_key } => {
-                (ModelProvider::OpenAi, Some(api_key.clone()), None)
-            },
-            ModelSession::Anthropic { api_key } => {
-                (ModelProvider::Anthropic, Some(api_key.clone()), None)
-            },
-            ModelSession::Google { api_key } => {
-                (ModelProvider::Google, Some(api_key.clone()), None)
-            },
-            ModelSession::OpenAiCompatible { base_url, api_key } => {
-                // xAI/DeepSeek/Groq/Cohere/OpenRouter/Together/Fireworks all
-                // speak the OpenAI-compatible protocol. Route through the
-                // local-compatible adapter with the cloud base URL.
-                (
-                    ModelProvider::LocalCompatible,
-                    Some(api_key.clone()),
-                    Some(base_url.clone()),
-                )
-            },
-            ModelSession::Local { endpoint, api_key } => (
-                ModelProvider::LocalCompatible,
-                api_key.clone(),
-                Some(endpoint.clone()),
-            ),
-        };
+    let (provider, credential, auth) = session.parts();
     let provider_label = format!("{provider:?}").to_ascii_lowercase();
     let request = ModelHttpRequest {
         provider,
+        auth,
         model: model.to_string(),
-        api_key,
-        local_endpoint,
+        api_key: Some(credential),
+        local_endpoint: None,
         instruction: system_prompt.to_string(),
         evidence: user_prompt.to_string(),
         max_output_tokens: max_tokens,
@@ -302,7 +276,7 @@ pub(crate) async fn run_agent_council(req: CouncilRequest) -> Result<AgentCounci
     let max_tokens = req.max_output_tokens.unwrap_or(500).clamp(100, 2000);
 
     // Gather real governed evidence.
-    let snapshot = crate::terminal_feed::get_terminal_feed().await?;
+    let snapshot = crate::terminal_feed::get_terminal_feed(crate::app_handle()?).await?;
     let durable_evidence = crate::evidence_store::model_evidence()?;
     let subject_lower = req.subject.to_ascii_lowercase();
     let relevant_quotes: Vec<_> = snapshot
@@ -332,6 +306,13 @@ pub(crate) async fn run_agent_council(req: CouncilRequest) -> Result<AgentCounci
             ));
         }
         block
+    };
+    // Deterministic analytics lead the packet. The critics — especially the
+    // regime critic — should argue about what a *measured* regime implies,
+    // not guess the regime from a price snapshot.
+    let evidence_block = match crate::quant_context::for_subject(&req.subject).await {
+        Some(quant) => format!("{quant}\nMarket observations:\n{evidence_block}"),
+        None => evidence_block,
     };
     let evidence_ids: Vec<String> = relevant_quotes
         .iter()

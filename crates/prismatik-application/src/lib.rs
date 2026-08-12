@@ -8,10 +8,71 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use alert_policy::{evaluate_alert, AlertDecision, AlertPolicy, AlertSeverity, PriorAlert};
 pub use app::{AppConfig, AppError, DefaultPrismatikApp, PrismatikApp};
+pub use autonomy_budget::{
+    AutonomyBudget, AutonomyBudgetPolicy, AutonomyBudgetSnapshot, AutonomyPosture, BudgetError,
+    BudgetLane,
+};
+pub use autonomy_journal::{AutonomyBudgetEvent, AutonomyJournalError, FileAutonomyJournal};
+pub use execution_admission::{submit_with_budget, GovernedSubmissionError};
+pub use http_live::{BlackholeTransport, DataMode, ReqwestTransport};
+pub use ingest::{IngestCommand, IngestError, IngestOutcome, PayloadFetcher};
+pub use intelligence_ledger::{
+    FileIntelligenceLedger, IntelligenceCounts, IntelligenceLedger, IntelligenceLedgerError,
+    IntelligenceObservationKind,
+};
+pub use jobs::{JobEvent, JobRecord, JobRegistry, JobStatus};
+pub use model_http::{invoke_model_http, ModelCredentialKind, ModelHttpRequest, ModelHttpResponse};
+pub use model_plane::{
+    plan_model_invocation, ModelAuth, ModelInvocationPlan, ModelPlaneError, ModelProvider,
+    ModelPurpose,
+};
+pub use observation_store::{DurableAppendOutcome, FileObservationStore, ObservationStoreError};
 pub use profile::{AppProfile, CloudApp, DesktopApp, EnterpriseApp};
+pub use provider_runtime::{
+    ProviderEndpoint, ProviderRuntime, ProviderRuntimeError, ProviderRuntimeStatus,
+};
+pub use rss_http::{
+    fetch_reviewed_feed, reviewed_feed_host, FeedConditionalHeaders, FeedHttpResponse,
+};
+pub use signal_convergence::{
+    converge_signals, ConvergenceError, ConvergenceResult, Direction, SignalObservation,
+};
+pub use state_journal::{FileStateJournal, StateJournalError};
 pub use task_graph::{PipelineTask, TaskGraph, TaskId, TaskKind, Trigger};
 pub use wiring::{AppWiring, AppWiringError};
+
+/// Deterministic alert thresholds, cooldowns, and notification budgets.
+pub mod alert_policy;
+/// Fail-closed monetary envelopes for autonomous operations and trading.
+pub mod autonomy_budget;
+/// Durable hash-chained autonomy budget state.
+pub mod autonomy_journal;
+/// Budgeted composition around the typed risk-approved broker boundary.
+pub mod execution_admission;
+/// Live + chaos HTTP transport implementations for the market-data port.
+pub mod http_live;
+/// Corpus Day 2 ingest command (briefing §52).
+pub mod ingest;
+/// Append-only evidence registry for intelligence products.
+pub mod intelligence_ledger;
+/// Long-running job lifecycle, wait, and cursor-stream contracts.
+pub mod jobs;
+/// Bounded documented HTTP inference adapters.
+pub mod model_http;
+/// Governed cloud/local model authentication and cost admission contracts.
+pub mod model_plane;
+/// Durable observation store (corpus Day 2, briefing §52).
+pub mod observation_store;
+/// Governed provider registry and durable ingestion runtime.
+pub mod provider_runtime;
+/// Hardened conditional HTTP worker for reviewed RSS/Atom sources.
+pub mod rss_http;
+/// Deterministic, evidence-linked signal convergence.
+pub mod signal_convergence;
+/// Generic append-only hash-chained state transitions.
+pub mod state_journal;
 
 /// Application root contracts.
 pub mod app {

@@ -211,7 +211,7 @@ pub(crate) async fn get_briefing(mode: BriefingMode) -> Result<Briefing, String>
             } else {
                 "Positions and risk flags reviewed. Verify your risk budget before the open.".into()
             }
-        }
+        },
         BriefingMode::Evening => {
             if trades_today.is_empty() {
                 "No trades executed today.".into()
@@ -221,7 +221,7 @@ pub(crate) async fn get_briefing(mode: BriefingMode) -> Result<Briefing, String>
                     trades_today.len()
                 )
             }
-        }
+        },
     };
 
     Ok(Briefing {
@@ -270,11 +270,11 @@ fn best_and_worse<'a>(
                 fill_price - mark
             };
             match &best {
-                Some((_, b)) if perf <= *b => {}
+                Some((_, b)) if perf <= *b => {},
                 _ => best = Some((trade, perf)),
             }
             match &worst {
-                Some((_, w)) if perf >= *w => {}
+                Some((_, w)) if perf >= *w => {},
                 _ => worst = Some((trade, perf)),
             }
         }

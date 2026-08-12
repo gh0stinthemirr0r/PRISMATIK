@@ -345,6 +345,12 @@
           "markdownDescription": "Allows spending an interactive GCRA permit."
         },
         {
+          "description": "Allows an explicit provider connection test using transient credentials.",
+          "type": "string",
+          "const": "allow-test-integration",
+          "markdownDescription": "Allows an explicit provider connection test using transient credentials."
+        },
+        {
           "description": "Allows creating and updating local alert rules.",
           "type": "string",
           "const": "allow-upsert-alert-rule",

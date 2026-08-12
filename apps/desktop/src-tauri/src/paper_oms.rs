@@ -155,7 +155,7 @@ pub(crate) async fn submit_paper_order(draft: PaperOrderDraft) -> Result<PaperOm
                 .into(),
         );
     }
-    let snapshot = crate::terminal_feed::get_terminal_feed().await?;
+    let snapshot = crate::terminal_feed::get_terminal_feed(crate::app_handle()?).await?;
     let quote = snapshot
         .quotes
         .iter()
@@ -266,7 +266,7 @@ fn paper_oms_total_equity_micros(view: &PaperOmsView) -> Option<i64> {
 
 #[tauri::command]
 pub(crate) async fn get_paper_oms() -> Result<PaperOmsView, String> {
-    paper_oms_view(crate::terminal_feed::get_terminal_feed().await?)
+    paper_oms_view(crate::terminal_feed::get_terminal_feed(crate::app_handle()?).await?)
 }
 
 pub(crate) fn audit_events() -> Result<Vec<crate::audit_timeline::AuditEvent>, String> {

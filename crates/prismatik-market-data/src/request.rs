@@ -9,9 +9,23 @@ use time::OffsetDateTime;
 #[serde(transparent)]
 pub struct EndpointId(pub String);
 
+impl EndpointId {
+    /// Construct an endpoint identifier.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+}
+
 /// Provider cost units.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CostUnits(pub u32);
+
+impl CostUnits {
+    /// Construct a cost value.
+    pub const fn new(units: u32) -> Self {
+        Self(units)
+    }
+}
 
 /// Normalized provider request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,6 +36,17 @@ pub struct ProviderRequest {
     pub endpoint: EndpointId,
     /// Canonical query key.
     pub query_key: String,
+}
+
+impl ProviderRequest {
+    /// Construct an endpoint-only request for provider-local cost estimation.
+    pub fn new(endpoint: impl Into<String>) -> Self {
+        Self {
+            provider: ProviderId(0),
+            endpoint: EndpointId::new(endpoint),
+            query_key: String::new(),
+        }
+    }
 }
 
 /// Normalized provider response metadata.

@@ -12,9 +12,22 @@
     VIZ_MODES,
     type Candle,
   } from './market.svelte';
+  import NoData from './NoData.svelte';
+  import RegimeBadge from './RegimeBadge.svelte';
 
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
+
+  const inst = $derived(market.selected);
+  /** undefined = still loading, null = requested and unavailable */
+  const series = $derived(market.getCandles(inst));
+
+  // Pull real history whenever the instrument or timeframe changes.
+  $effect(() => {
+    const current = market.selected;
+    const tf = market.timeframe;
+    if (current) void market.loadCandles(current, tf);
+  });
 
   // crosshair state (plain — read imperatively by the draw loop)
   let mouseX = -1;
@@ -103,8 +116,13 @@
     void market.timeframe;
     if (recomputeTimer) clearTimeout(recomputeTimer);
     recomputeTimer = setTimeout(() => {
-      const candles = market.getCandles();
-      const key = `${market.selected.def.symbol}:${market.timeframe}:${candles.length}`;
+      const inst = market.selected;
+      const candles = market.getCandles(inst);
+      if (!inst || !candles) {
+        indicatorSeries = [];
+        return;
+      }
+      const key = `${inst.symbol}:${market.timeframe}:${candles.length}`;
       if (key !== lastComputeKey || indicators.some((i) => i.active)) {
         lastComputeKey = key;
         void recomputeIndicators(candles);
@@ -333,6 +351,7 @@
     max: number,
   ) {
     const inst = market.selected;
+    if (!inst || inst.price === null) return;
     const plotW = W - AXIS_W;
     const y = PAD_T + ((max - inst.price) / (max - min)) * (H - PAD_T - PAD_B);
     const col = inst.up ? pal.up : pal.down;
@@ -379,7 +398,7 @@
     const cw = plotW / n;
     const [min, max] = range(candles);
     const y = (v: number) => PAD_T + ((max - v) / (max - min)) * (H - PAD_T - PAD_B);
-    drawGrid(ctx, pal, W, H, min, max, market.selected.def.dec);
+    drawGrid(ctx, pal, W, H, min, max, market.selected?.decimals ?? 2);
     drawVolume(ctx, pal, candles, W, H);
     for (let i = 0; i < n; i++) {
       const c = candles[i];
@@ -419,7 +438,7 @@
     fill: 'none' | 'area' | 'mountain',
   ) {
     const [min, max] = range(candles);
-    drawGrid(ctx, pal, W, H, min, max, market.selected.def.dec);
+    drawGrid(ctx, pal, W, H, min, max, market.selected?.decimals ?? 2);
     const reduced = aesthetics.reduced;
     if (fill === 'area') {
       pathLine(ctx, candles, W, H, min, max);
@@ -477,7 +496,8 @@
   }
 
   function drawHeatmap(ctx: CanvasRenderingContext2D, pal: Pal, W: number, H: number) {
-    const items = market.instruments;
+    const items = market.instruments.filter((i) => i.quoted && i.changePct !== null);
+    if (items.length === 0) return;
     const cols = W > H * 1.6 ? 6 : 5;
     const rows = Math.ceil(items.length / cols);
     const gap = 6;
@@ -488,21 +508,21 @@
     items.forEach((inst, i) => {
       const cx = gap + (i % cols) * (tw + gap);
       const cy = gap + Math.floor(i / cols) * (th + gap);
-      const t = Math.min(Math.abs(inst.changePct) / 2.5, 1);
+      const t = Math.min(Math.abs(inst.changePct ?? 0) / 2.5, 1);
       const base = inst.up ? pal.up : pal.down;
       const col = mix(mix(pal.up, pal.down, 0.5), base, 0.25 + t * 0.75);
       ctx.fillStyle = rgba(col, 0.16 + t * 0.5);
       ctx.beginPath();
       ctx.roundRect(cx, cy, tw, th, 6);
       ctx.fill();
-      if (market.selected === inst) {
+      if (market.selectedSymbol === inst.symbol) {
         ctx.strokeStyle = rgba(pal.accent, 0.9);
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
       ctx.fillStyle = rgba(mix(col, hexToRgb(aesthetics.vars['--p-text']), 0.75), 1);
       ctx.font = `600 ${Math.min(th * 0.24, 15)}px ${MONO}`;
-      ctx.fillText(inst.def.symbol, cx + 10, cy + th * 0.38);
+      ctx.fillText(inst.symbol, cx + 10, cy + th * 0.38);
       ctx.font = `${Math.min(th * 0.2, 12)}px ${MONO}`;
       ctx.fillStyle = rgba(base, 0.95);
       ctx.fillText(fmtPct(inst.changePct), cx + 10, cy + th * 0.66);
@@ -510,61 +530,6 @@
       ctx.font = `${Math.min(th * 0.16, 10)}px ${MONO}`;
       ctx.fillText(fmtPrice(inst), cx + 10, cy + th * 0.87);
     });
-  }
-
-  function drawDepth(ctx: CanvasRenderingContext2D, pal: Pal, W: number, H: number) {
-    const { bids, asks } = market;
-    const inst = market.selected;
-    const plotW = W - AXIS_W;
-    const midX = plotW / 2;
-    const allPrices = [...bids.map((b) => b.price), ...asks.map((a) => a.price)];
-    if (allPrices.length === 0) return;
-    const min = Math.min(...allPrices);
-    const max = Math.max(...allPrices);
-    const maxDepth = Math.max(bids[bids.length - 1]?.depth ?? 1, asks[asks.length - 1]?.depth ?? 1);
-    const y = (d: number) => PAD_T + (1 - d / maxDepth) * (H - PAD_T - PAD_B);
-    drawGrid(ctx, pal, W, H, min, max, inst.def.dec);
-    // bids (left, from mid toward left)
-    const side = (
-      levels: { price: number; depth: number }[],
-      col: RGB,
-      dir: 1 | -1,
-    ) => {
-      const lo = Math.min(...levels.map((l) => l.price));
-      const hi = Math.max(...levels.map((l) => l.price));
-      const x = (p: number) => midX + ((p - (dir === 1 ? hi : lo)) / (hi - lo || 1)) * (midX - 8) * -dir;
-      ctx.beginPath();
-      ctx.moveTo(midX, y(0));
-      // stair-step depth curve from mid outward
-      const sorted = [...levels].sort((a, b) => (dir === 1 ? b.price - a.price : a.price - b.price));
-      ctx.lineTo(midX, y(sorted[0].depth));
-      for (const l of sorted) {
-        const lx = dir === 1 ? x(l.price) : x(l.price);
-        ctx.lineTo(lx, y(l.depth));
-      }
-      ctx.lineTo(dir === 1 ? x(lo) : x(hi), y(0));
-      ctx.closePath();
-      ctx.fillStyle = rgba(col, 0.18);
-      ctx.fill();
-      ctx.strokeStyle = rgba(col, 0.85);
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
-    };
-    side(bids, pal.up, 1);
-    side(asks, pal.down, -1);
-    // mid line
-    ctx.setLineDash([3, 4]);
-    ctx.strokeStyle = rgba(pal.accent, 0.5);
-    ctx.beginPath();
-    ctx.moveTo(midX, PAD_T);
-    ctx.lineTo(midX, H - PAD_B);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = pal.dim;
-    ctx.font = `10px ${MONO}`;
-    ctx.textAlign = 'center';
-    ctx.fillText(fmtPrice(inst), midX, H - PAD_B + 1);
-    ctx.textAlign = 'left';
   }
 
   function drawCrosshair(
@@ -596,7 +561,7 @@
     // price label on axis at mouse Y
     const price = max - ((mouseY - PAD_T) / (H - PAD_T - PAD_B)) * (max - min);
     ctx.font = `10px ${MONO}`;
-    const label = fmtNum(price, market.selected.def.dec);
+    const label = fmtNum(price, market.selected?.decimals ?? 2);
     ctx.fillStyle = rgba(pal.accent, 0.9);
     const tw = ctx.measureText(label).width + 10;
     ctx.fillRect(plotW + 1, mouseY - 8, tw, 16);
@@ -604,7 +569,7 @@
     ctx.textBaseline = 'middle';
     ctx.fillText(label, plotW + 6, mouseY);
     // OHLC readout box
-    const dec = market.selected.def.dec;
+    const dec = market.selected?.decimals ?? 2;
     const lines = [
       `O ${fmtNum(c.o, dec)}  H ${fmtNum(c.h, dec)}`,
       `L ${fmtNum(c.l, dec)}  C ${fmtNum(c.c, dec)}`,
@@ -652,8 +617,17 @@
       ctx.textAlign = 'left';
 
       const mode = market.viz;
-      const candles = market.getCandles();
+      const inst = market.selected;
+      const candles = market.getCandles(inst);
       const reduced = aesthetics.reduced;
+
+      // Nothing observed yet: leave the canvas empty and let the overlay in the
+      // template explain why, rather than drawing an axis around no data.
+      const seriesReady = Array.isArray(candles) && candles.length > 0;
+      if (!inst || (mode !== 'heatmap' && !seriesReady)) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
 
       // transition ease on instrument/timeframe/mode change
       let alpha = 1;
@@ -664,24 +638,19 @@
       ctx.globalAlpha = alpha;
 
       let bounds: { min: number; max: number } | null = null;
-      if (mode === 'candles') bounds = drawCandles(ctx, pal, candles, W, H);
-      else if (mode === 'line') bounds = drawLineMode(ctx, pal, candles, W, H, 'none');
-      else if (mode === 'area') bounds = drawLineMode(ctx, pal, candles, W, H, 'area');
-      else if (mode === 'mountain') bounds = drawLineMode(ctx, pal, candles, W, H, 'mountain');
-      else if (mode === 'heatmap') drawHeatmap(ctx, pal, W, H);
-      else if (mode === 'depth') drawDepth(ctx, pal, W, H);
+      if (mode === 'heatmap') {
+        drawHeatmap(ctx, pal, W, H);
+      } else if (seriesReady) {
+        const series = candles as Candle[];
+        if (mode === 'candles') bounds = drawCandles(ctx, pal, series, W, H);
+        else if (mode === 'line') bounds = drawLineMode(ctx, pal, series, W, H, 'none');
+        else if (mode === 'area') bounds = drawLineMode(ctx, pal, series, W, H, 'area');
+        else if (mode === 'mountain') bounds = drawLineMode(ctx, pal, series, W, H, 'mountain');
 
-      ctx.globalAlpha = 1;
-      // Draw indicator overlays on the price pane.
-      if (bounds && mode !== 'heatmap' && mode !== 'depth') {
-        drawPriceOverlays(ctx, candles, W, H, bounds.min, bounds.max);
-      }
-      // Draw oscillator sub-pane (RSI/MACD/Stoch/ATR).
-      if (mode !== 'heatmap' && mode !== 'depth') {
-        drawSubPane(ctx, pal, candles, W, H);
-      }
-      if (bounds && mode !== 'heatmap' && mode !== 'depth') {
-        drawCrosshair(ctx, pal, candles, W, H, bounds.min, bounds.max);
+        ctx.globalAlpha = 1;
+        if (bounds) drawPriceOverlays(ctx, series, W, H, bounds.min, bounds.max);
+        drawSubPane(ctx, pal, series, W, H);
+        if (bounds) drawCrosshair(ctx, pal, series, W, H, bounds.min, bounds.max);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -697,20 +666,23 @@
 <section class="pk-panel pk-chart-wrap">
   <div class="pk-chart-head">
     <div class="pk-chart-title">
-      <span class="pk-chart-sym">{market.selected.def.symbol}</span>
-      <span
-        class="pk-chart-price"
-        class:flash-up={market.selected.flash === 'up'}
-        class:flash-down={market.selected.flash === 'down'}
-        class:pk-up={market.selected.up}
-        class:pk-down={!market.selected.up}>{fmtPrice(market.selected)}</span
-      >
-      <span class="pk-mono" class:pk-up={market.selected.up} class:pk-down={!market.selected.up}
-        >{fmtPct(market.selected.changePct)}</span
-      >
-      <span class="pk-chart-name"
-        >{market.selected.def.name} · {market.selected.def.market}</span
-      >
+      {#if inst}
+        <span class="pk-chart-sym">{inst.symbol}</span>
+        <span
+          class="pk-chart-price"
+          class:flash-up={inst.flash === 'up'}
+          class:flash-down={inst.flash === 'down'}
+          class:pk-up={inst.up}
+          class:pk-down={!inst.up}>{fmtPrice(inst)}</span
+        >
+        <span class="pk-mono" class:pk-up={inst.up} class:pk-down={!inst.up}>
+          {fmtPct(inst.changePct)}
+        </span>
+        <span class="pk-chart-name">{inst.name} · {inst.market}</span>
+        <RegimeBadge />
+      {:else}
+        <span class="pk-chart-sym pk-chart-sym-empty">NO INSTRUMENT</span>
+      {/if}
     </div>
     <div class="pk-switcher" role="tablist" aria-label="Visualization mode">
       {#each VIZ_MODES as mode (mode.id)}
@@ -778,10 +750,48 @@
     role="presentation"
   >
     <canvas bind:this={canvas}></canvas>
+    {#if !inst}
+      <div class="pk-chart-overlay">
+        <NoData
+          title="No instrument selected"
+          detail="Track an equity or crypto asset to chart it."
+        />
+      </div>
+    {:else if market.viz !== 'heatmap' && series === undefined}
+      <div class="pk-chart-overlay">
+        <NoData title="Loading {inst.symbol} history" compact />
+      </div>
+    {:else if market.viz !== 'heatmap' && series === null}
+      <div class="pk-chart-overlay">
+        <NoData
+          title="No price history for {inst.symbol}"
+          detail={market.candleError(inst) ?? 'The history provider returned no bars for this timeframe.'}
+          tone="warn"
+        />
+      </div>
+    {:else if market.viz === 'heatmap' && market.quotedCount === 0}
+      <div class="pk-chart-overlay">
+        <NoData title="No quoted instruments" detail={market.feedMessage} />
+      </div>
+    {/if}
   </div>
 </section>
 
 <style>
+  .pk-chart-sym-empty {
+    color: var(--p-dim);
+  }
+  .pk-canvas-host {
+    position: relative;
+  }
+  .pk-chart-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--p-bg) 62%, transparent);
+    pointer-events: none;
+  }
   .pk-indicator-bar {
     display: flex;
     align-items: center;

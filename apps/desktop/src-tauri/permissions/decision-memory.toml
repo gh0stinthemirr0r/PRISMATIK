@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-resolve-decision-memory"
+description = "Attach outcomes to decisions whose horizon has elapsed."
+commands.allow = ["resolve_decision_memory"]
+
+[[permission]]
+identifier = "allow-list-decision-memory"
+description = "Read the desk's recorded decisions and their outcomes."
+commands.allow = ["list_decision_memory"]
+
+[[permission]]
+identifier = "allow-decision-track-record"
+description = "Read aggregate decision accuracy by regime."
+commands.allow = ["decision_track_record"]

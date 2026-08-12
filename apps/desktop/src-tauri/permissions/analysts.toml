@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-list-analysts"
+description = "List specialist analysts and their measured standing."
+commands.allow = ["list_analysts"]
+
+[[permission]]
+identifier = "allow-upsert-analyst"
+description = "Create or edit a specialist analyst."
+commands.allow = ["upsert_analyst"]
+
+[[permission]]
+identifier = "allow-delete-analyst"
+description = "Delete a specialist analyst."
+commands.allow = ["delete_analyst"]
+
+[[permission]]
+identifier = "allow-ask-analyst"
+description = "Put a question to a specialist analyst over governed evidence."
+commands.allow = ["ask_analyst"]

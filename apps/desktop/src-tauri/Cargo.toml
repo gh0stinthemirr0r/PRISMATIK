@@ -37,12 +37,15 @@ prismatik-strategy = { path = "../../../crates/prismatik-strategy" }
 prismatik-indicator-core = { path = "../../../crates/prismatik-indicator-core" }
 prismatik-simulation = { path = "../../../crates/prismatik-simulation" }
 prismatik-calibration = { path = "../../../crates/prismatik-calibration" }
+prismatik-regime = { path = "../../../crates/prismatik-regime" }
+prismatik-brain = { path = "../../../crates/prismatik-brain" }
 prismatik-backtest = { path = "../../../crates/prismatik-backtest" }
 prismatik-analog-store = { path = "../../../crates/prismatik-analog-store" }
 prismatik-portfolio = { path = "../../../crates/prismatik-portfolio" }
 prismatik-oss-registry = { path = "../../../crates/prismatik-oss-registry" }
 prismatik-execution = { path = "../../../crates/prismatik-execution" }
 prismatik-risk = { path = "../../../crates/prismatik-risk" }
+prismatik-ai-tools = { path = "../../../crates/prismatik-ai-tools" }
 prismatik-options = { path = "../../../crates/prismatik-options" }
 prismatik-tsfm = { path = "../../../crates/prismatik-tsfm" }
 prismatik-plugin-host = { path = "../../../crates/prismatik-plugin-host" }
@@ -52,6 +55,9 @@ prismatik-crypto = { path = "../../../crates/prismatik-crypto" }
 prismatik-renderer = { path = "../../../crates/prismatik-renderer" }
 prismatik-storage = { path = "../../../crates/prismatik-storage" }
 prismatik-security = { path = "../../../crates/prismatik-security" }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
 polars = "0.24.0"
 
 # Keep this application independent of the root Rust workspace until it needs

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-list-prompts"
+description = "List prompt identities and versions used for scoring cohorts."
+commands.allow = ["list_prompts"]

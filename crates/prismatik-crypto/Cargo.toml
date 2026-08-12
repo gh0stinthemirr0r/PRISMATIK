@@ -10,3 +10,5 @@ description = "PRISMATIK prismatik-crypto crate."
 [dependencies]
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+serde.workspace = true
+time.workspace = true

@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-generate-live-prediction"
+description = "Generate a calibrated prediction using a connected model provider."
+commands.allow = ["generate_live_prediction"]
+
+[[permission]]
+identifier = "allow-get-predictions"
+description = "Read the current prediction state and track record."
+commands.allow = ["get_predictions"]
+
+[[permission]]
+identifier = "allow-resolve-prediction"
+description = "Resolve a prediction with an outcome (correct/incorrect/expired)."
+commands.allow = ["resolve_prediction"]
+
+[[permission]]
+identifier = "allow-clear-predictions"
+description = "Clear all prediction history."
+commands.allow = ["clear_predictions"]

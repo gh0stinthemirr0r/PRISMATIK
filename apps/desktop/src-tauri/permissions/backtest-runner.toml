@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-run-backtest"
+description = "Run a backtest against historical data."
+commands.allow = ["run_backtest"]
+
+[[permission]]
+identifier = "allow-list-seed-strategies"
+description = "List available seed strategies for backtesting."
+commands.allow = ["list_seed_strategies"]

@@ -17,6 +17,8 @@ serde.workspace = true
 thiserror.workspace = true
 time.workspace = true
 blake3.workspace = true
+governor.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

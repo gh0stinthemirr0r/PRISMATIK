@@ -2,8 +2,35 @@
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
 
+  interface LiveArmingView {
+    armedUntil: string | null;
+    armedBy: string | null;
+    broker: string | null;
+    active: boolean;
+  }
+
+  interface TickRecord {
+    at: string;
+    ok: boolean;
+    ordersSubmitted: number;
+    ordersSkipped: number;
+    ladderLevel: string;
+    message: string;
+  }
+
+  interface SchedulerStatus {
+    running: boolean;
+    intervalSeconds: number;
+    mode: string;
+    recentTicks: TickRecord[];
+    message: string;
+  }
+
   interface AutonomousTraderView {
     enabled: boolean;
+    mode: string;
+    tradingLimitMicros: number;
+    tradingUsedMicros: number;
     intervalSeconds: number;
     strategy: string;
     useCloudAnalysis: boolean;
@@ -58,6 +85,19 @@
 
   // Editable config form state
   let enabled = $state(false);
+  /**
+   * How much consequence the loop is permitted. Live is not simply a setting:
+   * the backend re-checks every gate on every decision and silently falls back
+   * to paper when any of them fails, so this control expresses intent, not
+   * permission.
+   */
+  let mode = $state<'advisory' | 'paper' | 'live'>('paper');
+  let arming = $state<LiveArmingView | null>(null);
+  let scheduler = $state<SchedulerStatus | null>(null);
+  let armBroker = $state('alpaca');
+  let armOperator = $state('');
+  let armMinutes = $state(60);
+  let armError = $state('');
   let intervalSeconds = $state(300);
   let strategy = $state('momentum');
   let useCloudAnalysis = $state(false);
@@ -73,6 +113,9 @@
       trader = await invoke<AutonomousTraderView>('get_autonomous_trader');
       risk = await invoke<RiskStateView>('get_risk_state');
       enabled = trader.enabled;
+      mode = (trader.mode as typeof mode) ?? 'paper';
+      arming = await invoke<LiveArmingView>('get_live_arming');
+      scheduler = await invoke<SchedulerStatus>('autonomy_loop_status');
       intervalSeconds = trader.intervalSeconds;
       strategy = trader.strategy;
       useCloudAnalysis = trader.useCloudAnalysis;
@@ -93,6 +136,48 @@
     return () => clearInterval(interval);
   });
 
+  async function refreshAutonomy(): Promise<void> {
+    try {
+      arming = await invoke<LiveArmingView>('get_live_arming');
+      scheduler = await invoke<SchedulerStatus>('autonomy_loop_status');
+    } catch (e) {
+      armError = String(e);
+    }
+  }
+
+  async function armLive(): Promise<void> {
+    armError = '';
+    try {
+      arming = await invoke<LiveArmingView>('arm_live_trading', {
+        broker: armBroker.trim(),
+        seconds: Math.max(60, Math.round(armMinutes * 60)),
+        operator: armOperator.trim(),
+      });
+    } catch (e) {
+      armError = String(e);
+    }
+  }
+
+  async function disarmLive(): Promise<void> {
+    armError = '';
+    try {
+      arming = await invoke<LiveArmingView>('disarm_live_trading');
+    } catch (e) {
+      armError = String(e);
+    }
+  }
+
+  async function toggleLoop(): Promise<void> {
+    armError = '';
+    try {
+      scheduler = await invoke<SchedulerStatus>(
+        scheduler?.running ? 'stop_autonomy_loop' : 'start_autonomy_loop',
+      );
+    } catch (e) {
+      armError = String(e);
+    }
+  }
+
   async function saveConfig() {
     saving = true;
     error = '';
@@ -100,6 +185,7 @@
       trader = await invoke<AutonomousTraderView>('configure_autonomous_trader', {
         config: {
           enabled,
+          mode,
           intervalSeconds,
           strategy,
           useCloudAnalysis,
@@ -185,7 +271,10 @@
         <span class="pk-status-label">{trader.enabled ? 'AUTONOMOUS TRADING ACTIVE' : 'AUTONOMOUS TRADING DISABLED'}</span>
       </div>
       <div class="pk-status-right">
-        <span class="pk-ladder-badge" style="background: {ladderColor(trader.ladderLevel)}22; color: {ladderColor(trader.ladderLevel)}; border-color: {ladderColor(trader.ladderLevel)}44">
+        <!-- Colour comes from a data attribute, not an inline style: the Tauri
+             CSP is `style-src 'self'`, which drops style attributes silently —
+             the badge would simply lose its colour in the packaged app. -->
+        <span class="pk-ladder-badge" data-ladder={trader.ladderLevel}>
           DRAWDOWN: {trader.ladderLevel}
         </span>
         {#if risk?.tripped}
@@ -197,6 +286,99 @@
     </div>
 
     <div class="pk-grid">
+      <!-- Autonomy mode + loop -->
+      <section class="pk-panel pk-autonomy">
+        <div class="pk-panel-head"><span>Autonomy</span></div>
+        <div class="pk-form">
+          <div class="pk-modes" role="radiogroup" aria-label="Autonomy mode">
+            {#each [['advisory', 'Advisory', 'Journals what it would do. Submits nothing.'], ['paper', 'Paper', 'Submits to the local paper OMS.'], ['live', 'Live', 'Submits to a real broker, behind every gate.']] as option (option[0])}
+              <button
+                class="pk-mode"
+                role="radio"
+                aria-checked={mode === option[0]}
+                class:active={mode === option[0]}
+                data-mode={option[0]}
+                onclick={() => (mode = option[0] as typeof mode)}
+              >
+                <b>{option[1]}</b><small>{option[2]}</small>
+              </button>
+            {/each}
+          </div>
+          <p class="pk-hint">
+            Mode is intent, not permission. Every gate — measured skill, armed breaker, drawdown
+            ladder, budget, and an unexpired arming — is re-checked on every decision, and any
+            failure drops that decision back to paper with the reason recorded.
+          </p>
+
+          {#if mode === 'live'}
+            <div class="pk-arm" class:armed={arming?.active}>
+              <div class="pk-arm-state">
+                <strong>{arming?.active ? 'ARMED' : 'NOT ARMED'}</strong>
+                <small>
+                  {arming?.active
+                    ? `${arming.broker} · expires ${new Date(arming.armedUntil ?? '').toLocaleTimeString()} · armed by ${arming.armedBy}`
+                    : 'Live execution requires an explicit, expiring authorisation.'}
+                </small>
+              </div>
+              {#if arming?.active}
+                <button class="pk-disarm" onclick={() => void disarmLive()}>Disarm now</button>
+              {:else}
+                <div class="pk-arm-form">
+                  <label><span>Broker</span><input bind:value={armBroker} /></label>
+                  <label><span>Operator</span><input bind:value={armOperator} placeholder="your name" /></label>
+                  <label><span>Minutes</span><input type="number" min="1" max="480" bind:value={armMinutes} /></label>
+                  <button class="pk-arm-go" onclick={() => void armLive()}>Arm live</button>
+                </div>
+              {/if}
+            </div>
+          {/if}
+
+          <!-- The most common reason the loop never trades, made visible on
+               the surface where you decide to trade. -->
+          {#if trader.tradingLimitMicros === 0}
+            <div class="pk-budget none">
+              <div>
+                <strong>NO TRADING BUDGET</strong>
+                <small>
+                  Positions cannot be sized until a trading limit is allocated. Research, analysis
+                  and advisory decisions continue regardless.
+                </small>
+              </div>
+              <a href="/workspace/autonomy">Allocate budget →</a>
+            </div>
+          {:else}
+            <div class="pk-budget">
+              <div>
+                <strong>
+                  TRADING BUDGET ${((trader.tradingLimitMicros - trader.tradingUsedMicros) / 1e6).toFixed(2)}
+                  <i>of ${(trader.tradingLimitMicros / 1e6).toFixed(2)} remaining</i>
+                </strong>
+                <small>Gross capital reservation available to autonomous orders.</small>
+              </div>
+              <a href="/workspace/autonomy">Adjust →</a>
+            </div>
+          {/if}
+
+          <div class="pk-loop">
+            <div>
+              <strong class:on={scheduler?.running}>
+                LOOP {scheduler?.running ? 'RUNNING' : 'STOPPED'}
+              </strong>
+              <small>{scheduler?.message ?? 'Scheduler state unknown'}</small>
+            </div>
+            <div class="pk-loop-actions">
+              <button onclick={() => void toggleLoop()}>
+                {scheduler?.running ? 'Stop loop' : 'Start loop'}
+              </button>
+              <button onclick={() => void refreshAutonomy()}>Refresh</button>
+              <a href="/workspace/agent-log">Agent log →</a>
+            </div>
+          </div>
+
+          {#if armError}<p class="pk-arm-error">{armError}</p>{/if}
+        </div>
+      </section>
+
       <!-- Configuration -->
       <section class="pk-panel">
         <div class="pk-panel-head"><span>Trading loop configuration</span></div>
@@ -416,4 +598,211 @@
   .pk-mono { font-family: var(--p-mono); }
   .pk-reason { font-size: 0.6875rem; color: var(--p-text-dim); max-width: 300px; }
   @media (max-width: 800px) { .pk-grid { grid-template-columns: 1fr; } }
+
+  .pk-ladder-badge[data-ladder='NORMAL'] {
+    border-color: color-mix(in srgb, var(--p-up) 40%, transparent);
+    background: color-mix(in srgb, var(--p-up) 13%, transparent);
+    color: var(--p-up);
+  }
+  .pk-ladder-badge[data-ladder='CAUTION'],
+  .pk-ladder-badge[data-ladder='DE-RISK'] {
+    border-color: color-mix(in srgb, #fbbf24 40%, transparent);
+    background: color-mix(in srgb, #fbbf24 13%, transparent);
+    color: #fbbf24;
+  }
+  .pk-ladder-badge[data-ladder='RESTRICT'],
+  .pk-ladder-badge[data-ladder='FLATTEN'],
+  .pk-ladder-badge[data-ladder='LOCKDOWN'] {
+    border-color: color-mix(in srgb, var(--p-down) 45%, transparent);
+    background: color-mix(in srgb, var(--p-down) 14%, transparent);
+    color: var(--p-down);
+  }
+
+  .pk-modes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .pk-mode {
+    display: grid;
+    gap: 3px;
+    padding: 10px;
+    border: 1px solid var(--p-border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--p-dim);
+    cursor: pointer;
+    text-align: left;
+  }
+  .pk-mode b {
+    color: var(--p-text);
+    font: 700 0.72rem var(--font-mono);
+  }
+  .pk-mode small {
+    font-size: 0.62rem;
+    line-height: 1.4;
+  }
+  .pk-mode.active {
+    border-color: var(--p-accent);
+    background: color-mix(in srgb, var(--p-accent) 10%, transparent);
+  }
+  /* Live is visually distinct because its consequences are. */
+  .pk-mode.active[data-mode='live'] {
+    border-color: var(--p-down);
+    background: color-mix(in srgb, var(--p-down) 12%, transparent);
+  }
+  .pk-mode.active[data-mode='live'] b {
+    color: var(--p-down);
+  }
+
+  .pk-arm {
+    display: grid;
+    gap: 8px;
+    padding: 11px;
+    border: 1px solid color-mix(in srgb, var(--p-down) 45%, var(--p-border));
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--p-down) 6%, transparent);
+  }
+  .pk-arm.armed {
+    border-color: color-mix(in srgb, var(--p-up) 45%, var(--p-border));
+    background: color-mix(in srgb, var(--p-up) 6%, transparent);
+  }
+  .pk-arm-state strong {
+    font: 700 0.68rem var(--font-mono);
+    letter-spacing: 0.1em;
+  }
+  .pk-arm.armed .pk-arm-state strong {
+    color: var(--p-up);
+  }
+  .pk-arm-state small {
+    display: block;
+    margin-top: 3px;
+    color: var(--p-dim);
+    font-size: 0.64rem;
+  }
+  .pk-arm-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px;
+  }
+  .pk-arm-form label {
+    display: grid;
+    gap: 3px;
+  }
+  .pk-arm-form span {
+    color: var(--p-dim);
+    font: 600 8px var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .pk-arm-form input {
+    width: 120px;
+    padding: 6px 8px;
+    border: 1px solid var(--p-border);
+    border-radius: 5px;
+    background: var(--p-panel-fill);
+    color: var(--p-text);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .pk-arm-go,
+  .pk-disarm {
+    padding: 7px 13px;
+    border: 1px solid var(--p-down);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--p-down) 14%, transparent);
+    color: var(--p-down);
+    cursor: pointer;
+    font: 700 0.62rem var(--font-mono);
+    letter-spacing: 0.08em;
+  }
+  .pk-arm-error {
+    margin: 0;
+    color: var(--p-down);
+    font-size: 0.68rem;
+  }
+
+  .pk-budget {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 11px;
+    border: 1px solid var(--p-border);
+    border-radius: 7px;
+  }
+  .pk-budget.none {
+    border-color: color-mix(in srgb, #fbbf24 45%, var(--p-border));
+    background: color-mix(in srgb, #fbbf24 7%, transparent);
+  }
+  .pk-budget strong {
+    font: 700 0.66rem var(--font-mono);
+    letter-spacing: 0.08em;
+  }
+  .pk-budget.none strong {
+    color: #fbbf24;
+  }
+  .pk-budget i {
+    color: var(--p-dim);
+    font-style: normal;
+    font-weight: 400;
+  }
+  .pk-budget small {
+    display: block;
+    margin-top: 3px;
+    max-width: 60ch;
+    color: var(--p-dim);
+    font-size: 0.62rem;
+    line-height: 1.45;
+  }
+  .pk-budget a {
+    padding: 6px 11px;
+    border: 1px solid var(--p-border);
+    border-radius: 5px;
+    color: var(--p-accent);
+    font: 700 0.6rem var(--font-mono);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .pk-loop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 11px;
+    border: 1px solid var(--p-border);
+    border-radius: 7px;
+  }
+  .pk-loop strong {
+    font: 700 0.66rem var(--font-mono);
+    letter-spacing: 0.1em;
+  }
+  .pk-loop strong.on {
+    color: var(--p-up);
+  }
+  .pk-loop small {
+    display: block;
+    margin-top: 3px;
+    color: var(--p-dim);
+    font-size: 0.62rem;
+  }
+  .pk-loop-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .pk-loop-actions button,
+  .pk-loop-actions a {
+    padding: 6px 11px;
+    border: 1px solid var(--p-border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--p-accent);
+    cursor: pointer;
+    font: 700 0.6rem var(--font-mono);
+    text-decoration: none;
+    white-space: nowrap;
+  }
 </style>

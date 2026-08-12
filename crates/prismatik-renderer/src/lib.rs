@@ -8,6 +8,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use intent::{AiUiIntent, ComparisonRequest, EvidenceBinding, TableRequest, TerminalPane};
+
+/// Typed, evidence-bound terminal intents.
+pub mod intent;
+
 /// Surface kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SurfaceKind {

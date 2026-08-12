@@ -10,3 +10,7 @@ description = "PRISMATIK prismatik-filings crate."
 [dependencies]
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+thiserror.workspace = true

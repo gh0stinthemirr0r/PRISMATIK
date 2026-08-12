@@ -1,127 +1,113 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { onMount } from 'svelte';
+  /**
+   * Frontier cognition is three providers. Each supports several credential
+   * kinds, and they are not equivalent: an API key is the documented path
+   * everywhere, OAuth is first-class only where the provider publishes it, and
+   * a console/web session credential addresses a different API surface than the
+   * developer endpoints this app calls. Stating that per method is the point —
+   * listing three buttons as though they were interchangeable would send people
+   * to an opaque 401.
+   */
+  type AuthKind = 'api_key' | 'oauth' | 'session_token';
+  type AuthOption = { kind: AuthKind; label: string; status: 'documented' | 'unofficial'; how: string };
 
-  type ModelCard = {
-    modelId: string;
-    family: string;
-    familyRole?: string;
-    onboardingStatus?: string;
-    licenseSpdx?: string;
-    driftStatus: string;
-    driftAction?: string;
-    ladderRung?: string;
-    promotionOk?: boolean;
-    blindSpots: string[];
-    provider: string;
-    retrievedAt: string;
-  };
-
-  const fallback: ModelCard = {
-    modelId: "probabilistic-baseline-demo",
-    family: "probabilistic_forecast",
-    familyRole: "ProbabilisticBaseline",
-    onboardingStatus: "onboarded",
-    licenseSpdx: "Apache-2.0",
-    driftStatus: "watch",
-    driftAction: "annotate",
-    ladderRung: "r4",
-    promotionOk: true,
-    blindSpots: [
-      "Regime shifts after macro shocks (2020-style)",
-      "Thin liquidity in far-dated options",
-      "Corporate action gaps in symbology resolver",
-    ],
-    provider: "ui-static-fallback",
-    retrievedAt: "2026-07-25T20:00:00Z",
-  };
-
-  let card = $state<ModelCard>(fallback);
-  let provenance = $state("static fallback");
-
-  const driftChip = $derived(
-    card.driftStatus === "stable"
-      ? "confirmed"
-      : card.driftStatus === "watch"
-        ? "uncertain"
-        : "contradicted",
-  );
-
-  onMount(async () => {
-    try {
-      card = await invoke<ModelCard>("get_model_card", {
-        modelId: "probabilistic-baseline-demo",
-      });
-      provenance = "trusted core";
-    } catch {
-      provenance = "browser fallback";
-    }
-  });
+  const providers: Array<{
+    id: string;
+    name: string;
+    use: string;
+    auth: AuthOption[];
+    note: string;
+  }> = [
+    {
+      id: 'openai',
+      name: 'OpenAI',
+      use: 'Tool-capable research, synthesis, structured extraction',
+      auth: [
+        { kind: 'api_key', label: 'API key', status: 'documented', how: 'platform.openai.com → API keys. Sent as a bearer token.' },
+        { kind: 'oauth', label: 'OAuth token', status: 'unofficial', how: 'An OAuth access token issued to your own registered client. Sent as a bearer token; OpenAI publishes no general third-party API OAuth flow.' },
+        { kind: 'session_token', label: 'Session token', status: 'unofficial', how: 'A ChatGPT web session credential. It addresses the consumer backend, not the developer API this app calls, so most requests will not succeed.' },
+      ],
+      note: 'All three kinds are presented as bearer tokens, so a wrong choice fails as a plain 401.',
+    },
+    {
+      id: 'anthropic',
+      name: 'Anthropic (Claude)',
+      use: 'Long-context evidence review, adversarial critique, synthesis',
+      auth: [
+        { kind: 'api_key', label: 'API key', status: 'documented', how: 'console.anthropic.com → API keys. Sent as the x-api-key header.' },
+        { kind: 'oauth', label: 'OAuth token', status: 'unofficial', how: 'A bearer access token, as first-party Claude clients use. Not a documented third-party flow; it can stop working without notice.' },
+        { kind: 'session_token', label: 'Session token', status: 'unofficial', how: 'A claude.ai session credential, sent as a bearer token. Targets the consumer surface rather than the Messages API.' },
+      ],
+      note: 'An API key must go in x-api-key and a token in Authorization; PRISMATIK picks the header from your choice here.',
+    },
+    {
+      id: 'google',
+      name: 'Google (Gemini)',
+      use: 'Multimodal research, extraction, cloud-governed inference',
+      auth: [
+        { kind: 'api_key', label: 'API key', status: 'documented', how: 'aistudio.google.com → API keys. Sent as the ?key= query parameter.' },
+        { kind: 'oauth', label: 'OAuth token', status: 'documented', how: 'A Google OAuth 2.0 access token, e.g. from gcloud auth print-access-token. Sent as a bearer token — the documented path for Vertex and Gemini.' },
+        { kind: 'session_token', label: 'Session token', status: 'unofficial', how: 'Google APIs do not accept browser session credentials; use OAuth instead.' },
+      ],
+      note: 'OAuth is genuinely first-class here — it is how Vertex AI authenticates.',
+    },
+  ];
+  let active = $state<Set<string>>(new Set());
+  let selected = $state<(typeof providers)[number] | null>(null);
+  let credential = $state(''); let authKind = $state<AuthKind>('api_key'); let checking = $state(false); let error = $state(''); let message = $state('');
+  let researchProvider = $state(''); let researchModel = $state(''); let researchQuestion = $state('Assess the strongest cross-asset moves in the current snapshot and identify evidence gaps.'); let maxTokens = $state(700); let maxCostUsd = $state(0.25); let researching = $state(false); let researchError = $state('');
+  let researchResult = $state<{providerId:string;model:string;text:string;inputTokens?:number;outputTokens?:number;providerRequestId?:string;evidenceCount:number;evidenceIds:string[];generatedAt:string;reservedCostMicros:number}|null>(null);
+  type Candidate={id:string;providerId:string;model:string;target:string;horizonMinutes:number;direction:'up'|'down'|'flat';probabilityPpm:number;summary:string;evidenceIds:string[];drivers:string[];risks:string[];generatedAt:string;reservedCostMicros:number;calibrationStatus:string;calibrationSampleSize:number;executionEligible:boolean;status:string;baselinePrice?:number;baselineObservedAt?:string;resolvesAfter?:string;resolvedAt?:string;resolutionPrice?:number;outcome?:boolean;brierPpm?:number;calibrationReport?:{brierPpm:number;expectedCalibrationErrorPpm:number}};
+  type Health={cohortId:string;providerId:string;model:string;target:string;horizonMinutes:number;sampleCount:number;overallBrierPpm?:number;overallEcePpm?:number;baselineBrierPpm?:number;recentBrierPpm?:number;driftPpm?:number;state:string;executionEligible:boolean};
+  let candidates=$state<Candidate[]>([]);let health=$state<Health[]>([]);let forecastTarget=$state('SPY');let forecastHorizon=$state(60);let forecastThesis=$state('Estimate the next-session directional regime using only the supplied real observations and explicitly identify evidence limitations.');let forecasting=$state(false);let resolving=$state(false);let forecastError=$state('');let resolutionMessage=$state('');
+  async function refresh() { if (!isTauri()) return; const rows = await invoke<Array<{providerId:string;active:boolean}>>('model_runtime_status'); active = new Set(rows.filter(row => row.active).map(row => row.providerId)); if(!active.has(researchProvider)) researchProvider=[...active][0]??''; [candidates,health]=await Promise.all([invoke<Candidate[]>('list_forecast_candidates'),invoke<Health[]>('forecast_calibration_health')]); }
+  function open(provider:(typeof providers)[number]) { selected=provider; credential=''; authKind='api_key'; error=''; message=''; }
+  async function connect() { if (!selected) return; checking=true; error=''; try { const result=await invoke<{message:string}>('test_model_provider',{providerId:selected.id,credentials:{credential,authKind}}); message=result.message; await refresh(); credential=''; } catch(cause){error=String(cause)} finally{checking=false} }
+  async function disconnect(id:string) { await invoke('disconnect_model_provider',{providerId:id}); await refresh(); }
+  async function runResearch(){researching=true;researchError='';researchResult=null;try{researchResult=await invoke('run_market_research',{providerId:researchProvider,model:researchModel,question:researchQuestion,maxOutputTokens:Number(maxTokens),maxCostMicros:Math.round(Number(maxCostUsd)*1e6)});}catch(cause){researchError=String(cause)}finally{researching=false}}
+  async function generateForecast(){forecasting=true;forecastError='';try{await invoke<Candidate>('generate_forecast_candidate',{request:{providerId:researchProvider,model:researchModel,target:forecastTarget,horizonMinutes:Number(forecastHorizon),thesis:forecastThesis,maxOutputTokens:Number(maxTokens),maxCostMicros:Math.round(Number(maxCostUsd)*1e6)}});await refresh()}catch(cause){forecastError=String(cause)}finally{forecasting=false}}
+  async function resolveForecasts(){resolving=true;forecastError='';resolutionMessage='';try{const result=await invoke<{resolved:number;pending:number;unavailable:number}>('resolve_due_forecast_candidates');resolutionMessage=`${result.resolved} resolved · ${result.pending} pending horizon · ${result.unavailable} awaiting newer real quote`;await refresh()}catch(cause){forecastError=String(cause)}finally{resolving=false}}
+  onMount(() => { void refresh(); });
 </script>
 
-<svelte:head><title>Models · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="models" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label={provenance} />{/snippet}
-  <div class="canvas">
-    <header>
-      <div>
-        <h1>Model card</h1>
-        <p>Drift status and blind-spot disclosure surface — registry floor, not live monitoring.</p>
-      </div>
-      <div class="chips">
-        <EvidenceChip status="confirmed" label={card.provider} />
-        <StaleDataMarker eventTime={card.retrievedAt} maxAge={86_400_000} />
-      </div>
-    </header>
-
-    <section class="grid">
-      <div class="panel">
-        <div class="label">Identity</div>
-        <dl>
-          <div><dt>Model ID</dt><dd>{card.modelId}</dd></div>
-          <div><dt>Family</dt><dd>{card.familyRole ?? card.family}</dd></div>
-          <div><dt>License</dt><dd>{card.licenseSpdx ?? "—"}</dd></div>
-          <div><dt>Ladder</dt><dd>{card.ladderRung ?? "—"} · promote {card.promotionOk ? "ok" : "denied"}</dd></div>
-          <div>
-            <dt>Drift status</dt>
-            <dd><EvidenceChip status={driftChip} label={card.driftStatus} /></dd>
-          </div>
-          <div><dt>Drift action</dt><dd>{card.driftAction ?? "—"}</dd></div>
-        </dl>
-      </div>
-      <aside class="panel">
-        <div class="label">Blind spots</div>
-        <ul>
-          {#each card.blindSpots as spot}
-            <li>
-              <EvidenceChip status="contradicted" label="disclosed" />
-              <span>{spot}</span>
-            </li>
-          {/each}
-        </ul>
-        <EvidenceChip status="uncertain" label="P5-EX-03 scaffold" />
-      </aside>
-    </section>
+<svelte:head><title>Model plane · PRISMATIK</title></svelte:head>
+<div class="models">
+  <header><div><span>MODEL PLANE / UNTRUSTED RESEARCH COMPUTE</span><h1>Frontier cognition</h1><p>Models can summarize evidence, challenge theses, interpret forecast features, and draft simulated strategies. They cannot manufacture provenance, approve risk, or submit orders.</p></div><a href="/workspace/autonomy">BUDGETS & GATES →</a></header>
+  <section class="pipeline"><div><b>01</b><span>EVIDENCE PACKET</span></div><i></i><div><b>02</b><span>BUDGET RESERVATION</span></div><i></i><div><b>03</b><span>MODEL ROUTE</span></div><i></i><div><b>04</b><span>CITED OUTPUT</span></div><i></i><div><b>05</b><span>DETERMINISTIC REVIEW</span></div></section>
+  <section class="grid">
+    {#each providers as provider, index}
+      <article class:connected={active.has(provider.id)}><em>{String(index + 1).padStart(2,'0')}</em><div class="top"><h2>{provider.name}</h2><span>{active.has(provider.id) ? 'active session' : 'native validation'}</span></div><p>{provider.use}</p><dl><dt>CREDENTIAL KINDS</dt><dd>{provider.auth.map(o => `${o.label} (${o.status})`).join(' · ')}</dd><dt>BOUNDARY</dt><dd>{provider.note}</dd></dl>{#if active.has(provider.id)}<button onclick={() => disconnect(provider.id)}>DISCONNECT SESSION</button>{:else}<button onclick={() => open(provider)}>CONNECT &amp; VALIDATE</button>{/if}</article>
+    {/each}
+  </section>
+  <section class="research"><div class="research-head"><div><span>AUTONOMOUS RESEARCH / REAL OBSERVATIONS ONLY</span><h2>Market evidence analyst</h2><p>Runs against current real quotes plus newest governed durable macro and filing observations. Payloads cross the model boundary only when the recorded source policy permits retention; synthetic prices are always excluded.</p></div><strong>{active.size} ACTIVE MODEL SESSION{active.size===1?'':'S'}</strong></div><div class="research-form"><label>Provider<select bind:value={researchProvider}><option value="">Select active session</option>{#each [...active] as id}<option value={id}>{providers.find(provider=>provider.id===id)?.name??id}</option>{/each}</select></label><label>Exact model ID<input bind:value={researchModel} placeholder="Provider model identifier" /></label><label>Max output tokens<input type="number" min="1" max="8192" bind:value={maxTokens} /></label><label>Worst-case reservation (USD)<input type="number" min="0.000001" step="0.01" bind:value={maxCostUsd} /></label><label class="question">Research question<textarea rows="3" bind:value={researchQuestion}></textarea></label><button onclick={runResearch} disabled={researching||!researchProvider||!researchModel.trim()||!researchQuestion.trim()}>{researching?'ANALYZING EVIDENCE…':'RUN BUDGETED RESEARCH'}</button></div>{#if researchError}<p class="research-error">{researchError}</p>{/if}{#if researchResult}<article class="result"><header><div><b>{researchResult.providerId} / {researchResult.model}</b><span>{researchResult.evidenceCount} governed evidence records · {researchResult.inputTokens??'—'} in / {researchResult.outputTokens??'—'} out</span></div><code>{researchResult.providerRequestId??'request id unavailable'}</code></header><pre>{researchResult.text}</pre><details><summary>Evidence manifest · {researchResult.evidenceIds.length} records</summary><code>{researchResult.evidenceIds.join('\n')}</code></details><footer>Generated {researchResult.generatedAt} · reserved ${(researchResult.reservedCostMicros/1e6).toFixed(4)} USD · untrusted cited research</footer></article>{/if}</section>
+  <section class="forecast"><div class="research-head"><div><span>CALIBRATION QUARANTINE / NO EXECUTION PATH</span><h2>Forecast candidate laboratory</h2><p>Creates typed directional hypotheses from real evidence. Outcomes are derived only from newer real target quotes after the horizon expires; cohorts require 20 resolved samples before calibration.</p></div><div class="forecast-actions"><strong>{candidates.length} DURABLE CANDIDATE{candidates.length===1?'':'S'}</strong><button onclick={resolveForecasts} disabled={resolving||!candidates.length}>{resolving?'CHECKING QUOTES…':'RESOLVE MATURED'}</button></div></div><div class="forecast-form"><label>Target<input bind:value={forecastTarget}/></label><label>Horizon minutes<input type="number" min="1" max="43200" bind:value={forecastHorizon}/></label><label class="thesis">Forecast context<textarea rows="3" bind:value={forecastThesis}></textarea></label><button onclick={generateForecast} disabled={forecasting||!researchProvider||!researchModel.trim()||!forecastTarget.trim()}>{forecasting?'VALIDATING MODEL ARTIFACT…':'GENERATE QUARANTINED CANDIDATE'}</button></div>{#if resolutionMessage}<p class="resolution-message">{resolutionMessage}</p>{/if}{#if forecastError}<p class="research-error">{forecastError}</p>{/if}<div class="candidate-grid">{#each candidates.slice().reverse().slice(0,12) as item}<article><header><div><span>{item.target} · {item.horizonMinutes}M</span><b class={item.direction}>{item.direction.toUpperCase()} · {(item.probabilityPpm/10000).toFixed(1)}%</b></div><code>{item.status.replaceAll('_',' ').toUpperCase()}</code></header><p>{item.summary}</p><div class="candidate-meta"><span>{item.evidenceIds.length} validated citations</span><span>calibration n={item.calibrationSampleSize}</span><span>execution {item.executionEligible?'eligible':'blocked'}</span>{#if item.outcome!==undefined}<span>{item.outcome?'CORRECT':'INCORRECT'} · BRIER {((item.brierPpm??0)/10000).toFixed(1)}%</span>{:else}<span>resolves {item.resolvesAfter?new Date(item.resolvesAfter).toLocaleString():'unavailable'}</span>{/if}</div><details><summary>Drivers, risks, and evidence</summary><b>Baseline</b><p>{item.baselinePrice??'—'} at {item.baselineObservedAt??'—'}{item.resolutionPrice!==undefined?` → ${item.resolutionPrice}`:''}</p><b>Drivers</b><ul>{#each item.drivers as value}<li>{value}</li>{/each}</ul><b>Risks</b><ul>{#each item.risks as value}<li>{value}</li>{/each}</ul><code>{item.evidenceIds.join('\n')}</code></details><footer>{item.providerId} / {item.model} · {item.generatedAt}</footer></article>{:else}<div class="forecast-empty">No model forecast candidates. Connect a provider and generate one from real market evidence.</div>{/each}</div></section>
+  {#if health.length}<section class="health-grid" aria-label="Forecast calibration health">{#each health as row}<article class:regressed={row.state==='regressed'}><span>{row.target} · {row.horizonMinutes}M · {row.providerId}/{row.model}</span><b>{row.state.replaceAll('_',' ').toUpperCase()}</b><small>n={row.sampleCount} · Brier {row.overallBrierPpm===undefined?'—':(row.overallBrierPpm/10000).toFixed(1)+'%'} · drift {row.driftPpm===undefined?'awaiting 40':`${row.driftPpm>=0?'+':''}${(row.driftPpm/10000).toFixed(1)}%`}</small></article>{/each}</section>{/if}
+  <aside><b>AUTHENTICATION</b><p>Three providers, three credential kinds. API keys are the documented path everywhere. OAuth is first-class only on Google, where it is how Vertex authenticates; on OpenAI and Anthropic a bearer token works but no third-party flow is published, so it can break without notice. Session tokens address consumer web backends rather than the developer APIs used here and are unlikely to succeed. Credentials stay in native process memory, and every invocation reserves worst-case cost first.</p></aside>
+</div>
+{#if selected}<button class="scrim" aria-label="Close" onclick={() => selected=null}></button><dialog open>
+  <h2>{selected.name}</h2>
+  <p>Credentials stay only in native process memory and are validated against the provider's real model catalog before the session is stored.</p>
+  <label>Credential kind
+    <select bind:value={authKind}>
+      {#each selected.auth as option (option.kind)}<option value={option.kind}>{option.label} · {option.status}</option>{/each}
+    </select>
+  </label>
+  {#each selected.auth.filter(o => o.kind === authKind) as option (option.kind)}
+    <p class="how" class:unofficial={option.status === 'unofficial'}>{option.how}</p>
+  {/each}
+  <label>Credential<input type="password" autocomplete="off" bind:value={credential} /></label>
+  {#if error}<p class="error">{error}</p>{/if}
+  {#if message}<p class="success">{message}</p>{/if}
+  <div>
+    <button onclick={() => selected=null}>CLOSE</button>
+    <button onclick={connect} disabled={checking || !credential.trim()}>{checking?'CHECKING REAL ENDPOINT…':'VALIDATE CONNECTION'}</button>
   </div>
-</WorkspaceShell>
+</dialog>{/if}
 
 <style>
-  .canvas { display: grid; gap: var(--space-lg); }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); }
-  h1 { margin: 0; font-size: var(--font-size-xl); }
-  p { margin: 4px 0 0; color: var(--color-text-secondary); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
-  .panel { padding: var(--space-md); border-radius: var(--radius-lg); background: var(--color-surface-1); display: grid; gap: var(--space-sm); }
-  .label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-secondary); }
-  dl { margin: 0; display: grid; gap: 12px; }
-  dt { font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; }
-  dd { margin: 4px 0 0; font-size: var(--font-size-sm); }
-  ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-  li { padding: 10px; border-radius: var(--radius-md); background: var(--color-surface-2); display: grid; gap: 6px; }
-  li span { font-size: var(--font-size-sm); color: var(--color-text-primary); }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .models{height:100%;overflow:auto;padding:34px clamp(24px,3vw,48px) 80px;color:var(--p-text)}header{display:flex;justify-content:space-between;gap:30px;align-items:flex-end}header span,.research-head span{font:600 .6rem var(--font-mono);letter-spacing:.14em;color:var(--p-accent)}h1{font-size:clamp(2.8rem,5vw,5.6rem);letter-spacing:-.07em;margin:8px 0}header p{max-width:800px;color:var(--p-dim);line-height:1.55}header a{border:1px solid var(--p-border);padding:11px 14px;color:var(--p-accent);text-decoration:none;font:.64rem var(--font-mono);white-space:nowrap}.pipeline{display:flex;align-items:center;margin:28px 0;padding:18px;border-block:1px solid var(--p-border);overflow:auto}.pipeline div{display:grid;gap:4px;min-width:130px}.pipeline b{color:var(--p-accent);font:.65rem var(--font-mono)}.pipeline span{font:.58rem var(--font-mono);letter-spacing:.08em}.pipeline i{height:1px;min-width:30px;flex:1;background:linear-gradient(90deg,var(--p-accent),var(--p-border))}.grid{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:10px}.grid article{position:relative;border:1px solid var(--p-border);background:var(--p-panel-fill);backdrop-filter:blur(var(--glass-blur));padding:20px;min-height:260px}.grid article.connected{border-color:#28e7a455;box-shadow:inset 0 0 30px #28e7a40c}.grid em{position:absolute;right:14px;top:10px;color:var(--p-border);font:2rem var(--font-mono);font-style:normal}.top{position:relative}.top h2{font-size:1.1rem;margin:0 0 10px}.top span{color:#ffcb7b;font:.58rem var(--font-mono);text-transform:uppercase}.connected .top span{color:#67efba}.grid p{color:var(--p-dim);font-size:.78rem;line-height:1.5}.grid dl{display:grid;gap:5px;margin:18px 0}.grid dt{color:var(--p-accent);font:.55rem var(--font-mono)}.grid dd{margin:0 0 8px;color:var(--p-dim);font-size:.7rem;line-height:1.4}.grid button{position:absolute;bottom:16px;left:20px;right:20px;padding:9px;border:1px solid var(--p-border);background:transparent;color:var(--p-dim);font:.56rem var(--font-mono)}.grid button:not(:disabled){color:var(--p-accent);cursor:pointer}.research{margin-top:14px;border:1px solid var(--p-border);background:var(--p-panel-fill);padding:20px}.research-head{display:flex;justify-content:space-between;gap:20px}.research-head h2{font-size:1.5rem;margin:7px 0}.research-head p{margin:0;color:var(--p-dim)}.research-head strong{font:.6rem var(--font-mono);color:#67efba}.research-form{display:grid;grid-template-columns:1fr 1.5fr .7fr .8fr;gap:10px;margin-top:20px}.research-form label{display:grid;gap:6px;color:var(--p-dim);font:.58rem var(--font-mono)}.research-form input,.research-form select,.research-form textarea{border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text);padding:9px;font:inherit}.research-form .question{grid-column:1/-1}.research-form button{grid-column:1/-1;justify-self:end;padding:10px 16px;border:0;background:var(--p-accent);color:var(--p-bg);font:700 .6rem var(--font-mono);cursor:pointer}.research-error{color:#ff637d}.result{margin-top:18px;border:1px solid var(--p-border);background:var(--p-surface2)}.result header{padding:12px;border-bottom:1px solid var(--p-border);align-items:start}.result header b,.result header span{display:block}.result header span,.result code,.result footer{font:.58rem var(--font-mono);color:var(--p-dim)}.result pre{white-space:pre-wrap;padding:18px;font:inherit;line-height:1.6}.result details{padding:10px 18px;border-top:1px solid var(--p-border);color:var(--p-dim);font:.58rem var(--font-mono)}.result details code{display:block;margin-top:10px;overflow-wrap:anywhere;white-space:pre-wrap}.result footer{padding:10px;border-top:1px solid var(--p-border)}aside{margin-top:12px;border:1px solid var(--p-border);padding:18px;display:flex;gap:20px}aside b{color:var(--p-accent);font:.6rem var(--font-mono);white-space:nowrap}aside p{margin:0;color:var(--p-dim);line-height:1.5;font-size:.76rem}.scrim{position:fixed;inset:0;z-index:80;border:0;background:#0009}dialog{position:fixed;z-index:81;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(480px,calc(100vw - 30px));border:1px solid var(--p-border);border-radius:10px;background:var(--p-surface);color:var(--p-text);padding:24px;box-shadow:0 30px 100px #000}dialog h2{margin-top:0}dialog p{color:var(--p-dim);line-height:1.5}dialog label{display:grid;gap:7px;margin:14px 0;font:.65rem var(--font-mono);color:var(--p-dim)}dialog input{padding:11px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text)}dialog>div{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}dialog button{padding:10px;border:1px solid var(--p-border);background:transparent;color:var(--p-text);font:.62rem var(--font-mono);cursor:pointer}dialog button:last-child{background:var(--p-accent);color:var(--p-bg)}dialog .error{color:#ff637d}dialog select{padding:11px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text);font:inherit}dialog .how{font-size:.7rem;line-height:1.5;color:var(--p-dim);border-left:2px solid var(--p-border);padding-left:10px;margin:0 0 4px}dialog .how.unofficial{border-left-color:#ffcb7b;color:#ffcb7b}.success{color:#67efba!important}@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.research-form{grid-template-columns:1fr 1fr}}@media(max-width:680px){header,aside,.research-head{display:block}.grid,.research-form{grid-template-columns:1fr}header a{display:inline-block;margin-top:12px}aside b{display:block;margin-bottom:8px}}
+.forecast{margin-top:14px;border:1px solid color-mix(in srgb,var(--p-accent2) 35%,var(--p-border));background:var(--p-panel-fill);padding:20px}.forecast-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.forecast-form label{display:grid;gap:6px;color:var(--p-dim);font:.58rem var(--font-mono)}.forecast-form input,.forecast-form textarea{padding:9px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text)}.forecast-form .thesis,.forecast-form button{grid-column:1/-1}.forecast-form button{justify-self:end;padding:10px 16px;border:1px solid color-mix(in srgb,var(--p-accent2) 45%,var(--p-border));background:color-mix(in srgb,var(--p-accent2) 14%,var(--p-surface));color:var(--p-accent2);font:700 .6rem var(--font-mono)}.candidate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}.candidate-grid>article{border:1px solid var(--p-border);background:var(--p-surface2)}.candidate-grid header{align-items:start;padding:12px;border-bottom:1px solid var(--p-border)}.candidate-grid header span,.candidate-grid header b{display:block;font:.6rem var(--font-mono)}.candidate-grid header b{margin-top:5px}.candidate-grid header .up{color:#67efba}.candidate-grid header .down{color:#ff637d}.candidate-grid header .flat{color:#ffcb7b}.candidate-grid>article>p,.candidate-grid details{padding:12px;color:var(--p-dim);font-size:.72rem;line-height:1.5}.candidate-meta{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px}.candidate-meta span{padding:4px 6px;border:1px solid var(--p-border);color:#ffcb7b;font:.52rem var(--font-mono)}.candidate-grid details code{display:block;margin-top:8px;white-space:pre-wrap}.candidate-grid footer{padding:9px 12px;border-top:1px solid var(--p-border);color:var(--p-dim);font:.52rem var(--font-mono)}.forecast-empty{grid-column:1/-1;padding:50px;text-align:center;color:var(--p-dim)}@media(max-width:760px){.candidate-grid,.forecast-form{grid-template-columns:1fr}}
+.forecast-actions{display:grid;justify-items:end;gap:8px}.forecast-actions button{padding:8px 11px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-accent);font:700 .55rem var(--font-mono)}.resolution-message{padding:9px;border:1px solid #28e7a455;color:#67efba;font:.6rem var(--font-mono)}.health-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:12px}.health-grid article{display:grid;gap:5px;padding:12px;border:1px solid var(--p-border);background:var(--p-panel-fill)}.health-grid article.regressed{border-color:#ff637d88;box-shadow:inset 3px 0 #ff637d}.health-grid span,.health-grid small{color:var(--p-dim);font:.55rem var(--font-mono)}.health-grid b{color:#67efba;font:.62rem var(--font-mono)}.health-grid .regressed b{color:#ff637d}
 </style>

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-audit-timeline"
+description = "Read the bounded redacted audit timeline assembled from verified native state."
+commands.allow = ["get_audit_timeline"]

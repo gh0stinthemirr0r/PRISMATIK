@@ -11,7 +11,18 @@
 pub use broker_state::{BrokerOrderState, LocalOrderState, OrderStateError};
 pub use gateway::{BrokerError, BrokerErrorCode, BrokerGateway, BrokerRejection, SubmissionResult};
 pub use idempotency::{IdempotencyError, IdempotencyKey};
+pub use operations::{
+    evaluate_account_health, reconcile_cycle, AccountHealth, AccountHealthInput,
+    ReconciliationAction, ReconciliationCycle,
+};
+pub use paper_workflow::{PaperFill, PaperLedger, PaperOrderError, PaperOrderRequest};
 pub use reconcile::{QuarantineReason, Reconciler, ReconciliationDelta};
+
+/// Continuous reconciliation and account-health decisions.
+pub mod operations;
+
+/// Local paper-only order workflow with append-only fills.
+pub mod paper_workflow;
 
 /// Broker gateway contracts.
 pub mod gateway {
@@ -20,7 +31,7 @@ pub mod gateway {
     use prismatik_risk::RiskApprovedOrderIntent;
 
     /// Broker error category.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     pub enum BrokerErrorCode {
         /// Permanent configuration error.
         Config,
@@ -139,10 +150,12 @@ pub mod reconcile {
         UnknownState,
         /// Reconciliation detected position delta.
         DeltaMismatch,
+        /// Snapshot contained duplicate rows for one asset.
+        DuplicateAsset,
     }
 
     /// Reconciliation delta summary.
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     pub struct ReconciliationDelta {
         /// Symbol or asset id.
         pub asset_id: String,
@@ -192,13 +205,13 @@ pub mod reconcile {
 
         let mut deltas = Vec::new();
         for asset_id in all_assets {
-            let local_qty = local_map.get(&asset_id).copied().unwrap_or(0.0);
-            let broker_qty = broker_map.get(&asset_id).copied().unwrap_or(0.0);
+            let local_qty = local_map.get(&asset_id).copied().unwrap_or(0);
+            let broker_qty = broker_map.get(&asset_id).copied().unwrap_or(0);
             let diff = local_qty - broker_qty;
-            if diff.abs() > f64::EPSILON {
+            if diff != 0 {
                 deltas.push(ReconciliationDelta {
                     asset_id,
-                    quantity_delta: format!("{diff:.10}"),
+                    quantity_delta: format_quantity(diff),
                 });
             }
         }
@@ -211,16 +224,78 @@ pub mod reconcile {
 
     fn to_quantity_map(
         snapshot: &[PositionSnapshot],
-    ) -> Result<BTreeMap<String, f64>, QuarantineReason> {
+    ) -> Result<BTreeMap<String, i128>, QuarantineReason> {
         let mut map = BTreeMap::new();
         for row in snapshot {
-            let quantity = row
-                .quantity
-                .parse::<f64>()
-                .map_err(|_| QuarantineReason::UnknownState)?;
-            map.insert(row.asset_id.clone(), quantity);
+            if row.asset_id.trim().is_empty() {
+                return Err(QuarantineReason::UnknownState);
+            }
+            let quantity = parse_quantity(&row.quantity)?;
+            if map.insert(row.asset_id.clone(), quantity).is_some() {
+                return Err(QuarantineReason::DuplicateAsset);
+            }
         }
         Ok(map)
+    }
+
+    const QUANTITY_SCALE: i128 = 100_000_000;
+
+    fn parse_quantity(raw: &str) -> Result<i128, QuarantineReason> {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            return Err(QuarantineReason::UnknownState);
+        }
+        let (negative, unsigned) = raw
+            .strip_prefix('-')
+            .map_or((false, raw), |value| (true, value));
+        if unsigned.starts_with('+') || unsigned.is_empty() {
+            return Err(QuarantineReason::UnknownState);
+        }
+        let mut parts = unsigned.split('.');
+        let whole = parts.next().ok_or(QuarantineReason::UnknownState)?;
+        let fractional = parts.next().unwrap_or("");
+        if parts.next().is_some()
+            || whole.is_empty()
+            || !whole.bytes().all(|byte| byte.is_ascii_digit())
+            || !fractional.bytes().all(|byte| byte.is_ascii_digit())
+            || fractional.len() > 8
+        {
+            return Err(QuarantineReason::UnknownState);
+        }
+        let whole = whole
+            .parse::<i128>()
+            .map_err(|_| QuarantineReason::UnknownState)?;
+        let fractional = if fractional.is_empty() {
+            0
+        } else {
+            fractional
+                .parse::<i128>()
+                .map_err(|_| QuarantineReason::UnknownState)?
+                * 10_i128.pow(u32::try_from(8 - fractional.len()).expect("at most eight"))
+        };
+        let scaled = whole
+            .checked_mul(QUANTITY_SCALE)
+            .and_then(|value| value.checked_add(fractional))
+            .ok_or(QuarantineReason::UnknownState)?;
+        Ok(if negative { -scaled } else { scaled })
+    }
+
+    fn format_quantity(value: i128) -> String {
+        let negative = value < 0;
+        let absolute = value.abs();
+        let whole = absolute / QUANTITY_SCALE;
+        let fractional = absolute % QUANTITY_SCALE;
+        let mut output = if fractional == 0 {
+            whole.to_string()
+        } else {
+            format!("{whole}.{fractional:08}")
+                .trim_end_matches('0')
+                .to_owned()
+        };
+        if negative {
+            output.insert(0, '-');
+        }
+        output
     }
 
     #[cfg(test)]
@@ -253,6 +328,7 @@ pub mod reconcile {
             assert!(plan.quarantine_required);
             assert_eq!(plan.deltas.len(), 1);
             assert_eq!(plan.deltas[0].asset_id, "B");
+            assert_eq!(plan.deltas[0].quantity_delta, "2");
         }
 
         #[test]
@@ -264,6 +340,29 @@ pub mod reconcile {
             let broker = Vec::new();
             let error = reconcile_positions(&local, &broker).expect_err("invalid quantity");
             assert_eq!(error, QuarantineReason::UnknownState);
+        }
+
+        #[test]
+        fn decimal_reconciliation_is_exact_and_rejects_duplicates() {
+            let local = vec![PositionSnapshot {
+                asset_id: "BTC".into(),
+                quantity: "0.30000000".into(),
+            }];
+            let broker = vec![PositionSnapshot {
+                asset_id: "BTC".into(),
+                quantity: "0.3".into(),
+            }];
+            assert!(
+                !reconcile_positions(&local, &broker)
+                    .unwrap()
+                    .quarantine_required
+            );
+
+            let duplicate = vec![local[0].clone(), local[0].clone()];
+            assert_eq!(
+                reconcile_positions(&duplicate, &broker),
+                Err(QuarantineReason::DuplicateAsset)
+            );
         }
     }
 }

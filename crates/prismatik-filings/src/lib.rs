@@ -8,6 +8,14 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub use ownership::{
+    holdings_observable_as_of, parse_13f, parse_form4, FilingParseError, Form13fHolding,
+    Form4Transaction,
+};
+
+/// Point-in-time-safe institutional ownership and insider-transaction parsing.
+pub mod ownership;
+
 /// Filing types.
 /// Filing type contracts.
 pub mod types {

@@ -16,3 +16,16 @@ prismatik-manifest.workspace = true
 prismatik-storage.workspace = true
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+prismatik-execution.workspace = true
+prismatik-risk.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+hex.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+time.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

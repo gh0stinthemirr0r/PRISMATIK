@@ -1,131 +1,61 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { onMount } from 'svelte';
+  import { Braces, Check, CircleAlert, Plus, Save, Shield, Trash2 } from 'lucide-svelte';
 
-  type Block = { id: string; kind: string; params: string[] };
-  type Preview = {
-    strategyId: string;
-    schemaVersion?: string;
-    irDigest?: string;
-    dsl: string;
-    blocks: Block[];
-    ruleKind?: string;
-    capabilities?: {
-      network: boolean;
-      filesystem: boolean;
-      ai: boolean;
-      maxComputePerBarMs: number;
-    };
-    provider: string;
-    retrievedAt: string;
-  };
+  type Indicator={kind:string;alias:string;warmup:number};
+  type Strategy={schemaVersion:string;strategyId:string;name:string;description?:string;capabilities:{canAccessNetwork:boolean;canAccessFilesystem:boolean;canInvokeAi:boolean;maxComputePerBarMs:number};universe:{kind:'static';staticMembers:string[]};indicators:Indicator[];rules:unknown};
+  type Issue={code:string;message:string};
+  type Validation={valid:boolean;issues:Issue[]};
+  type Contract={schemaVersion:string;indicatorKinds:string[];maxComputePerBarMs:number;networkAllowed:boolean;filesystemAllowed:boolean;aiAllowed:boolean};
+  type Draft={strategy:Strategy;createdAt:string;updatedAt:string;state:string;executionEligible:boolean};
 
-  const fallback: Preview = {
-    strategyId: "sma-cross-v1",
-    dsl: `strategy sma-cross-v1 {
-  feed equity("AAPL", daily)
-  sma_fast = sma(close, 10)
-  ema_trend = ema(close, 20)
-  rsi_filter = rsi(close, 14)
-  signal = cross_over(sma_fast, ema_trend) and rsi_filter < 70
-  emit signal
-}`,
-    blocks: [
-      { id: "feed-1", kind: "EquityFeed", params: ["AAPL", "daily"] },
-      { id: "sma-10", kind: "SMA", params: ["close", "10"] },
-      { id: "ema-20", kind: "EMA", params: ["close", "20"] },
-      { id: "rsi-14", kind: "RSI", params: ["close", "14"] },
-      { id: "cross-1", kind: "CrossOver", params: ["sma-10", "ema-20"] },
-    ],
-    provider: "ui-static-fallback",
-    retrievedAt: "2026-07-25T20:00:00Z",
-  };
+  let contract=$state<Contract|null>(null);let drafts=$state<Draft[]>([]);let validation=$state<Validation|null>(null);let error=$state('');let message=$state('');let busy=$state(false);let search=$state('');
+  let strategyId=$state('');let name=$state('');let description=$state('');let symbols=$state('');let indicators=$state<Indicator[]>([]);let rulesText=$state('{\n  "entries": [],\n  "exits": []\n}');let rawMode=$state(false);let rawText=$state('');
+  const filtered=$derived(drafts.filter(d=>`${d.strategy.name} ${d.strategy.strategyId} ${d.strategy.universe.staticMembers.join(' ')}`.toLowerCase().includes(search.toLowerCase())));
 
-  let preview = $state<Preview>(fallback);
-  let provenance = $state("static fallback");
-
-  onMount(async () => {
-    try {
-      preview = await invoke<Preview>("get_strategy_ir_preview", { strategyId: "sma-cross-v1" });
-      provenance = "trusted core";
-    } catch {
-      provenance = "browser fallback";
-    }
-  });
+  function slug(value:string){return value.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,96)}
+  function build():Strategy{
+    const rules=JSON.parse(rulesText);
+    return {schemaVersion:contract?.schemaVersion??'1.0.0',strategyId:strategyId.trim()||`draft:${slug(name)}`,name:name.trim(),description:description.trim()||undefined,capabilities:{canAccessNetwork:false,canAccessFilesystem:false,canInvokeAi:false,maxComputePerBarMs:50},universe:{kind:'static',staticMembers:[...new Set(symbols.split(',').map(v=>v.trim()).filter(Boolean))].sort()},indicators:indicators.map(v=>({...v,kind:v.kind.toLowerCase().trim(),alias:v.alias.trim(),warmup:Number(v.warmup)})),rules};
+  }
+  function syncRaw(){try{rawText=JSON.stringify(build(),null,2)}catch(cause){error=`Rules JSON: ${String(cause)}`}}
+  function fromRaw():Strategy{return JSON.parse(rawText) as Strategy}
+  function current(){return rawMode?fromRaw():build()}
+  function addIndicator(){const kind=contract?.indicatorKinds[0]??'sma';indicators=[...indicators,{kind,alias:`${kind}_${indicators.length+1}`,warmup:0}]}
+  function removeIndicator(index:number){indicators=indicators.filter((_,i)=>i!==index)}
+  function edit(draft:Draft){const s=draft.strategy;strategyId=s.strategyId;name=s.name;description=s.description??'';symbols=s.universe.staticMembers.join(', ');indicators=s.indicators.map(v=>({...v}));rulesText=JSON.stringify(s.rules,null,2);rawText=JSON.stringify(s,null,2);validation=null;message='';window.scrollTo({top:0,behavior:'smooth'})}
+  function blank(){strategyId='';name='';description='';symbols='';indicators=[];rulesText='{\n  "entries": [],\n  "exits": []\n}';rawText='';validation=null;message='';error=''}
+  async function load(){if(!isTauri())return;try{[contract,drafts]=await Promise.all([invoke<Contract>('get_strategy_authoring_contract'),invoke<Draft[]>('list_strategy_drafts')])}catch(cause){error=String(cause)}}
+  async function validate(){error='';message='';try{validation=await invoke<Validation>('validate_strategy',{strategy:current()})}catch(cause){error=String(cause)}}
+  async function save(){busy=true;error='';message='';try{const saved=await invoke<Draft>('save_strategy',{strategy:current()});message=`Saved ${saved.strategy.name} as an unsigned, execution-blocked draft.`;await load();edit(saved)}catch(cause){error=String(cause)}finally{busy=false}}
+  function toggleRaw(){if(!rawMode)syncRaw();rawMode=!rawMode;validation=null}
+  onMount(()=>void load());
 </script>
 
-<svelte:head><title>Strategy · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="strategy" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label={provenance} />{/snippet}
-  <div class="canvas">
-    <header>
-      <div>
-        <h1>Strategy builder</h1>
-        <p>Visual block list + DSL preview — emits StrategyIR via codegen floor, not live compile.</p>
-      </div>
-      <div class="chips">
-        <EvidenceChip status="confirmed" label={preview.provider} />
-        <StaleDataMarker eventTime={preview.retrievedAt} maxAge={86_400_000} />
-      </div>
-    </header>
-    <section class="grid">
-      <div class="panel">
-        <div class="label">Blocks</div>
-        <ul>
-          {#each preview.blocks as block}
-            <li>
-              <strong>{block.kind}</strong>
-              <span>{block.id}</span>
-              <div class="params">
-                {#each block.params as p}<EvidenceChip status="uncertain" label={p} />{/each}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      </div>
-      <aside class="panel">
-        <div class="label">DSL preview · {preview.strategyId}</div>
-        <textarea readonly rows="12">{preview.dsl}</textarea>
-        <div class="label">IR floor</div>
-        <dl class="meta">
-          <div><dt>Schema</dt><dd>{preview.schemaVersion ?? "—"}</dd></div>
-          <div><dt>Digest</dt><dd><code>{preview.irDigest ?? "—"}</code></dd></div>
-          <div><dt>Rule</dt><dd>{preview.ruleKind ?? "—"}</dd></div>
-        </dl>
-        {#if preview.capabilities}
-          <div class="cap-row">
-            <EvidenceChip status={preview.capabilities.network ? "contradicted" : "confirmed"} label="network" />
-            <EvidenceChip status={preview.capabilities.filesystem ? "contradicted" : "confirmed"} label="fs" />
-            <EvidenceChip status={preview.capabilities.ai ? "uncertain" : "confirmed"} label="ai" />
-          </div>
-        {/if}
-        <EvidenceChip status="uncertain" label="P4-EX-01 scaffold" />
-      </aside>
-    </section>
-  </div>
-</WorkspaceShell>
+<svelte:head><title>Strategy workbench · PRISMATIK</title></svelte:head>
+<main class="strategy">
+  <header><div><span>DETERMINISTIC STRATEGY PLANE / NATIVE IR</span><h1>Strategy workbench</h1><p>Author bounded, capability-denied StrategyIR and preserve it in a verified local journal. Drafts cannot trade, call models, reach the network, or touch files.</p></div><div class="posture"><Shield size={17}/><b>UNSIGNED DRAFTS</b><small>EXECUTION STRUCTURALLY BLOCKED</small></div></header>
+  <section class="metrics"><article><span>DRAFTS</span><b>{drafts.length}</b><small>Durable local artifacts</small></article><article><span>SCHEMA</span><b>{contract?.schemaVersion??'—'}</b><small>Canonical StrategyIR</small></article><article><span>INDICATORS</span><b>{contract?.indicatorKinds.length??0}</b><small>Closed native catalog</small></article><article><span>CAPABILITIES</span><b>DENY</b><small>Network · files · AI</small></article></section>
+
+  <section class="composer">
+    <div class="section-head"><div><span>AUTHORING CONTRACT</span><h2>{strategyId?'Edit strategy draft':'New strategy draft'}</h2></div><div><button class:active={rawMode} onclick={toggleRaw}><Braces size={13}/>{rawMode?'FORM VIEW':'JSON VIEW'}</button><button onclick={blank}><Plus size={13}/>NEW</button></div></div>
+    {#if rawMode}<label class="raw"><span>CANONICAL STRATEGYIR JSON</span><textarea bind:value={rawText} rows="22" spellcheck="false"></textarea></label>
+    {:else}<div class="form">
+      <label><span>NAME</span><input bind:value={name} placeholder="Strategy name"/></label><label><span>STABLE ID</span><input bind:value={strategyId} placeholder="Generated from name if blank"/></label>
+      <label class="wide"><span>DESCRIPTION</span><input bind:value={description} placeholder="Decision thesis and intended market regime"/></label><label class="wide"><span>STATIC ASSET IDS</span><input bind:value={symbols} placeholder="BTC/USD, ETH/USD, SPY"/><small>Comma-separated canonical targets. At least one is required.</small></label>
+      <div class="indicator-head wide"><div><span>INDICATOR INPUTS</span><small>Closed native catalog; aliases must be unique.</small></div><button onclick={addIndicator}><Plus size={12}/>ADD INDICATOR</button></div>
+      <div class="indicators wide">{#each indicators as indicator,index}<div><select bind:value={indicator.kind}>{#each contract?.indicatorKinds??[] as kind}<option value={kind}>{kind}</option>{/each}</select><input bind:value={indicator.alias} aria-label="Indicator alias" placeholder="alias"/><input type="number" min="0" bind:value={indicator.warmup} aria-label="Warmup bars"/><button aria-label="Remove indicator" onclick={()=>removeIndicator(index)}><Trash2 size={13}/></button></div>{:else}<p>No indicator inputs. Add only what the strategy actually consumes.</p>{/each}</div>
+      <label class="wide"><span>BOUNDED RULE TREE JSON</span><textarea bind:value={rulesText} rows="8" spellcheck="false"></textarea><small>The current native floor validates the entries/exits envelope; compilation and promotion remain separate gates.</small></label>
+    </div>{/if}
+    <div class="actions"><button onclick={validate}><Check size={14}/>VALIDATE</button><button class="primary" onclick={save} disabled={busy}><Save size={14}/>{busy?'PERSISTING…':'SAVE UNSIGNED DRAFT'}</button></div>
+    {#if validation}<div class:valid={validation.valid} class="result">{#if validation.valid}<Check size={16}/><div><b>Native contract satisfied</b><p>Valid as an unsigned draft. This is not compilation, backtest approval, signing, or execution authorization.</p></div>{:else}<CircleAlert size={16}/><div><b>{validation.issues.length} validation issue{validation.issues.length===1?'':'s'}</b>{#each validation.issues as issue}<p><code>{issue.code}</code> {issue.message}</p>{/each}</div>{/if}</div>{/if}
+    {#if error}<div class="result error"><CircleAlert size={16}/><div><b>Operation denied</b><p>{error}</p></div></div>{/if}{#if message}<div class="result valid"><Check size={16}/><div><b>Draft persisted</b><p>{message}</p></div></div>{/if}
+  </section>
+
+  <section class="library"><div class="section-head"><div><span>DURABLE DRAFT LIBRARY</span><h2>Strategy artifacts</h2></div><input bind:value={search} placeholder="Search drafts and assets"/></div><div class="drafts">{#each filtered as draft}<button onclick={()=>edit(draft)}><header><div><b>{draft.strategy.name}</b><code>{draft.strategy.strategyId}</code></div><span>{draft.state.replaceAll('_',' ').toUpperCase()}</span></header><p>{draft.strategy.description??'No description recorded.'}</p><footer><span>{draft.strategy.universe.staticMembers.join(' · ')}</span><span>{draft.strategy.indicators.length} indicator{draft.strategy.indicators.length===1?'':'s'}</span><span>Updated {new Date(draft.updatedAt).toLocaleString()}</span></footer></button>{:else}<div class="empty">No durable strategy drafts match this view. Nothing fabricated is preloaded.</div>{/each}</div></section>
+</main>
 
 <style>
-  .canvas { display: grid; gap: var(--space-lg); }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); }
-  h1 { margin: 0; font-size: var(--font-size-xl); }
-  p { margin: 4px 0 0; color: var(--color-text-secondary); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
-  .panel { padding: var(--space-md); border-radius: var(--radius-lg); background: var(--color-surface-1); display: grid; gap: var(--space-sm); }
-  .label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-secondary); }
-  ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-  li { padding: 10px; border-radius: var(--radius-md); background: var(--color-surface-2); display: grid; gap: 4px; }
-  li span { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-  .params { display: flex; flex-wrap: wrap; gap: 4px; }
-  textarea { width: 100%; font-family: var(--font-mono, monospace); font-size: var(--font-size-sm); background: var(--color-surface-2); border: none; border-radius: var(--radius-md); padding: var(--space-sm); color: var(--color-text-primary); resize: vertical; }
-  .meta { margin: 0; display: grid; gap: 6px; font-size: var(--font-size-sm); }
-  .meta div { display: grid; grid-template-columns: 72px 1fr; gap: 8px; }
-  dt { color: var(--color-text-secondary); }
-  dd { margin: 0; word-break: break-all; }
-  code { font-size: var(--font-size-xs); }
-  .cap-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.strategy{height:100%;overflow:auto;padding:34px clamp(18px,3vw,46px) 80px;color:var(--p-text)}.strategy>header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:1px solid var(--p-border)}header>div>span,.section-head span,.metrics span,label>span,.indicator-head span{color:var(--p-accent);font:700 .56rem var(--font-mono);letter-spacing:.14em}.strategy h1{margin:8px 0 5px;font-size:clamp(2.7rem,5vw,5.3rem);letter-spacing:-.07em}.strategy header p{max-width:800px;margin:0;color:var(--p-dim);line-height:1.55}.posture{display:grid;grid-template-columns:auto 1fr;align-content:center;gap:3px 8px;min-width:220px;padding:13px;border:1px solid #ffcb7b55;background:var(--p-panel-fill);color:#ffcb7b}.posture b,.posture small{font:.58rem var(--font-mono)}.posture small{color:var(--p-dim)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:15px 0}.metrics article,.composer,.library{border:1px solid var(--p-border);background:var(--p-panel-fill)}.metrics article{display:grid;gap:5px;padding:13px}.metrics b{font:1.1rem var(--font-mono)}.metrics small,label small,.indicator-head small{color:var(--p-dim);font-size:.6rem}.section-head{display:flex;justify-content:space-between;align-items:center;padding:15px;border-bottom:1px solid var(--p-border)}.section-head h2{margin:5px 0 0;font-size:1.1rem}.section-head>div:last-child{display:flex;gap:6px}.section-head button,.indicator-head button,.actions button{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text);font:.56rem var(--font-mono);cursor:pointer}.section-head button.active{border-color:var(--p-accent);color:var(--p-accent)}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}.form label,.raw{display:grid;gap:6px}.wide{grid-column:1/-1}.form input,.form select,.form textarea,.raw textarea,.section-head>input{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--p-border);outline:0;background:var(--p-surface2);color:var(--p-text);font:.7rem var(--font-mono)}.form input:focus,.form textarea:focus,.raw textarea:focus{border-color:var(--p-accent)}textarea{resize:vertical}.raw{padding:16px}.raw textarea{line-height:1.55}.indicator-head{display:flex;justify-content:space-between;align-items:center}.indicator-head div{display:grid;gap:5px}.indicators{display:grid;gap:6px}.indicators>div{display:grid;grid-template-columns:1fr 1fr 120px 34px;gap:6px}.indicators button{border:1px solid var(--p-border);background:transparent;color:#ff637d}.indicators p{margin:0;padding:16px;border:1px dashed var(--p-border);color:var(--p-dim);font-size:.7rem}.actions{display:flex;justify-content:flex-end;gap:7px;padding:0 16px 16px}.actions .primary{border-color:var(--p-accent);color:var(--p-accent)}button:disabled{opacity:.45}.result{display:flex;gap:10px;margin:0 16px 16px;padding:12px;border:1px solid #ff637d55;color:#ff637d}.result.valid{border-color:#67efba55;color:#67efba}.result p{margin:4px 0 0;color:var(--p-dim);font-size:.68rem}.result code{color:inherit}.library{margin-top:10px}.section-head>input{width:min(320px,40vw)}.drafts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;padding:10px}.drafts>button{padding:13px;text-align:left;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text);cursor:pointer}.drafts>button:hover{border-color:var(--p-accent)}.drafts header{display:flex;justify-content:space-between;gap:10px}.drafts header div{min-width:0}.drafts header b,.drafts header code{display:block;overflow:hidden;text-overflow:ellipsis}.drafts header code{margin-top:4px;color:var(--p-dim);font-size:.55rem}.drafts header span{color:#ffcb7b;font:.52rem var(--font-mono)}.drafts p{min-height:2.6em;color:var(--p-dim);font-size:.68rem}.drafts footer{display:flex;flex-wrap:wrap;gap:8px;color:var(--p-dim);font:.52rem var(--font-mono)}.empty{grid-column:1/-1;padding:50px;text-align:center;color:var(--p-dim)}@media(max-width:850px){.metrics{grid-template-columns:repeat(2,1fr)}.strategy>header{display:block}.posture{margin-top:12px}.form{grid-template-columns:1fr}.wide{grid-column:auto}.indicators>div{grid-template-columns:1fr 1fr 90px 34px}}@media(max-width:520px){.metrics{grid-template-columns:1fr}.section-head{align-items:flex-start;gap:10px;flex-direction:column}.section-head>input{width:100%}.indicators>div{grid-template-columns:1fr}.actions{flex-direction:column}.actions button{justify-content:center}}
 </style>

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-feed-runtime-status"
+description = "Read durable RSS/Atom scheduler health and checkpoints."
+commands.allow = ["feed_runtime_status"]
+
+[[permission]]
+identifier = "allow-run-feed-scheduler-once"
+description = "Run one bounded due-source RSS/Atom scheduler cycle."
+commands.allow = ["run_feed_scheduler_once"]

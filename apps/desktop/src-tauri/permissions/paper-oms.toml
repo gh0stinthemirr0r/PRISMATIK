@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-paper-oms"
+description = "Read the durable paper-only order ledger and real-mark positions."
+commands.allow = ["get_paper_oms"]
+
+[[permission]]
+identifier = "allow-submit-paper-order"
+description = "Submit a risk-checked paper order using a current real quote; no live broker transport exists."
+commands.allow = ["submit_paper_order"]

@@ -81,6 +81,7 @@ impl SecEdgarAdapter {
                 path,
                 query,
                 headers,
+                body: None,
             })
             .await?;
         if response.status != 200 {

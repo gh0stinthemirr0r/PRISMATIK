@@ -339,8 +339,10 @@ mod tests {
 
     #[test]
     fn constitution_rejects_excessive_risk_per_trade() {
-        let mut c = TradingConstitution::default();
-        c.max_risk_per_trade_pct = 0.10; // 10% — too high
+        let c = TradingConstitution {
+            max_risk_per_trade_pct: 0.10, // 10% — too high
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
     }
 

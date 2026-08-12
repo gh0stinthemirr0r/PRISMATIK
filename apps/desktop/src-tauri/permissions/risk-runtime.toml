@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-get-risk-state"
+description = "Read the current risk engine state."
+commands.allow = ["get_risk_state"]
+
+[[permission]]
+identifier = "allow-configure-risk-budget"
+description = "Configure the risk budget parameters."
+commands.allow = ["configure_risk_budget"]
+
+[[permission]]
+identifier = "allow-rearm-circuit-breaker"
+description = "Rearm a tripped risk circuit breaker."
+commands.allow = ["rearm_circuit_breaker"]
+
+[[permission]]
+identifier = "allow-size-position-by-risk"
+description = "Calculate position size based on risk parameters."
+commands.allow = ["size_position_by_risk"]

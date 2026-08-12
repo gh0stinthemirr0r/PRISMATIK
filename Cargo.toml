@@ -23,6 +23,8 @@ members = [
     "crates/prismatik-simulation",
     "crates/prismatik-tsfm",
     "crates/prismatik-calibration",
+    "crates/prismatik-regime",
+    "crates/prismatik-brain",
     "crates/prismatik-crypto",
     "crates/prismatik-options",
     "crates/prismatik-filings",
@@ -78,6 +80,8 @@ prismatik-backtest = { path = "crates/prismatik-backtest" }
 prismatik-simulation = { path = "crates/prismatik-simulation" }
 prismatik-tsfm = { path = "crates/prismatik-tsfm" }
 prismatik-calibration = { path = "crates/prismatik-calibration" }
+prismatik-regime = { path = "crates/prismatik-regime" }
+prismatik-brain = { path = "crates/prismatik-brain" }
 prismatik-crypto = { path = "crates/prismatik-crypto" }
 prismatik-options = { path = "crates/prismatik-options" }
 prismatik-filings = { path = "crates/prismatik-filings" }
@@ -102,7 +106,7 @@ prismatik-cli = { path = "crates/prismatik-cli" }
 
 # External — pinned
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 thiserror = "1"
@@ -128,6 +132,11 @@ secrecy = { version = "0.8", features = ["serde"] }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand_chacha = "0.10"
 rand = "0.10"
+# GCRA rate limiting for the provider BudgetGovernor (briefing §16). Pure-Rust,
+# no unsafe, small dependency tree. Used in the application/provider layer for
+# live HTTP throttling against real provider rate limits. Wall-clock is correct
+# here (live operation); simulated time governs backtests separately.
+governor = "0.10"
 
 [profile.release]
 opt-level = 3

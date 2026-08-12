@@ -1,151 +1,65 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
+  import { Activity, DatabaseZap, RefreshCw, ShieldCheck } from "lucide-svelte";
+  import Visualizations from "$lib/prismatik/Visualizations.svelte";
 
-  type Series = {
-    seriesId: string;
-    title: string;
-    unit: string;
-    provider: string;
-    retrievedAt: string;
-    points: Array<{ date: string; value: number }>;
-  };
-  type Cot = {
-    marketCode: string;
-    marketName: string;
-    reportDate: string;
-    long: number;
-    short: number;
-    net: number;
-    provider: string;
-    retrievedAt: string;
-  };
-  type Catalyst = {
-    id: string;
-    kind: string;
-    title: string;
-    occursAt: string;
-    relatedSymbol: string;
-    provider: string;
-  };
-  type Session = {
-    venue: string;
-    opensAt: string;
-    closesAt: string;
-    state: string;
-    provider: string;
-    retrievedAt: string;
-  };
+  type Point = { seriesId:string; date:string; value:string|null; realtimeStart:string; realtimeEnd:string|null; availableAt:string };
+  type Persistence = { state:"persisted"|"policy_required"|"failed"; inserted:number; unchanged:number; totalObservations:number; retainedPayloads:boolean; policyVersion:number|null; message:string };
+  type Snapshot = { provider:string; retrievedAt:string; series:string[]; points:Point[]; evidence:string; persistence:Persistence };
+  const catalog = [
+    ["DGS10", "10Y Treasury"], ["DGS2", "2Y Treasury"], ["FEDFUNDS", "Fed funds"],
+    ["CPIAUCSL", "CPI"], ["UNRATE", "Unemployment"], ["GDP", "GDP"], ["BAMLH0A0HYM2", "HY spread"]
+  ];
+  let selected = $state(["DGS10", "DGS2", "FEDFUNDS", "CPIAUCSL"]);
+  let snapshot = $state<Snapshot|null>(null);
+  let loading = $state(false);
+  let error = $state<string|null>(null);
+  const grouped = $derived(Object.fromEntries(selected.map(id => [id, (snapshot?.points ?? []).filter(point => point.seriesId === id)])) as Record<string,Point[]>);
+  const latest = $derived(selected.map(id => ({ id, point: grouped[id]?.at(-1), label: catalog.find(row => row[0] === id)?.[1] ?? id })));
 
-  let rates = $state<Series | null>(null);
-  let inflation = $state<Series | null>(null);
-  let cot = $state<Cot | null>(null);
-  let catalysts = $state<Catalyst[]>([]);
-  let session = $state<Session | null>(null);
-
-  onMount(async () => {
-    [rates, inflation, cot, catalysts, session] = await Promise.all([
-      invoke<Series>("get_macro_series", { seriesId: "DGS10" }),
-      invoke<Series>("get_macro_series", { seriesId: "CPIAUCSL" }),
-      invoke<Cot>("get_cot_report", { marketCode: "067651" }),
-      invoke<Catalyst[]>("get_catalyst_calendar"),
-      invoke<Session>("get_next_session", { venue: "XNYS" }),
-    ]);
-  });
+  function toggle(id:string) {
+    selected = selected.includes(id) ? selected.filter(value => value !== id) : selected.length < 12 ? [...selected, id] : selected;
+  }
+  async function load() {
+    if (!isTauri()) { error = "Native desktop runtime required."; return; }
+    if (!selected.length) { error = "Select at least one series."; return; }
+    loading = true; error = null;
+    try { snapshot = await invoke<Snapshot>("get_macro_series", { seriesIds: selected }); }
+    catch (cause) { snapshot = null; error = cause instanceof Error ? cause.message : String(cause); }
+    finally { loading = false; }
+  }
+  onMount(() => { void load(); });
 </script>
 
-<svelte:head><title>Macro · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="macro" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label="offline macro" />{/snippet}
-  <div class="canvas">
-    <header>
-      <h1>Macro regime</h1>
-      <p>FRED series, COT positioning, equity session, and catalyst calendar.</p>
-    </header>
+<svelte:head><title>Macro regime · PRISMATIK</title></svelte:head>
+<main class="terminal">
+  <header><div><p class="eyebrow">GLOBAL REGIME ENGINE</p><h1>Macro intelligence</h1><p class="lede">Vintage-aware economic observations retrieved directly from a connected FRED session. Missing or disconnected evidence stays empty.</p></div><div class:live={!!snapshot} class="mode"><i></i><span>{snapshot ? "FRED LIVE" : "NO MACRO INPUT"}</span><strong>{snapshot ? new Date(snapshot.retrievedAt).toLocaleTimeString() : "Connect provider"}</strong></div></header>
+  <section class="toolbar" aria-label="Macro series controls">
+    <div class="series">{#each catalog as row}<button class:active={selected.includes(row[0])} onclick={() => toggle(row[0])}>{row[0]}<small>{row[1]}</small></button>{/each}</div>
+    <button class="refresh" onclick={load} disabled={loading}><RefreshCw size={14} class={loading ? "spin" : ""}/>{loading ? "Retrieving" : "Refresh real data"}</button>
+  </section>
+  {#if error}<section class="notice"><DatabaseZap size={18}/><div><strong>Macro evidence unavailable</strong><p>{error}</p></div><a href="/workspace/integrations">Open integrations</a></section>{/if}
+  {#if snapshot && snapshot.persistence.state !== "persisted"}<section class="notice"><ShieldCheck size={18}/><div><strong>Live data is not retained</strong><p>{snapshot.persistence.message}</p></div><a href="/workspace/integrations">Review source policy</a></section>{/if}
+  <section class="metrics">
+    {#each latest as item}
+      <article><span>{item.label}</span><strong>{item.point?.value ?? "—"}</strong><small>{item.point ? `OBS ${item.point.date} · AVAILABLE ${item.point.availableAt}` : "AWAITING OBSERVATION"}</small></article>
+    {/each}
+  </section>
+  <section class="panel viz-panel">
+    <div class="panel-head"><div><span>TREASURY TERM STRUCTURE</span><strong>Observed FRED curve</strong></div><ShieldCheck size={16}/></div>
+    <div class="viz-host"><Visualizations only={["yield"]} /></div>
+  </section>
 
-    <div class="cards">
-      {#each [rates, inflation] as series}
-        <article>
-          {#if series}
-            <div class="kicker">{series.seriesId}</div>
-            <h2>{series.title}</h2>
-            <strong>{series.points.at(-1)?.value.toFixed(2)} <small>{series.unit}</small></strong>
-            <div class="spark">
-              {#each series.points as point}
-                <span style={`height:${Math.max(14, (point.value / Math.max(...series.points.map((p) => p.value))) * 100)}%`} title={`${point.date}: ${point.value}`}></span>
-              {/each}
-            </div>
-            <EvidenceChip status="confirmed" label={series.provider} />
-            <StaleDataMarker eventTime={series.retrievedAt} maxAge={86_400_000} />
-          {:else}
-            <p>Loading series…</p>
-          {/if}
-        </article>
-      {/each}
-      <article>
-        {#if cot}
-          <div class="kicker">COT · {cot.marketCode}</div>
-          <h2>{cot.marketName}</h2>
-          <strong>{cot.net.toLocaleString()} <small>net contracts</small></strong>
-          <dl>
-            <div><dt>Long</dt><dd>{cot.long.toLocaleString()}</dd></div>
-            <div><dt>Short</dt><dd>{cot.short.toLocaleString()}</dd></div>
-          </dl>
-          <EvidenceChip status="confirmed" label={cot.provider} />
-          <StaleDataMarker eventTime={cot.retrievedAt} maxAge={86_400_000} />
-        {:else}
-          <p>Loading report…</p>
-        {/if}
-      </article>
-    </div>
-
-    <section>
-      <h2>Event & catalyst calendar</h2>
-      <div class="calendar">
-        {#if session}
-          <article class="session">
-            <div class="kicker">{session.venue} session</div>
-            <strong>{session.state}</strong>
-            <p>Opens {session.opensAt}</p>
-            <p>Closes {session.closesAt}</p>
-            <EvidenceChip status="confirmed" label={session.provider} />
-          </article>
-        {/if}
-        {#each catalysts as event}
-          <article>
-            <div class="kicker">{event.kind} · {event.relatedSymbol}</div>
-            <strong>{event.title}</strong>
-            <p>{event.occursAt}</p>
-            <EvidenceChip status="confirmed" label={event.provider} />
-          </article>
-        {/each}
-      </div>
-    </section>
-  </div>
-</WorkspaceShell>
+  <section class="panel">
+    <div class="panel-head"><div><span>POINT-IN-TIME RELEASE MATRIX</span><strong>{snapshot?.points.length ?? 0} normalized observations</strong></div><ShieldCheck size={16}/></div>
+    {#if snapshot?.points.length}
+      <div class="table"><div class="tr th"><span>Series</span><span>Observation</span><span>Value</span><span>Available</span><span>Vintage end</span></div>{#each snapshot.points.slice().reverse().slice(0,160) as point}<div class="tr"><b>{point.seriesId}</b><span>{point.date}</span><strong>{point.value ?? "missing"}</strong><span>{point.availableAt}</span><span>{point.realtimeEnd ?? "current"}</span></div>{/each}</div>
+    {:else}<div class="empty"><Activity size={28}/><strong>No governed macro observations</strong><p>Connect FRED, select series, then refresh. PRISMATIK will not substitute simulated macro releases.</p></div>{/if}
+    <footer>{snapshot ? `${snapshot.evidence} · ${snapshot.persistence.message}` : "FRED adapter · BudgetGovernor · vintage-safe normalization"}</footer>
+  </section>
+</main>
 
 <style>
-  .rail-label,.kicker,h2{margin:0 0 var(--space-3);color:var(--color-text-tertiary);font-size:var(--font-size-xs);letter-spacing:.06em;text-transform:uppercase}
-  .canvas{padding:var(--space-5) var(--space-6)}
-  header{margin-bottom:var(--space-6)}
-  h1{margin:0;font-size:var(--font-size-2xl)}
-  header p,article p{color:var(--color-text-secondary);font-size:var(--font-size-sm)}
-  .cards,.calendar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-5)}
-  .calendar{margin-top:var(--space-6);grid-template-columns:repeat(4,minmax(0,1fr))}
-  article{display:grid;gap:var(--space-3);padding:var(--space-5);border:1px solid var(--color-border-default);background:var(--color-surface-1)}
-  article h2{min-height:3em;margin:0;font-size:var(--font-size-md);text-transform:none;letter-spacing:0;color:var(--color-text-primary)}
-  strong{font:600 var(--font-size-2xl) var(--font-mono)}
-  .calendar strong{font-size:var(--font-size-md)}
-  small{font-size:var(--font-size-xs);color:var(--color-text-tertiary)}
-  .spark{display:flex;align-items:end;gap:6px;height:80px}
-  .spark span{flex:1;min-height:4px;background:var(--color-brand-primary)}
-  dl{display:grid;gap:var(--space-2);margin:0}
-  dl div{display:flex;justify-content:space-between}
-  dt{color:var(--color-text-secondary)}
-  dd{margin:0;font-family:var(--font-mono)}
-  section{margin-top:var(--space-7)}
-  @media(max-width:1000px){.cards,.calendar{grid-template-columns:1fr}}
+  .viz-panel{margin-bottom:10px}.viz-host{height:340px}.terminal{min-height:100%;padding:clamp(18px,2.5vw,36px);overflow:auto;color:var(--p-text)}header{display:flex;justify-content:space-between;gap:22px;padding-bottom:20px;border-bottom:1px solid var(--p-border)}.eyebrow{margin:0;color:var(--p-accent);font:700 9px var(--font-mono);letter-spacing:.18em}.terminal h1{margin:8px 0 6px;font-size:clamp(28px,4vw,50px);letter-spacing:-.05em}.lede{max-width:720px;margin:0;color:var(--p-dim);line-height:1.55}.mode{display:grid;grid-template-columns:auto 1fr;align-content:center;gap:3px 8px;min-width:175px;padding:12px;border:1px solid var(--p-border);border-radius:10px;background:var(--p-panel-fill)}.mode i{grid-row:1/3;width:7px;height:7px;margin:auto;border-radius:50%;background:#f59e0b}.mode.live i{background:var(--p-up);box-shadow:0 0 10px var(--p-up)}.mode span,.mode strong{font:700 8px var(--font-mono);letter-spacing:.12em}.mode strong{color:var(--p-dim)}.toolbar{display:flex;align-items:stretch;gap:10px;margin:16px 0}.series{display:flex;flex:1;gap:6px;overflow:auto}.series button,.refresh{padding:9px 11px;border:1px solid var(--p-border);border-radius:7px;background:var(--p-panel-fill);color:var(--p-dim);font:700 9px var(--font-mono);cursor:pointer;white-space:nowrap}.series button small{display:block;margin-top:3px;font-size:7px;font-weight:500}.series button.active{border-color:color-mix(in srgb,var(--p-accent) 55%,var(--p-border));color:var(--p-accent);box-shadow:inset 0 -2px var(--p-accent)}.refresh{display:flex;align-items:center;gap:7px;color:var(--p-accent)}.refresh:disabled{opacity:.6}.refresh :global(.spin){animation:spin 1s linear infinite}.notice{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin-bottom:12px;padding:14px;border:1px solid color-mix(in srgb,#f59e0b 38%,var(--p-border));border-radius:9px;background:var(--p-panel-fill);color:#f59e0b}.notice p{margin:4px 0 0;color:var(--p-dim);font-size:11px}.notice a{color:var(--p-accent);font:700 9px var(--font-mono)}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:10px}.metrics article,.panel{border:1px solid var(--p-border);border-radius:10px;background:var(--p-panel-fill);backdrop-filter:blur(var(--p-glass-blur))}.metrics article{display:grid;gap:5px;padding:14px}.metrics span,.metrics small,.panel-head span,footer{color:var(--p-dim);font:600 8px var(--font-mono);letter-spacing:.1em}.metrics strong{font:700 21px var(--font-mono)}.panel{overflow:hidden}.panel-head{display:flex;align-items:center;justify-content:space-between;padding:15px;border-bottom:1px solid var(--p-border);color:var(--p-accent)}.panel-head strong{display:block;margin-top:4px;color:var(--p-text);font:700 11px var(--font-mono)}.table{max-height:460px;overflow:auto}.tr{display:grid;grid-template-columns:.75fr 1fr .8fr 1fr 1fr;gap:12px;padding:9px 15px;border-bottom:1px solid var(--p-grid);font:500 10px var(--font-mono)}.tr b{color:var(--p-accent)}.tr strong{font-size:11px}.th{position:sticky;top:0;background:var(--p-surface);color:var(--p-dim);font-size:8px;text-transform:uppercase}.empty{display:grid;place-items:center;gap:9px;padding:70px 20px;color:var(--p-dim);text-align:center}.empty strong{color:var(--p-text)}.empty p{max-width:520px;margin:0;font-size:11px}footer{padding:12px 15px;border-top:1px solid var(--p-border)}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:760px){header,.toolbar{display:block}.mode{margin-top:12px}.refresh{margin-top:8px}.tr{grid-template-columns:.7fr 1fr .8fr}.tr span:nth-child(n+4){display:none}}
 </style>

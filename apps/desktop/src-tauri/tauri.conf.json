@@ -21,6 +21,9 @@
         "height": 800,
         "minWidth": 960,
         "minHeight": 640,
+        "decorations": false,
+        "transparent": false,
+        "backgroundColor": "#06070a",
         "resizable": true
       }
     ]
@@ -28,14 +31,16 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Mythos Systems",
+    "category": "Finance",
+    "shortDescription": "Evidence-chained market intelligence",
+    "longDescription": "PRISMATIK — evidence-chained market intelligence. Regime classification and edge measured against climatology, frontier-model agents over governed evidence, and an autonomy loop whose every decision is scored and recorded.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "publisher": "Mythos Systems",
-    "category": "Finance",
-    "shortDescription": "Evidence-chained crypto intelligence",
-    "longDescription": "PRISMATIK Wave 1 MVP — local-first crypto market intelligence with cassette replay, GCRA rate budgets, and evidence lineage."
+    ]
   }
 }

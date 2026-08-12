@@ -12,6 +12,7 @@ thiserror.workspace = true
 serde.workspace = true
 prismatik-domain.workspace = true
 prismatik-market-data.workspace = true
+time.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

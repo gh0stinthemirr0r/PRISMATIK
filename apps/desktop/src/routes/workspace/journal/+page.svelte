@@ -1,114 +1,32 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { EvidenceChip, StaleDataMarker, WorkspaceShell } from "@prismatik/ui";
-  import ExperiencesNav from "$lib/ExperiencesNav.svelte";
-
-  type Entry = {
-    id: string;
-    title: string;
-    tags: string[];
-    createdAt: string;
-  };
-
-  type Payload = {
-    entries: Entry[];
-    provider: string;
-    retrievedAt: string;
-  };
-
-  const fallback: Payload = {
-    entries: [
-      {
-        id: "je-001",
-        title: "AAPL earnings vol crush thesis",
-        tags: ["thesis", "equity", "vol"],
-        createdAt: "2026-07-20T14:30:00Z",
-      },
-      {
-        id: "je-002",
-        title: "Rates +100bp portfolio stress note",
-        tags: ["macro", "risk", "review"],
-        createdAt: "2026-07-22T09:15:00Z",
-      },
-      {
-        id: "je-003",
-        title: "BTC halving scenario — outcome tagged",
-        tags: ["crypto", "outcome", "learning"],
-        createdAt: "2026-07-24T18:45:00Z",
-      },
-    ],
-    provider: "ui-static-fallback",
-    retrievedAt: "2026-07-25T20:00:00Z",
-  };
-
-  let data = $state<Payload>(fallback);
-  let provenance = $state("static fallback");
-
-  onMount(async () => {
-    try {
-      data = await invoke<Payload>("get_journal_entries");
-      provenance = "trusted core";
-    } catch {
-      provenance = "browser fallback";
-    }
-  });
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { onMount } from 'svelte';
+  import { RefreshCw, Search, ShieldCheck, TriangleAlert } from 'lucide-svelte';
+  type Event={id:string;occurredAt:string;domain:string;severity:'info'|'warning';state:string;title:string;summary:string;evidenceId?:string;route:string;durable:boolean};
+  type Timeline={asOf:string;events:Event[];totalAvailable:number;sourceCounts:Record<string,number>;redactionPosture:string};
+  let timeline=$state<Timeline|null>(null);let query=$state('');let domain=$state('all');let severity=$state('all');let loading=$state(false);let error=$state('');
+  let domains=$derived(Object.keys(timeline?.sourceCounts??{}).sort());
+  let filtered=$derived((timeline?.events??[]).filter(event=>(domain==='all'||event.domain===domain)&&(severity==='all'||event.severity===severity)&&`${event.title} ${event.summary} ${event.state} ${event.evidenceId??''}`.toLowerCase().includes(query.trim().toLowerCase())));
+  async function load(){if(!isTauri())return;loading=true;error='';try{timeline=await invoke<Timeline>('get_audit_timeline')}catch(cause){error=String(cause)}finally{loading=false}}
+  function timestamp(value:string){const date=new Date(value);return Number.isNaN(date.valueOf())?value:date.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'medium'})}
+  onMount(()=>{void load();const timer=setInterval(load,30000);return()=>clearInterval(timer)});
 </script>
 
-<svelte:head><title>Journal · PRISMATIK</title></svelte:head>
-<WorkspaceShell title="PRISMATIK">
-  {#snippet sidebar()}<div class="rail-label">Experiences</div><ExperiencesNav active="journal" />{/snippet}
-  {#snippet status()}<EvidenceChip status="confirmed" label={provenance} />{/snippet}
-  <div class="canvas">
-    <header>
-      <div>
-        <h1>Journal</h1>
-        <p>Thesis entries with tags and evidence linkage — Wave 4 P6-EX-02 floor scaffold.</p>
-      </div>
-      <div class="chips">
-        <EvidenceChip status="confirmed" label={data.provider} />
-        <StaleDataMarker eventTime={data.retrievedAt} maxAge={86_400_000} />
-        <EvidenceChip status="uncertain" label="P6-EX-02 scaffold" />
-      </div>
-    </header>
+<svelte:head><title>Operational journal · PRISMATIK</title></svelte:head>
+<main class="journal">
+  <header><div><span>VERIFIED STATE / REDACTED OPERATIONAL MEMORY</span><h1>Journal</h1><p>A unified, newest-first timeline of governed evidence, model forecasts, feed acquisition, autonomous research, and paper execution. This is system activity—not a fabricated trading diary.</p></div><div class="posture"><ShieldCheck size={18}/><div><b>METADATA ONLY</b><small>NO SECRETS · NO RAW PAYLOADS</small></div></div></header>
 
-    <section class="entries" aria-label="Journal entries">
-      {#each data.entries as entry}
-        <article class="entry">
-          <div class="entry-head">
-            <strong>{entry.title}</strong>
-            <EvidenceChip status="confirmed" label={entry.id} />
-          </div>
-          <div class="meta">
-            <span class="created">{entry.createdAt}</span>
-            <div class="tags">
-              {#each entry.tags as tag}
-                <EvidenceChip status="uncertain" label={tag} />
-              {/each}
-            </div>
-          </div>
-        </article>
-      {/each}
-    </section>
-  </div>
-</WorkspaceShell>
+  <section class="metrics"><article><span>VISIBLE EVENTS</span><b>{filtered.length}</b><small>of {timeline?.totalAvailable??0} available</small></article>{#each domains as item}<article><span>{item.toUpperCase()}</span><b>{timeline?.sourceCounts[item]??0}</b><small>verified native state</small></article>{/each}</section>
+
+  <section class="controls"><label class="search"><span><Search size={13}/>SEARCH TIMELINE</span><input bind:value={query} placeholder="Symbol, evidence ID, state, provider…"/></label><label><span>DOMAIN</span><select bind:value={domain}><option value="all">All domains</option>{#each domains as item}<option value={item}>{item}</option>{/each}</select></label><label><span>SEVERITY</span><select bind:value={severity}><option value="all">All states</option><option value="info">Information</option><option value="warning">Warnings</option></select></label><button onclick={load} disabled={loading}><span class:spin={loading}><RefreshCw size={14}/></span>{loading?'REFRESHING':'REFRESH'}</button></section>
+
+  {#if error}<section class="error"><TriangleAlert size={18}/><div><b>Native timeline unavailable</b><p>{error}</p></div></section>{/if}
+
+  <section class="timeline" aria-live="polite">{#each filtered as event}<article class:warning={event.severity==='warning'}><div class="rail"><i></i><span>{event.domain.toUpperCase()}</span></div><div class="content"><header><div><b>{event.title}</b><small>{timestamp(event.occurredAt)}</small></div><em>{event.state.replaceAll('_',' ').toUpperCase()}</em></header><p>{event.summary}</p><footer>{#if event.evidenceId}<code>{event.evidenceId}</code>{:else}<span>REDACTED METADATA EVENT</span>{/if}<a href={event.route}>OPEN SOURCE PANE →</a></footer></div></article>{:else}<div class="empty"><b>No matching verified events</b><p>{timeline?.events.length?'Adjust the filters to inspect another part of the native timeline.':'No durable activity has been recorded yet. PRISMATIK does not generate sample journal entries.'}</p></div>{/each}</section>
+
+  <footer class="boundary"><div><span>AS OF</span><b>{timeline?.asOf??'Loading verified state'}</b></div><div><span>DISCLOSURE</span><b>{timeline?.redactionPosture?.replaceAll('_',' ').toUpperCase()??'METADATA ONLY'}</b></div><p>The local hash chains detect edits but are not externally anchored. A privileged local actor could still replace complete files; signed remote anchoring remains required for enterprise audit assurance.</p></footer>
+</main>
 
 <style>
-  .canvas { display: grid; gap: var(--space-lg); }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); }
-  h1 { margin: 0; font-size: var(--font-size-xl); }
-  p { margin: 4px 0 0; color: var(--color-text-secondary); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .entries { display: grid; gap: var(--space-md); }
-  .entry {
-    padding: var(--space-md);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-1);
-    display: grid;
-    gap: var(--space-sm);
-  }
-  .entry-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
-  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
-  .created { font-size: var(--font-size-xs); font-family: var(--font-mono, monospace); color: var(--color-text-secondary); }
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.journal{height:100%;overflow:auto;padding:34px clamp(20px,3vw,46px) 80px;color:var(--p-text)}.journal>header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:1px solid var(--p-border)}.journal>header>div>span,.metrics span,.controls label>span,.boundary span{color:var(--p-accent);font:700 .56rem var(--font-mono);letter-spacing:.14em}.journal h1{margin:8px 0 5px;font-size:clamp(2.7rem,5vw,5.4rem);letter-spacing:-.07em}.journal>header p{max-width:800px;margin:0;color:var(--p-dim);line-height:1.55}.posture{display:flex;align-items:center;gap:10px;min-width:220px;padding:13px;border:1px solid #28e7a455;background:#28e7a408;color:#67efba}.posture b,.posture small{display:block;font:.58rem var(--font-mono)}.posture small{margin-top:4px;color:var(--p-dim)}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;margin:14px 0}.metrics article{display:grid;gap:5px;padding:12px;border:1px solid var(--p-border);background:var(--p-panel-fill)}.metrics b{font:1rem var(--font-mono)}.metrics small{color:var(--p-dim);font-size:.55rem}.controls{display:grid;grid-template-columns:minmax(240px,1fr) 180px 160px auto;gap:8px;padding:12px;border:1px solid var(--p-border);background:var(--p-panel-fill)}.controls label{display:grid;gap:6px}.controls label>span{display:flex;align-items:center;gap:5px}.controls input,.controls select{min-width:0;padding:9px;border:1px solid var(--p-border);background:var(--p-surface2);color:var(--p-text)}.controls button{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 13px;border:1px solid var(--p-accent);background:color-mix(in srgb,var(--p-accent) 12%,var(--p-surface));color:var(--p-accent);font:700 .56rem var(--font-mono)}.controls button>span{display:flex}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.timeline{margin-top:10px;border:1px solid var(--p-border);background:var(--p-panel-fill)}.timeline>article{display:grid;grid-template-columns:105px minmax(0,1fr);border-bottom:1px solid var(--p-grid)}.timeline>article.warning{box-shadow:inset 3px 0 #ffcb7b}.rail{display:grid;align-content:start;justify-items:start;gap:10px;padding:15px;border-right:1px solid var(--p-border);color:var(--p-dim);font:.5rem var(--font-mono)}.rail i{width:7px;height:7px;border-radius:50%;background:#67efba;box-shadow:0 0 9px #67efba}.warning .rail i{background:#ffcb7b;box-shadow:0 0 9px #ffcb7b}.content{min-width:0;padding:14px}.content>header{display:flex;justify-content:space-between;gap:15px}.content header b,.content header small{display:block}.content header b{font:.78rem var(--font-mono)}.content header small{margin-top:5px;color:var(--p-dim);font:.53rem var(--font-mono)}.content header em{color:var(--p-accent);font:normal 700 .52rem var(--font-mono)}.warning .content header em{color:#ffcb7b}.content p{margin:11px 0;color:var(--p-dim);font-size:.72rem;line-height:1.5}.content footer{display:flex;justify-content:space-between;gap:12px}.content code,.content footer>span{overflow-wrap:anywhere;color:var(--p-dim);font:.5rem var(--font-mono)}.content a{color:var(--p-accent);text-decoration:none;font:.52rem var(--font-mono);white-space:nowrap}.empty{padding:70px 20px;text-align:center;color:var(--p-dim)}.empty b{color:var(--p-text)}.empty p{margin:8px auto;max-width:600px}.boundary{display:grid;grid-template-columns:auto auto 1fr;gap:24px;margin-top:10px;padding:14px;border:1px solid var(--p-border);background:var(--p-panel-fill)}.boundary b{display:block;margin-top:5px;font:.54rem var(--font-mono)}.boundary p{margin:0;color:var(--p-dim);font-size:.65rem;line-height:1.45}.error{display:flex;gap:10px;margin-top:10px;padding:12px;border:1px solid #ff637d66;color:#ff637d}.error p{margin:3px 0;color:var(--p-dim)}@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}.search{grid-column:1/-1}.boundary{grid-template-columns:1fr 1fr}.boundary p{grid-column:1/-1}}@media(max-width:620px){.journal>header{display:block}.posture{margin-top:12px}.controls{grid-template-columns:1fr}.search{grid-column:auto}.timeline>article{grid-template-columns:1fr}.rail{display:flex;border-right:0;border-bottom:1px solid var(--p-border)}.content>header,.content footer{display:block}.content header em,.content a{display:block;margin-top:8px}.boundary{grid-template-columns:1fr}.boundary p{grid-column:auto}}
 </style>

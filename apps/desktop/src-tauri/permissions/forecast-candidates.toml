@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-list-forecast-candidates"
+description = "Read durable quarantined model forecast candidates."
+commands.allow = ["list_forecast_candidates"]
+
+[[permission]]
+identifier = "allow-generate-forecast-candidate"
+description = "Generate a budgeted evidence-bound forecast candidate without execution authority."
+commands.allow = ["generate_forecast_candidate"]
+
+[[permission]]
+identifier = "allow-resolve-due-forecast-candidates"
+description = "Resolve matured candidates exclusively from newer real target quotes."
+commands.allow = ["resolve_due_forecast_candidates"]
+
+[[permission]]
+identifier = "allow-forecast-calibration-health"
+description = "Read deterministic model cohort calibration and drift health."
+commands.allow = ["forecast_calibration_health"]

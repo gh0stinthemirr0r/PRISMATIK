@@ -1,0 +1,15 @@
+[[permission]]
+identifier = "allow-get-historical-ohlcv"
+description = "Fetch historical OHLCV data from Yahoo Finance."
+commands.allow = ["get_historical_ohlcv"]
+
+[[permission]]
+identifier = "allow-get-crypto-historical"
+description = "Fetch historical crypto data from CoinGecko."
+commands.allow = ["get_crypto_historical"]
+
+[[permission]]
+identifier = "allow-get-fundamentals"
+description = "Fetch company fundamentals from SEC EDGAR."
+commands.allow = ["get_fundamentals"]
+
