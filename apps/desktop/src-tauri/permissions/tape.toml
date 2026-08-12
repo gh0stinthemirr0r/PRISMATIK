@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-tape-predict"
+description = "Run Kronos K-line foundation model prediction."
+commands.allow = ["tape_predict"]
+
+[[permission]]
+identifier = "allow-tape-batch-predict"
+description = "Run Kronos batch prediction for multiple symbols."
+commands.allow = ["tape_batch_predict"]
+
+[[permission]]
+identifier = "allow-tape-models"
+description = "List available Kronos models."
+commands.allow = ["tape_models"]
+
+[[permission]]
+identifier = "allow-tape-predict-from-market"
+description = "Run Kronos prediction using live market data."
+commands.allow = ["tape_predict_from_market"]

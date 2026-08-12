@@ -17,6 +17,7 @@ mod briefings;
 mod chart_indicators;
 mod chat;
 mod compliance;
+mod crowd;
 mod decision_memory;
 mod dex_scanner;
 mod evidence_store;
@@ -31,8 +32,6 @@ mod institutional_data;
 mod integrations;
 mod intelligence;
 mod knowledge;
-mod kronos;
-mod mirofish;
 mod model_integrations;
 mod paper_oms;
 mod predictions;
@@ -45,6 +44,7 @@ mod scheduler;
 mod screener;
 mod signal;
 mod strategy_authoring;
+mod tape;
 mod terminal_feed;
 mod tracking;
 mod tsfm_integration;
@@ -249,18 +249,18 @@ pub fn run() {
             execution::list_orders,
             compliance::generate_compliance_report,
             compliance::check_pdt_rules,
-            mirofish::mirofish_connect,
-            mirofish::mirofish_status,
-            mirofish::mirofish_run_simulation,
-            mirofish::mirofish_check_status,
-            mirofish::mirofish_get_prediction,
-            mirofish::mirofish_history,
-            mirofish::mirofish_build_seeds,
+            crowd::crowd_connect,
+            crowd::crowd_status,
+            crowd::crowd_run_simulation,
+            crowd::crowd_check_status,
+            crowd::crowd_get_prediction,
+            crowd::crowd_history,
+            crowd::crowd_build_seeds,
             tsfm_integration::tsfm_forecast,
-            kronos::kronos_predict,
-            kronos::kronos_batch_predict,
-            kronos::kronos_models,
-            kronos::kronos_predict_from_market,
+            tape::tape_predict,
+            tape::tape_batch_predict,
+            tape::tape_models,
+            tape::tape_predict_from_market,
         ])
         .setup(|app| {
             APP_HANDLE

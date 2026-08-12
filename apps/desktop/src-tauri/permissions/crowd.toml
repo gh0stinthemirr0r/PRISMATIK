@@ -1,0 +1,39 @@
+[[permission]]
+identifier = "allow-crowd-connect"
+description = "Connect to a Crowd simulation server."
+commands.allow = ["crowd_connect"]
+
+[[permission]]
+identifier = "allow-crowd-status"
+description = "Check Crowd connection status."
+commands.allow = ["crowd_status"]
+
+[[permission]]
+identifier = "allow-crowd-run-simulation"
+description = "Run a Crowd multi-agent simulation."
+commands.allow = ["crowd_run_simulation"]
+
+[[permission]]
+identifier = "allow-crowd-check-status"
+description = "Check simulation progress."
+commands.allow = ["crowd_check_status"]
+
+[[permission]]
+identifier = "allow-crowd-get-prediction"
+description = "Get simulation prediction report."
+commands.allow = ["crowd_get_prediction"]
+
+[[permission]]
+identifier = "allow-crowd-history"
+description = "Get simulation history."
+commands.allow = ["crowd_history"]
+
+[[permission]]
+identifier = "allow-crowd-build-seeds"
+description = "Build seed documents from market data."
+commands.allow = ["crowd_build_seeds"]
+
+[[permission]]
+identifier = "allow-tsfm-forecast"
+description = "Generate zero-shot time-series forecast."
+commands.allow = ["tsfm_forecast"]

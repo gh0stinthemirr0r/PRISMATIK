@@ -457,6 +457,10 @@ pub(crate) async fn resolve_due_forecast_candidates() -> Result<ResolutionReport
 /// own calibration cohorts and can be compared against the LLM forecasters on
 /// equal terms, by Brier score, on the same targets and horizons.
 pub(crate) const EMPIRICAL_PROVIDER: &str = "prismatik.regime";
+/// The sequence estimator (`tape.rs`).
+pub(crate) const TAPE_PROVIDER: &str = "prismatik.tape";
+/// The population estimator (`crowd.rs`).
+pub(crate) const CROWD_PROVIDER: &str = "prismatik.crowd";
 /// Version the method, not just the provider: changing the classifier changes
 /// what the numbers mean, and old scores must not be pooled with new ones.
 /// Sourced from the prompt registry so the version lives in one place.
@@ -588,6 +592,121 @@ pub(crate) fn file_empirical_candidate(
     Ok(true)
 }
 
+/// One estimator's directional claim, ready to be filed and scored.
+pub(crate) struct EstimatorClaim<'a> {
+    pub(crate) provider_id: &'a str,
+    pub(crate) model: &'a str,
+    pub(crate) target: &'a str,
+    pub(crate) direction: prismatik_regime::ForecastDirection,
+    /// Probability of the *stated direction* — what the resolver scores.
+    pub(crate) probability_ppm: u32,
+    /// Base rate for that same direction, from `climatology_for`.
+    pub(crate) climatology_ppm: u32,
+    pub(crate) summary: String,
+    pub(crate) evidence_ids: Vec<String>,
+    pub(crate) drivers: Vec<String>,
+    pub(crate) risks: Vec<String>,
+}
+
+/// File a directional claim from Tape, Crowd, or any future estimator.
+///
+/// This is `file_empirical_candidate` with the regime-specific parts lifted
+/// out. Everything that decides whether a forecast counts — the horizon
+/// arithmetic, the one-open-candidate rule, quarantine on arrival, the
+/// climatology the Brier skill is taken against — is shared, so a new
+/// estimator cannot accidentally grade itself on an easier curve.
+///
+/// Returns `Ok(false)` when an unresolved claim for the same cohort, target
+/// and horizon is already open.
+pub(crate) fn file_estimator_candidate(
+    claim: EstimatorClaim<'_>,
+    horizon_days: usize,
+    baseline_price: f64,
+    baseline_observed_at: &str,
+) -> Result<bool, String> {
+    if !baseline_price.is_finite() || baseline_price <= 0.0 {
+        return Err("baseline quote is not a usable price".into());
+    }
+    let horizon_minutes = (horizon_days as u32).saturating_mul(MINUTES_PER_TRADING_DAY);
+
+    let mut runtime = RUNTIME
+        .get()
+        .ok_or("forecast candidate runtime is unavailable")?
+        .lock()
+        .map_err(|_| "forecast candidate lock is unavailable".to_owned())?;
+
+    let already_open = runtime.candidates.iter().any(|candidate| {
+        candidate.provider_id == claim.provider_id
+            && candidate.model == claim.model
+            && candidate.target.eq_ignore_ascii_case(claim.target)
+            && candidate.horizon_minutes == horizon_minutes
+            && candidate.outcome.is_none()
+    });
+    if already_open {
+        return Ok(false);
+    }
+
+    let direction = match claim.direction {
+        prismatik_regime::ForecastDirection::Up => "up",
+        prismatik_regime::ForecastDirection::Down => "down",
+        prismatik_regime::ForecastDirection::Flat => "flat",
+    };
+    let generated = SystemClock::new().now();
+    let generated_at = generated.to_string();
+    let identity = serde_json::json!({
+        "provider": claim.provider_id,
+        "model": claim.model,
+        "target": claim.target,
+        "horizon": horizon_minutes,
+        "direction": direction,
+        "generatedAt": generated_at,
+    });
+
+    let candidate = ForecastCandidate {
+        id: ContentHash::from_bytes(identity.to_string().as_bytes()).to_string(),
+        provider_id: claim.provider_id.to_owned(),
+        model: claim.model.to_owned(),
+        target: claim.target.to_owned(),
+        horizon_minutes,
+        direction: direction.to_owned(),
+        probability_ppm: claim.probability_ppm.min(1_000_000),
+        summary: claim.summary,
+        evidence_ids: claim.evidence_ids,
+        drivers: claim.drivers,
+        risks: claim.risks,
+        generated_at,
+        provider_request_id: None,
+        reserved_cost_micros: 0,
+        calibration_status: "unvalidated_candidate".into(),
+        calibration_sample_size: 0,
+        execution_eligible: false,
+        status: "quarantined".into(),
+        baseline_price: Some(baseline_price),
+        baseline_observed_at: Some(baseline_observed_at.to_owned()),
+        resolves_after: Some(
+            (generated + time::Duration::minutes(i64::from(horizon_minutes))).to_string(),
+        ),
+        resolved_at: None,
+        resolution_price: None,
+        outcome: None,
+        brier_ppm: None,
+        calibration_report: None,
+        climatology_ppm: Some(claim.climatology_ppm),
+    };
+
+    let mut next = runtime.candidates.clone();
+    next.push(candidate);
+    if next.len() > 200 {
+        next.drain(..next.len() - 200);
+    }
+    runtime
+        .journal
+        .append("candidate_quarantined", next.clone(), generated)
+        .map_err(|error| error.to_string())?;
+    runtime.candidates = next;
+    Ok(true)
+}
+
 fn parse_time(value: &str) -> Option<time::OffsetDateTime> {
     time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
 }
@@ -684,10 +803,24 @@ pub(crate) struct CohortSkill {
 /// directly comparable with it — which is the only way to answer "should I
 /// listen to this analyst or to the model?"
 pub(crate) fn analyst_skill(cohort_model: &str, horizon_days: usize) -> Option<CohortSkill> {
+    estimator_skill(crate::analysts::ANALYST_PROVIDER, cohort_model, horizon_days)
+}
+
+/// Measured skill for any cohort, keyed the same way for every estimator.
+///
+/// Tape, Crowd, the analysts and the regime forecaster all resolve through
+/// this one function deliberately: three estimators that computed their own
+/// standing three different ways would not be comparable, and comparing them
+/// is the reason they all exist.
+pub(crate) fn estimator_skill(
+    provider_id: &str,
+    cohort_model: &str,
+    horizon_days: usize,
+) -> Option<CohortSkill> {
     let horizon_minutes = (horizon_days as u32).saturating_mul(MINUTES_PER_TRADING_DAY);
     let candidates = list_forecast_candidates().ok()?;
     calibration_health(&candidates).into_iter().find_map(|row| {
-        let matches = row.provider_id == crate::analysts::ANALYST_PROVIDER
+        let matches = row.provider_id == provider_id
             && row.model == cohort_model
             && row.horizon_minutes == horizon_minutes;
         matches.then_some(CohortSkill {

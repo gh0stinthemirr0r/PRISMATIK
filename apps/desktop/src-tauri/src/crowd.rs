@@ -1,32 +1,36 @@
-/**
- * MiroFish — Multi-agent social simulation for market prediction.
- *
- * MiroFish spawns thousands of LLM agents with distinct personalities,
- * injects them with market data/news as seed documents, runs a social
- * simulation, and generates prediction reports from emergent behavior.
- *
- * This module provides native integration with MiroFish's Flask REST API.
- *
- * Architecture:
- *   PRISMATIK → seed documents (news, market data, filings)
- *            → MiroFish GraphRAG (entity extraction, knowledge graph)
- *            → Agent swarm simulation (thousands of LLM agents)
- *            → Emergent prediction report
- *            → PRISMATIK prediction pipeline
- */
+//! Crowd — the population estimator.
+//!
+//! Crowd is the desk's third and least conventional forecaster. Where the
+//! regime model reasons from history and Tape reasons from sequence, Crowd
+//! reasons from *people*: it seeds a population of LLM agents, each with a
+//! distinct disposition, with the same documents a human desk would read, lets
+//! them talk to one another, and reads the prediction out of what the
+//! population converges on.
+//!
+//! That makes its dispersion as interesting as its answer. A population that
+//! splits down the middle on the same evidence is telling you something a
+//! point estimate cannot, which is why `agreement` is carried alongside the
+//! direction rather than collapsed into it.
+//!
+//! The simulation runs in the Flask service on port 5001
+//! (`services/mirofish-compat/server.py`) — our own implementation of the
+//! MiroFish protocol, without the camel-oasis dependency.
+//!
+//! Like Tape, Crowd is scored: its conclusions are filed against the
+//! `prismatik.crowd` cohort and resolved against climatology.
 use serde::{Deserialize, Serialize};
 use std::sync::{LazyLock, RwLock};
 
-/// MiroFish server configuration
+/// Crowd server configuration
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MiroFishConfig {
+pub(crate) struct CrowdConfig {
     pub(crate) base_url: String,
     pub(crate) connected: bool,
     pub(crate) version: Option<String>,
 }
 
-/// A simulation request sent to MiroFish
+/// A simulation request sent to Crowd
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SimulationRequest {
@@ -66,7 +70,7 @@ pub(crate) struct MarketSymbol {
     pub(crate) volume: f64,
 }
 
-/// Simulation status from MiroFish
+/// Simulation status from Crowd
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SimulationStatus {
@@ -78,10 +82,10 @@ pub(crate) struct SimulationStatus {
     pub(crate) message: String,
 }
 
-/// Prediction report from MiroFish simulation
+/// Prediction report from Crowd simulation
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MiroFishPrediction {
+pub(crate) struct CrowdPrediction {
     pub(crate) scenario_id: String,
     pub(crate) generated_at: String,
     pub(crate) summary: String,
@@ -123,24 +127,24 @@ pub(crate) struct DivergencePoint {
     pub(crate) neutral_pct: f64,
 }
 
-static MIROFISH_CONFIG: LazyLock<RwLock<MiroFishConfig>> = LazyLock::new(|| {
-    RwLock::new(MiroFishConfig {
+static MIROFISH_CONFIG: LazyLock<RwLock<CrowdConfig>> = LazyLock::new(|| {
+    RwLock::new(CrowdConfig {
         base_url: "http://localhost:5001".into(),
         connected: false,
         version: None,
     })
 });
 
-static SIMULATION_HISTORY: LazyLock<RwLock<Vec<MiroFishPrediction>>> =
+static SIMULATION_HISTORY: LazyLock<RwLock<Vec<CrowdPrediction>>> =
     LazyLock::new(|| RwLock::new(Vec::new()));
 
-/// Configure MiroFish connection
+/// Configure Crowd connection
 #[tauri::command]
-pub(crate) async fn mirofish_connect(base_url: Option<String>) -> Result<String, String> {
+pub(crate) async fn crowd_connect(base_url: Option<String>) -> Result<String, String> {
     let url = base_url.unwrap_or_else(|| "http://localhost:5001".into());
     let client = reqwest::Client::new();
 
-    // probe MiroFish health
+    // probe Crowd health
     let resp = client
         .get(format!("{url}/api/graph/health"))
         .timeout(std::time::Duration::from_secs(5))
@@ -153,7 +157,7 @@ pub(crate) async fn mirofish_connect(base_url: Option<String>) -> Result<String,
             config.base_url = url.clone();
             config.connected = true;
             config.version = Some("connected".into());
-            Ok(format!("Connected to MiroFish at {url}"))
+            Ok(format!("Connected to Crowd at {url}"))
         },
         _ => {
             // try alternate health endpoint
@@ -167,33 +171,33 @@ pub(crate) async fn mirofish_connect(base_url: Option<String>) -> Result<String,
                     let mut config = MIROFISH_CONFIG.write().map_err(|_| "state unavailable")?;
                     config.base_url = url.clone();
                     config.connected = true;
-                    Ok(format!("Connected to MiroFish at {url}"))
+                    Ok(format!("Connected to Crowd at {url}"))
                 },
                 _ => Err(format!(
-                    "Cannot reach MiroFish at {url}. Start it with: cd mirofish && python run.py"
+                    "Cannot reach Crowd at {url}. Start it with: cd mirofish && python run.py"
                 )),
             }
         },
     }
 }
 
-/// Get MiroFish connection status
+/// Get Crowd connection status
 #[tauri::command]
-pub(crate) fn mirofish_status() -> Result<MiroFishConfig, String> {
+pub(crate) fn crowd_status() -> Result<CrowdConfig, String> {
     Ok(MIROFISH_CONFIG
         .read()
         .map_err(|_| "state unavailable")?
         .clone())
 }
 
-/// Run a MiroFish simulation with market data as seed documents.
+/// Run a Crowd simulation with market data as seed documents.
 ///
 /// This is the core integration: PRISMATIK feeds market data, news, and
-/// analysis into MiroFish as seed documents. MiroFish spawns thousands
+/// analysis into Crowd as seed documents. Crowd spawns thousands
 /// of LLM agents with different trading personas, runs the simulation,
 /// and returns an emergent prediction.
 #[tauri::command]
-pub(crate) async fn mirofish_run_simulation(
+pub(crate) async fn crowd_run_simulation(
     symbols: Vec<String>,
     seed_headlines: Vec<String>,
     prediction_query: String,
@@ -203,7 +207,7 @@ pub(crate) async fn mirofish_run_simulation(
     let base_url = {
         let config = MIROFISH_CONFIG.read().map_err(|_| "state unavailable")?;
         if !config.connected {
-            return Err("MiroFish not connected. Run mirofish_connect first.".into());
+            return Err("Crowd not connected. Run crowd_connect first.".into());
         }
         config.base_url.clone()
     };
@@ -242,7 +246,7 @@ pub(crate) async fn mirofish_run_simulation(
 
     let scenario_id = format!("prismatik_{}", chrono::Utc::now().timestamp());
 
-    // send to MiroFish
+    // send to Crowd
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "scenario_id": scenario_id,
@@ -259,11 +263,11 @@ pub(crate) async fn mirofish_run_simulation(
         .timeout(std::time::Duration::from_secs(30))
         .send()
         .await
-        .map_err(|e| format!("MiroFish request failed: {e}"))?;
+        .map_err(|e| format!("Crowd request failed: {e}"))?;
 
     if !resp.status().is_success() {
         let err = resp.text().await.unwrap_or_default();
-        return Err(format!("MiroFish rejected simulation: {err}"));
+        return Err(format!("Crowd rejected simulation: {err}"));
     }
 
     Ok(SimulationStatus {
@@ -278,11 +282,11 @@ pub(crate) async fn mirofish_run_simulation(
 
 /// Check simulation status
 #[tauri::command]
-pub(crate) async fn mirofish_check_status(scenario_id: String) -> Result<SimulationStatus, String> {
+pub(crate) async fn crowd_check_status(scenario_id: String) -> Result<SimulationStatus, String> {
     let base_url = {
         let config = MIROFISH_CONFIG.read().map_err(|_| "state unavailable")?;
         if !config.connected {
-            return Err("MiroFish not connected".into());
+            return Err("Crowd not connected".into());
         }
         config.base_url.clone()
     };
@@ -296,7 +300,7 @@ pub(crate) async fn mirofish_check_status(scenario_id: String) -> Result<Simulat
         .map_err(|e| format!("request failed: {e}"))?;
 
     if !resp.status().is_success() {
-        return Err(format!("MiroFish returned HTTP {}", resp.status()));
+        return Err(format!("Crowd returned HTTP {}", resp.status()));
     }
 
     let status: SimulationStatus = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
@@ -305,13 +309,11 @@ pub(crate) async fn mirofish_check_status(scenario_id: String) -> Result<Simulat
 
 /// Get simulation report/prediction
 #[tauri::command]
-pub(crate) async fn mirofish_get_prediction(
-    scenario_id: String,
-) -> Result<MiroFishPrediction, String> {
+pub(crate) async fn crowd_get_prediction(scenario_id: String) -> Result<CrowdPrediction, String> {
     let base_url = {
         let config = MIROFISH_CONFIG.read().map_err(|_| "state unavailable")?;
         if !config.connected {
-            return Err("MiroFish not connected".into());
+            return Err("Crowd not connected".into());
         }
         config.base_url.clone()
     };
@@ -325,13 +327,13 @@ pub(crate) async fn mirofish_get_prediction(
         .map_err(|e| format!("request failed: {e}"))?;
 
     if !resp.status().is_success() {
-        return Err(format!("MiroFish returned HTTP {}", resp.status()));
+        return Err(format!("Crowd returned HTTP {}", resp.status()));
     }
 
     let val: serde_json::Value = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
 
-    // parse MiroFish report into our prediction format
-    let prediction = MiroFishPrediction {
+    // parse Crowd report into our prediction format
+    let prediction = CrowdPrediction {
         scenario_id: scenario_id.clone(),
         generated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         summary: val["summary"]
@@ -413,7 +415,7 @@ pub(crate) async fn mirofish_get_prediction(
 
 /// Get simulation history
 #[tauri::command]
-pub(crate) fn mirofish_history() -> Result<Vec<MiroFishPrediction>, String> {
+pub(crate) fn crowd_history() -> Result<Vec<CrowdPrediction>, String> {
     Ok(SIMULATION_HISTORY
         .read()
         .map_err(|_| "state unavailable")?
@@ -421,11 +423,9 @@ pub(crate) fn mirofish_history() -> Result<Vec<MiroFishPrediction>, String> {
 }
 
 /// Build seed documents from current market data + news.
-/// This is what PRISMATIK feeds into MiroFish as the "world state."
+/// This is what PRISMATIK feeds into Crowd as the "world state."
 #[tauri::command]
-pub(crate) async fn mirofish_build_seeds(
-    symbols: Vec<String>,
-) -> Result<Vec<SeedDocument>, String> {
+pub(crate) async fn crowd_build_seeds(symbols: Vec<String>) -> Result<Vec<SeedDocument>, String> {
     let mut seeds = Vec::new();
 
     // get current market data

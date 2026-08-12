@@ -31,7 +31,9 @@ mod scenario;
 mod survival;
 mod volatility;
 
-pub use forecast::{empirical_forecast, EmpiricalForecast, ForecastDirection};
+pub use forecast::{
+    climatology_for, empirical_forecast, Climatology, EmpiricalForecast, ForecastDirection,
+};
 pub use scenario::{bootstrap_paths, ScenarioPath, ScenarioPaths, ScenarioPoint};
 pub use survival::{regime_survival, SurvivalCurve, SurvivalPoint};
 pub use volatility::{realized_vol_surface, VolCell, VolSurface};

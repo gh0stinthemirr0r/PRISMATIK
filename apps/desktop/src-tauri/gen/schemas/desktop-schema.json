@@ -303,6 +303,48 @@
           "markdownDescription": "Connect to a broker (Alpaca, Coinbase, Kraken)."
         },
         {
+          "description": "Build seed documents from market data.",
+          "type": "string",
+          "const": "allow-crowd-build-seeds",
+          "markdownDescription": "Build seed documents from market data."
+        },
+        {
+          "description": "Check simulation progress.",
+          "type": "string",
+          "const": "allow-crowd-check-status",
+          "markdownDescription": "Check simulation progress."
+        },
+        {
+          "description": "Connect to a Crowd simulation server.",
+          "type": "string",
+          "const": "allow-crowd-connect",
+          "markdownDescription": "Connect to a Crowd simulation server."
+        },
+        {
+          "description": "Get simulation prediction report.",
+          "type": "string",
+          "const": "allow-crowd-get-prediction",
+          "markdownDescription": "Get simulation prediction report."
+        },
+        {
+          "description": "Get simulation history.",
+          "type": "string",
+          "const": "allow-crowd-history",
+          "markdownDescription": "Get simulation history."
+        },
+        {
+          "description": "Run a Crowd multi-agent simulation.",
+          "type": "string",
+          "const": "allow-crowd-run-simulation",
+          "markdownDescription": "Run a Crowd multi-agent simulation."
+        },
+        {
+          "description": "Check Crowd connection status.",
+          "type": "string",
+          "const": "allow-crowd-status",
+          "markdownDescription": "Check Crowd connection status."
+        },
+        {
           "description": "De-escalate the trader risk ladder.",
           "type": "string",
           "const": "allow-de-escalate-trader-ladder",
@@ -513,30 +555,6 @@
           "markdownDescription": "Allows reading compiled native intelligence capability status and durable observation counts."
         },
         {
-          "description": "Run Kronos batch prediction for multiple symbols.",
-          "type": "string",
-          "const": "allow-kronos-batch-predict",
-          "markdownDescription": "Run Kronos batch prediction for multiple symbols."
-        },
-        {
-          "description": "List available Kronos models.",
-          "type": "string",
-          "const": "allow-kronos-models",
-          "markdownDescription": "List available Kronos models."
-        },
-        {
-          "description": "Run Kronos K-line foundation model prediction.",
-          "type": "string",
-          "const": "allow-kronos-predict",
-          "markdownDescription": "Run Kronos K-line foundation model prediction."
-        },
-        {
-          "description": "Run Kronos prediction using live market data.",
-          "type": "string",
-          "const": "allow-kronos-predict-from-market",
-          "markdownDescription": "Run Kronos prediction using live market data."
-        },
-        {
           "description": "List specialist analysts and their measured standing.",
           "type": "string",
           "const": "allow-list-analysts",
@@ -613,48 +631,6 @@
           "type": "string",
           "const": "allow-list-unofficial-sources",
           "markdownDescription": "List unofficial data sources and whether each is enabled."
-        },
-        {
-          "description": "Build seed documents from market data.",
-          "type": "string",
-          "const": "allow-mirofish-build-seeds",
-          "markdownDescription": "Build seed documents from market data."
-        },
-        {
-          "description": "Check simulation progress.",
-          "type": "string",
-          "const": "allow-mirofish-check-status",
-          "markdownDescription": "Check simulation progress."
-        },
-        {
-          "description": "Connect to a MiroFish simulation server.",
-          "type": "string",
-          "const": "allow-mirofish-connect",
-          "markdownDescription": "Connect to a MiroFish simulation server."
-        },
-        {
-          "description": "Get simulation prediction report.",
-          "type": "string",
-          "const": "allow-mirofish-get-prediction",
-          "markdownDescription": "Get simulation prediction report."
-        },
-        {
-          "description": "Get simulation history.",
-          "type": "string",
-          "const": "allow-mirofish-history",
-          "markdownDescription": "Get simulation history."
-        },
-        {
-          "description": "Run a MiroFish multi-agent simulation.",
-          "type": "string",
-          "const": "allow-mirofish-run-simulation",
-          "markdownDescription": "Run a MiroFish multi-agent simulation."
-        },
-        {
-          "description": "Check MiroFish connection status.",
-          "type": "string",
-          "const": "allow-mirofish-status",
-          "markdownDescription": "Check MiroFish connection status."
         },
         {
           "description": "Allows the model plane to report active native process sessions.",
@@ -853,6 +829,30 @@
           "type": "string",
           "const": "allow-sweep-empirical-forecasts",
           "markdownDescription": "File regime-conditional forecast candidates for tracked instruments."
+        },
+        {
+          "description": "Run Kronos batch prediction for multiple symbols.",
+          "type": "string",
+          "const": "allow-tape-batch-predict",
+          "markdownDescription": "Run Kronos batch prediction for multiple symbols."
+        },
+        {
+          "description": "List available Kronos models.",
+          "type": "string",
+          "const": "allow-tape-models",
+          "markdownDescription": "List available Kronos models."
+        },
+        {
+          "description": "Run Kronos K-line foundation model prediction.",
+          "type": "string",
+          "const": "allow-tape-predict",
+          "markdownDescription": "Run Kronos K-line foundation model prediction."
+        },
+        {
+          "description": "Run Kronos prediction using live market data.",
+          "type": "string",
+          "const": "allow-tape-predict-from-market",
+          "markdownDescription": "Run Kronos prediction using live market data."
         },
         {
           "description": "Allows an explicit bounded conditional HTTP probe of one reviewed feed source.",

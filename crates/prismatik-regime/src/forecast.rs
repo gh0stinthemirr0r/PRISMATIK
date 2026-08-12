@@ -28,6 +28,21 @@ pub enum ForecastDirection {
     Flat,
 }
 
+impl ForecastDirection {
+    /// Whether a forward move in basis points counts as this direction.
+    ///
+    /// Both the conditional and the climatology paths route through here, so
+    /// the flat band cannot drift between them.
+    pub fn matches(self, move_bps: f64) -> bool {
+        match self {
+            Self::Up => move_bps > FLAT_BAND_BPS,
+            Self::Down => move_bps < -FLAT_BAND_BPS,
+            Self::Flat => move_bps.abs() <= FLAT_BAND_BPS,
+        }
+    }
+}
+
+
 /// Empirical forward-return distribution conditional on the current regime.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -144,6 +159,40 @@ fn forward_returns(
     out
 }
 
+/// The unconditional base rate for one direction over one horizon.
+///
+/// This is the number every estimator on the desk is scored against, so it
+/// lives here rather than at each call site: if Tape measured its skill
+/// against a slightly different baseline than the regime forecaster, the two
+/// skill figures would not be comparable and the comparison is the whole
+/// point. Same bars, same classification, same flat band, same forward
+/// windows — only the conditioning is dropped.
+///
+/// Returns `None` when no full forward window exists.
+pub fn climatology_for(
+    bars: &[Bar],
+    classification: &RegimeClassification,
+    horizon_bars: usize,
+    direction: ForecastDirection,
+) -> Option<Climatology> {
+    let moves = forward_returns(bars, classification, None, horizon_bars);
+    if moves.is_empty() {
+        return None;
+    }
+    let matching = moves.iter().filter(|m| direction.matches(**m)).count();
+    Some(Climatology {
+        probability_ppm: ((matching as f64 / moves.len() as f64) * 1_000_000.0).round() as u32,
+        sample_size: moves.len(),
+    })
+}
+
+/// A base rate and the number of windows behind it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Climatology {
+    pub probability_ppm: u32,
+    pub sample_size: usize,
+}
+
 /// Build a forecast for the regime the series currently sits in.
 ///
 /// Returns `None` when the series has no current classification or when the
@@ -190,11 +239,7 @@ pub fn empirical_forecast(
     } else {
         let matching = climatology_moves
             .iter()
-            .filter(|m| match direction {
-                ForecastDirection::Up => **m > FLAT_BAND_BPS,
-                ForecastDirection::Down => **m < -FLAT_BAND_BPS,
-                ForecastDirection::Flat => m.abs() <= FLAT_BAND_BPS,
-            })
+            .filter(|m| direction.matches(**m))
             .count();
         ((matching as f64 / climatology_moves.len() as f64) * 1_000_000.0).round() as u32
     };
@@ -271,6 +316,62 @@ mod tests {
         );
         assert_eq!(forecast.direction, ForecastDirection::Up);
         assert!(forecast.median_move_bps > 0.0);
+    }
+
+    #[test]
+    fn the_shared_climatology_matches_what_a_forecast_reports() {
+        // Tape and Crowd score against `climatology_for`; the regime model
+        // scores against the baseline computed inside `empirical_forecast`.
+        // If those two ever diverge, the three skill numbers stop being
+        // comparable and the whole cross-estimator comparison is void.
+        let closes: Vec<f64> = (0..500)
+            .map(|i| 100.0 + wobble(i as usize, 3.0) + 0.008 * f64::from(i))
+            .collect();
+        let bars = series(&closes);
+        let classification = classify(&bars, &RegimeParams::daily());
+
+        for horizon in [1, 5, 10] {
+            let forecast =
+                empirical_forecast(&bars, &classification, horizon).expect("forecast");
+            let shared = climatology_for(&bars, &classification, horizon, forecast.direction)
+                .expect("climatology");
+            assert_eq!(
+                shared.probability_ppm, forecast.climatology_ppm,
+                "horizon {horizon}",
+            );
+            assert_eq!(
+                shared.sample_size, forecast.climatology_sample_size,
+                "horizon {horizon}",
+            );
+        }
+    }
+
+    #[test]
+    fn climatology_covers_every_direction_and_sums_to_one() {
+        let closes: Vec<f64> = (0..400)
+            .map(|i| 100.0 + wobble(i as usize, 2.0))
+            .collect();
+        let bars = series(&closes);
+        let classification = classify(&bars, &RegimeParams::daily());
+
+        // The three directions partition the outcome space, so their base
+        // rates must account for every forward window exactly once.
+        let total: u32 = [
+            ForecastDirection::Up,
+            ForecastDirection::Down,
+            ForecastDirection::Flat,
+        ]
+        .into_iter()
+        .map(|d| {
+            climatology_for(&bars, &classification, 5, d)
+                .expect("climatology")
+                .probability_ppm
+        })
+        .sum();
+        assert!(
+            (999_997..=1_000_003).contains(&total),
+            "directions should partition the space, summed to {total}",
+        );
     }
 
     #[test]

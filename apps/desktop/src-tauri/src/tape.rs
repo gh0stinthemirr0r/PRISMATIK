@@ -1,36 +1,35 @@
-/**
- * Kronos — Financial K-line Foundation Model Integration
- *
- * Kronos is the first open-source foundation model for candlestick prediction.
- * Pre-trained on 12B+ K-lines from 45 global exchanges.
- * Treats OHLCV as a "language" via hierarchical vector quantization.
- *
- * Architecture:
- *   OHLCV data → K-line Tokenizer (hierarchical VQ) → Tokens
- *   Tokens → Decoder-only Transformer (GPT-style) → Predicted future tokens
- *   Predicted tokens → K-line Detokenizer → Predicted OHLCV
- *
- * Models:
- *   - Kronos-mini:   4.1M params, context 2048 (fast, good for real-time)
- *   - Kronos-small: 24.7M params, context 512 (balanced)
- *   - Kronos-base: 102.3M params, context 512 (highest accuracy)
- *
- * Zero-shot RankIC: +93% over best general TSFM (AAAI 2026)
- *
- * Integration: Python sidecar on port 8766, or direct HuggingFace inference.
- */
+//! Tape — the sequence estimator.
+//!
+//! Tape reads price action the way a language model reads text: OHLCV bars are
+//! tokenized by hierarchical vector quantization and continued by a
+//! decoder-only transformer, then detokenized back into predicted bars. It is
+//! the only estimator on the desk that forecasts the *shape* of the next bars
+//! rather than a summary statistic.
+//!
+//! Inference runs in the Python sidecar on port 8766
+//! (`services/kronos-sidecar/`). The weights are the open-source Kronos
+//! foundation model (shiyu-coder/Kronos, pinned as a submodule) in three
+//! sizes: mini (4.1M params, 2048 context), small (24.7M, 512), base
+//! (102.3M, 512). PRISMATIK supplies the surface, the scoring and the
+//! forecast plumbing; it did not train the model, and the sizes above are the
+//! upstream project's published figures rather than anything measured here.
+//!
+//! **Tape earns its standing like everything else.** A prediction is not a
+//! result until it has been converted into a directional claim, filed against
+//! the `prismatik.tape` cohort, resolved at its horizon, and scored against
+//! climatology. Until then it is a picture, not evidence.
 use serde::{Deserialize, Serialize};
 
 /// Kronos model size
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) enum KronosModel {
+pub(crate) enum TapeModel {
     Mini,  // 4.1M, fast, context 2048
     Small, // 24.7M, balanced, context 512
     Base,  // 102.3M, best accuracy, context 512
 }
 
-impl KronosModel {
+impl TapeModel {
     fn huggingface_id(&self) -> &str {
         match self {
             Self::Mini => "NeoQuasar/Kronos-mini-base",
@@ -51,7 +50,7 @@ impl KronosModel {
 /// A single predicted K-line bar
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KronosBar {
+pub(crate) struct TapeBar {
     pub(crate) timestamp: String,
     pub(crate) open: f64,
     pub(crate) high: f64,
@@ -63,14 +62,14 @@ pub(crate) struct KronosBar {
 /// Kronos prediction result
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KronosPrediction {
+pub(crate) struct TapePrediction {
     pub(crate) symbol: String,
     pub(crate) model: String,
     pub(crate) context_length: usize,
     pub(crate) prediction_length: usize,
     pub(crate) sample_count: usize,
-    pub(crate) predicted_bars: Vec<KronosBar>,
-    pub(crate) confidence_bands: Vec<KronosConfidenceBand>,
+    pub(crate) predicted_bars: Vec<TapeBar>,
+    pub(crate) confidence_bands: Vec<TapeConfidenceBand>,
     pub(crate) predicted_direction: String,
     pub(crate) predicted_return: f64,
     pub(crate) predicted_volatility: f64,
@@ -80,7 +79,7 @@ pub(crate) struct KronosPrediction {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KronosConfidenceBand {
+pub(crate) struct TapeConfidenceBand {
     pub(crate) step: usize,
     pub(crate) close_lower: f64,
     pub(crate) close_upper: f64,
@@ -94,8 +93,8 @@ pub(crate) struct KronosConfidenceBand {
 /// Batch prediction for multiple symbols
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct KronosBatchResult {
-    pub(crate) predictions: Vec<KronosPrediction>,
+pub(crate) struct TapeBatchResult {
+    pub(crate) predictions: Vec<TapePrediction>,
     pub(crate) total_symbols: usize,
     pub(crate) successful: usize,
     pub(crate) failed: usize,
@@ -105,14 +104,14 @@ pub(crate) struct KronosBatchResult {
 /// Run Kronos prediction for a single symbol.
 /// Calls the Python sidecar which loads the model and runs inference.
 #[tauri::command]
-pub(crate) async fn kronos_predict(
+pub(crate) async fn tape_predict(
     symbol: String,
     prices: Vec<f64>,
     timestamps: Vec<String>,
     pred_len: Option<usize>,
     model: Option<String>,
     sample_count: Option<usize>,
-) -> Result<KronosPrediction, String> {
+) -> Result<TapePrediction, String> {
     let pred_len = pred_len.unwrap_or(5);
     let model_name = model.unwrap_or_else(|| "base".into());
     let sample_count = sample_count.unwrap_or(10);
@@ -146,11 +145,11 @@ pub(crate) async fn kronos_predict(
             let val: serde_json::Value = r.json().await.map_err(|e| format!("parse error: {e}"))?;
             let inference_ms = start.elapsed().as_millis() as u64;
 
-            let predicted_bars: Vec<KronosBar> = val["predicted_bars"]
+            let predicted_bars: Vec<TapeBar> = val["predicted_bars"]
                 .as_array()
                 .map(|arr| {
                     arr.iter()
-                        .map(|b| KronosBar {
+                        .map(|b| TapeBar {
                             timestamp: b["timestamp"].as_str().unwrap_or("").into(),
                             open: b["open"].as_f64().unwrap_or(0.0),
                             high: b["high"].as_f64().unwrap_or(0.0),
@@ -162,12 +161,12 @@ pub(crate) async fn kronos_predict(
                 })
                 .unwrap_or_default();
 
-            let confidence_bands: Vec<KronosConfidenceBand> = val["confidence_bands"]
+            let confidence_bands: Vec<TapeConfidenceBand> = val["confidence_bands"]
                 .as_array()
                 .map(|arr| {
                     arr.iter()
                         .enumerate()
-                        .map(|(i, b)| KronosConfidenceBand {
+                        .map(|(i, b)| TapeConfidenceBand {
                             step: i + 1,
                             close_lower: b["close_lower"].as_f64().unwrap_or(0.0),
                             close_upper: b["close_upper"].as_f64().unwrap_or(0.0),
@@ -213,7 +212,7 @@ pub(crate) async fn kronos_predict(
                     .sqrt()
             };
 
-            Ok(KronosPrediction {
+            Ok(TapePrediction {
                 symbol,
                 model: format!("Kronos-{}", model_name),
                 context_length: prices.len(),
@@ -245,13 +244,13 @@ pub(crate) async fn kronos_predict(
                 .sqrt();
 
             // simple mean-reversion forecast
-            let predicted_bars: Vec<KronosBar> = (0..pred_len)
+            let predicted_bars: Vec<TapeBar> = (0..pred_len)
                 .map(|i| {
                     let t = i as f64 + 1.0;
                     let reversion = (mean - last_price) * 0.05 * t;
                     let noise = std * 0.1 * t.sqrt();
                     let close = last_price + reversion;
-                    KronosBar {
+                    TapeBar {
                         timestamp: format!("+{}", i + 1),
                         open: close - noise * 0.3,
                         high: close + noise,
@@ -262,12 +261,12 @@ pub(crate) async fn kronos_predict(
                 })
                 .collect();
 
-            let confidence_bands: Vec<KronosConfidenceBand> = predicted_bars
+            let confidence_bands: Vec<TapeConfidenceBand> = predicted_bars
                 .iter()
                 .enumerate()
                 .map(|(i, bar)| {
                     let widen = std * ((i + 1) as f64).sqrt() * 0.15;
-                    KronosConfidenceBand {
+                    TapeConfidenceBand {
                         step: i + 1,
                         close_lower: bar.close - widen * 1.96,
                         close_upper: bar.close + widen * 1.96,
@@ -287,7 +286,7 @@ pub(crate) async fn kronos_predict(
                 0.0
             };
 
-            Ok(KronosPrediction {
+            Ok(TapePrediction {
                 symbol,
                 model: "statistical_fallback (Kronos sidecar not running)".into(),
                 context_length: prices.len(),
@@ -314,12 +313,12 @@ pub(crate) async fn kronos_predict(
 
 /// Run Kronos batch prediction for multiple symbols.
 #[tauri::command]
-pub(crate) async fn kronos_batch_predict(
+pub(crate) async fn tape_batch_predict(
     symbols: Vec<String>,
     data: Vec<(Vec<f64>, Vec<String>)>, // (prices, timestamps) per symbol
     pred_len: Option<usize>,
     model: Option<String>,
-) -> Result<KronosBatchResult, String> {
+) -> Result<TapeBatchResult, String> {
     if symbols.len() != data.len() {
         return Err("symbols and data must have same length".into());
     }
@@ -330,7 +329,7 @@ pub(crate) async fn kronos_batch_predict(
     let mut failed = 0;
 
     for (symbol, (prices, timestamps)) in symbols.iter().zip(data.iter()) {
-        match kronos_predict(
+        match tape_predict(
             symbol.clone(),
             prices.clone(),
             timestamps.clone(),
@@ -350,7 +349,7 @@ pub(crate) async fn kronos_batch_predict(
         }
     }
 
-    Ok(KronosBatchResult {
+    Ok(TapeBatchResult {
         predictions,
         total_symbols: symbols.len(),
         successful,
@@ -361,7 +360,7 @@ pub(crate) async fn kronos_batch_predict(
 
 /// Get available Kronos models and their status.
 #[tauri::command]
-pub(crate) fn kronos_models() -> Result<Vec<serde_json::Value>, String> {
+pub(crate) fn tape_models() -> Result<Vec<serde_json::Value>, String> {
     Ok(vec![
         serde_json::json!({
             "id": "mini",
@@ -396,11 +395,11 @@ pub(crate) fn kronos_models() -> Result<Vec<serde_json::Value>, String> {
 /// Run Kronos prediction using the existing historical data engine.
 /// Fetches OHLCV from Yahoo Finance, then runs Kronos on it.
 #[tauri::command]
-pub(crate) async fn kronos_predict_from_market(
+pub(crate) async fn tape_predict_from_market(
     symbol: String,
     pred_len: Option<usize>,
     model: Option<String>,
-) -> Result<KronosPrediction, String> {
+) -> Result<TapePrediction, String> {
     // fetch historical data
     let hist = crate::historical_data::get_historical_ohlcv(
         symbol.clone(),
@@ -419,5 +418,5 @@ pub(crate) async fn kronos_predict_from_market(
     let prices: Vec<f64> = hist.bars.iter().map(|b| b.close).collect();
     let timestamps: Vec<String> = hist.bars.iter().map(|b| b.timestamp.clone()).collect();
 
-    kronos_predict(symbol, prices, timestamps, pred_len, model, Some(10)).await
+    tape_predict(symbol, prices, timestamps, pred_len, model, Some(10)).await
 }
