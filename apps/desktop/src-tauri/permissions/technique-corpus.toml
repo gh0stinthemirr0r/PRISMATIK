@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-list-techniques"
+description = "List the systematic-trading technique corpus with each entry's readiness against the current data layer."
+commands.allow = ["list_techniques"]

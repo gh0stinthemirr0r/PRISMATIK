@@ -133,6 +133,7 @@
     "allow-remove-document",
     "allow-list-documents",
     "allow-query-knowledge",
+    "allow-list-techniques",
     "allow-open-room",
     "allow-list-rooms",
     "allow-close-room",

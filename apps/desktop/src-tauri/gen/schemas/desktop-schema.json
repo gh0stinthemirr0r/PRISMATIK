@@ -639,6 +639,12 @@
           "markdownDescription": "Allows listing durable unsigned StrategyIR drafts."
         },
         {
+          "description": "List the systematic-trading technique corpus with each entry's readiness against the current data layer.",
+          "type": "string",
+          "const": "allow-list-techniques",
+          "markdownDescription": "List the systematic-trading technique corpus with each entry's readiness against the current data layer."
+        },
+        {
           "description": "List unofficial data sources and whether each is enabled.",
           "type": "string",
           "const": "allow-list-unofficial-sources",

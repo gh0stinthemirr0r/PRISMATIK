@@ -46,6 +46,7 @@ mod screener;
 mod signal;
 mod strategy_authoring;
 mod tape;
+mod technique_corpus;
 mod terminal_feed;
 mod tracking;
 mod tsfm_integration;
@@ -215,6 +216,7 @@ pub fn run() {
             knowledge::remove_document,
             knowledge::list_documents,
             knowledge::query_knowledge,
+            technique_corpus::list_techniques,
             briefings::get_briefing,
             dex_scanner::scan_dex_arbitrage,
             chart_indicators::compute_chart_indicators,

@@ -46,6 +46,14 @@ pub enum DocumentKind {
     Decision,
     /// A transcript, e.g. an earnings call.
     Transcript,
+    /// A trading technique: what it measures, what it needs, whether this
+    /// desk can currently run it.
+    ///
+    /// Distinct from `Research` because a technique is durable method rather
+    /// than a dated opinion. A note about NVDA goes stale; the definition of
+    /// a carry trade does not, and the two should not be retrieved with the
+    /// same recency assumptions.
+    Technique,
 }
 
 /// A stored document.

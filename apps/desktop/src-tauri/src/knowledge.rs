@@ -58,6 +58,19 @@ pub(crate) fn initialize(data_dir: &std::path::Path) -> Result<(), String> {
     for document in stored {
         guard.insert(document);
     }
+
+    // Seed the technique corpus. Documents are content-addressed, so this is
+    // idempotent: an unchanged corpus re-inserts identical ids, and an edited
+    // description supersedes its predecessor rather than accumulating beside
+    // it. Seeding after the stored documents means an operator's own edits to
+    // a seeded document are the ones that survive a restart only if they were
+    // saved under a different id — which is the correct precedence, since the
+    // corpus is a floor the desk ships with, not a user's data.
+    for document in crate::technique_corpus::documents() {
+        guard.insert(document);
+    }
+
+    persist(&guard);
     Ok(())
 }
 
