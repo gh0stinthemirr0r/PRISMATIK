@@ -803,7 +803,11 @@ pub(crate) struct CohortSkill {
 /// directly comparable with it — which is the only way to answer "should I
 /// listen to this analyst or to the model?"
 pub(crate) fn analyst_skill(cohort_model: &str, horizon_days: usize) -> Option<CohortSkill> {
-    estimator_skill(crate::analysts::ANALYST_PROVIDER, cohort_model, horizon_days)
+    estimator_skill(
+        crate::analysts::ANALYST_PROVIDER,
+        cohort_model,
+        horizon_days,
+    )
 }
 
 /// Measured skill for any cohort, keyed the same way for every estimator.

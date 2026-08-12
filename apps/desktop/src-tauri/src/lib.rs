@@ -261,6 +261,7 @@ pub fn run() {
             tape::tape_batch_predict,
             tape::tape_models,
             tape::tape_predict_from_market,
+            tape::tape_file_forecast,
         ])
         .setup(|app| {
             APP_HANDLE

@@ -17,3 +17,8 @@ commands.allow = ["tape_models"]
 identifier = "allow-tape-predict-from-market"
 description = "Run Kronos prediction using live market data."
 commands.allow = ["tape_predict_from_market"]
+
+[[permission]]
+identifier = "allow-tape-file-forecast"
+description = "Run Tape on a tracked instrument and file the result as a scored forecast candidate."
+commands.allow = ["tape_file_forecast"]

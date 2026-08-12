@@ -82,6 +82,44 @@ def prepare_dataframe(prices: list, timestamps: list) -> pd.DataFrame:
     return df
 
 
+FLAT_BAND_BPS = 5.0  # must match prismatik_regime::FLAT_BAND_BPS
+
+
+def terminal_probabilities(all_predictions, last_price):
+    """Directional probabilities from the model's own sampling distribution.
+
+    Kronos is sampled `sample_count` times; each path has a terminal close.
+    The fraction of those paths finishing outside the flat band IS the model's
+    probability — no distributional assumption is needed, and none is made.
+    Deriving a probability from the confidence bands instead would mean
+    assuming a shape the sampler never claimed.
+
+    The band matches the Rust side exactly, because a probability measured
+    against a different threshold than the one the resolver scores would be
+    the wrong number no matter how carefully it was computed.
+    """
+    if not all_predictions or last_price <= 0:
+        return None
+    terminal = []
+    for path in all_predictions:
+        if len(path) == 0:
+            continue
+        terminal.append(float(path.iloc[-1]["close"]))
+    if not terminal:
+        return None
+    moves_bps = [(close / last_price - 1.0) * 10_000.0 for close in terminal]
+    n = float(len(moves_bps))
+    up = sum(1 for m in moves_bps if m > FLAT_BAND_BPS) / n
+    down = sum(1 for m in moves_bps if m < -FLAT_BAND_BPS) / n
+    return {
+        "probability_up": up,
+        "probability_down": down,
+        "probability_flat": max(0.0, 1.0 - up - down),
+        "terminal_paths": len(terminal),
+        "median_move_bps": float(np.median(moves_bps)),
+    }
+
+
 def statistical_fallback(prices: list, pred_len: int) -> dict:
     """Statistical fallback when Kronos is not available."""
     last_price = prices[-1]
@@ -122,6 +160,11 @@ def statistical_fallback(prices: list, pred_len: int) -> dict:
         "predicted_bars": predicted_bars,
         "confidence_bands": confidence_bands,
         "model": "statistical_fallback",
+        # No sampling distribution exists here — this is a mean-reversion
+        # sketch, not a model. Saying so is what stops the caller filing it
+        # as a scored forecast alongside real Kronos output.
+        "probabilities": None,
+        "is_fallback": True,
     }
 
 
@@ -212,6 +255,10 @@ def predict():
                 "model": f"Kronos-{model_name}",
                 "inference_time_ms": inference_ms,
                 "sample_count": sample_count,
+                # Empirical, from the sampled paths. Absent rather than
+                # guessed when the sampler produced nothing usable.
+                "probabilities": terminal_probabilities(all_predictions, prices[-1]),
+                "is_fallback": False,
             })
 
         except Exception as e:

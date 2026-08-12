@@ -112,6 +112,7 @@
     "allow-tape-batch-predict",
     "allow-tape-models",
     "allow-tape-predict-from-market",
+    "allow-tape-file-forecast",
     "allow-start-autonomy-loop",
     "allow-stop-autonomy-loop",
     "allow-autonomy-loop-status",

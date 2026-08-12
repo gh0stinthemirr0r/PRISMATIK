@@ -75,6 +75,42 @@ pub(crate) struct TapePrediction {
     pub(crate) predicted_volatility: f64,
     pub(crate) generated_at: String,
     pub(crate) inference_time_ms: u64,
+    /// Directional probabilities from the sampler's own terminal paths, or
+    /// `None` when the run produced no sampling distribution.
+    pub(crate) probabilities: Option<TapeProbabilities>,
+    /// True when the sidecar could not load the model and answered with its
+    /// mean-reversion sketch instead.
+    pub(crate) is_fallback: bool,
+}
+
+/// Directional probabilities measured from the sampled paths.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TapeProbabilities {
+    pub(crate) probability_up_ppm: u32,
+    pub(crate) probability_down_ppm: u32,
+    pub(crate) probability_flat_ppm: u32,
+    pub(crate) terminal_paths: usize,
+    pub(crate) median_move_bps: f64,
+}
+
+fn parse_probabilities(value: &serde_json::Value) -> Option<TapeProbabilities> {
+    let node = value.get("probabilities")?;
+    if node.is_null() {
+        return None;
+    }
+    let ppm = |key: &str| -> Option<u32> {
+        let p = node[key].as_f64()?;
+        p.is_finite()
+            .then(|| (p.clamp(0.0, 1.0) * 1_000_000.0).round() as u32)
+    };
+    Some(TapeProbabilities {
+        probability_up_ppm: ppm("probability_up")?,
+        probability_down_ppm: ppm("probability_down")?,
+        probability_flat_ppm: ppm("probability_flat")?,
+        terminal_paths: node["terminal_paths"].as_u64().unwrap_or(0) as usize,
+        median_move_bps: node["median_move_bps"].as_f64().unwrap_or(0.0),
+    })
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -213,6 +249,8 @@ pub(crate) async fn tape_predict(
             };
 
             Ok(TapePrediction {
+                probabilities: parse_probabilities(&val),
+                is_fallback: val["is_fallback"].as_bool().unwrap_or(false),
                 symbol,
                 model: format!("Kronos-{}", model_name),
                 context_length: prices.len(),
@@ -234,80 +272,14 @@ pub(crate) async fn tape_predict(
                 inference_time_ms: inference_ms,
             })
         },
-        _ => {
-            // fallback: statistical prediction (not Kronos, but gives a result)
-            let inference_ms = start.elapsed().as_millis() as u64;
-            let last_price = *prices.last().unwrap_or(&0.0);
-            let mean: f64 = prices.iter().sum::<f64>() / prices.len() as f64;
-            let std: f64 = (prices.iter().map(|p| (p - mean).powi(2)).sum::<f64>()
-                / prices.len() as f64)
-                .sqrt();
-
-            // simple mean-reversion forecast
-            let predicted_bars: Vec<TapeBar> = (0..pred_len)
-                .map(|i| {
-                    let t = i as f64 + 1.0;
-                    let reversion = (mean - last_price) * 0.05 * t;
-                    let noise = std * 0.1 * t.sqrt();
-                    let close = last_price + reversion;
-                    TapeBar {
-                        timestamp: format!("+{}", i + 1),
-                        open: close - noise * 0.3,
-                        high: close + noise,
-                        low: close - noise,
-                        close,
-                        volume: 0.0,
-                    }
-                })
-                .collect();
-
-            let confidence_bands: Vec<TapeConfidenceBand> = predicted_bars
-                .iter()
-                .enumerate()
-                .map(|(i, bar)| {
-                    let widen = std * ((i + 1) as f64).sqrt() * 0.15;
-                    TapeConfidenceBand {
-                        step: i + 1,
-                        close_lower: bar.close - widen * 1.96,
-                        close_upper: bar.close + widen * 1.96,
-                        close_median: bar.close,
-                        high_lower: bar.high - widen,
-                        high_upper: bar.high + widen,
-                        low_lower: bar.low - widen,
-                        low_upper: bar.low + widen,
-                    }
-                })
-                .collect();
-
-            let pred_close = predicted_bars.last().map(|b| b.close).unwrap_or(last_price);
-            let predicted_return = if last_price > 0.0 {
-                (pred_close - last_price) / last_price
-            } else {
-                0.0
-            };
-
-            Ok(TapePrediction {
-                symbol,
-                model: "statistical_fallback (Kronos sidecar not running)".into(),
-                context_length: prices.len(),
-                prediction_length: pred_len,
-                sample_count: 1,
-                predicted_bars,
-                confidence_bands,
-                predicted_direction: if predicted_return > 0.01 {
-                    "bullish"
-                } else if predicted_return < -0.01 {
-                    "bearish"
-                } else {
-                    "neutral"
-                }
-                .into(),
-                predicted_return,
-                predicted_volatility: std / last_price,
-                generated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-                inference_time_ms: inference_ms,
-            })
-        },
+        Ok(response) => Err(format!(
+            "the Tape sidecar answered {} — start it with `python services/kronos-sidecar/server.py`",
+            response.status()
+        )),
+        Err(error) => Err(format!(
+            "the Tape sidecar on port 8766 is not reachable ({error}). Start it with \
+             `python services/kronos-sidecar/server.py`."
+        )),
     }
 }
 
@@ -419,4 +391,231 @@ pub(crate) async fn tape_predict_from_market(
     let timestamps: Vec<String> = hist.bars.iter().map(|b| b.timestamp.clone()).collect();
 
     tape_predict(symbol, prices, timestamps, pred_len, model, Some(10)).await
+}
+
+/// Cohort key for a Tape run.
+///
+/// The model size is part of the key because Kronos-mini and Kronos-base are
+/// different estimators; pooling their records would let a strong one carry a
+/// weak one. The `v1` is this integration's contract version — if the way a
+/// prediction becomes a directional claim changes, it bumps and a fresh
+/// cohort starts rather than the change being absorbed into an existing
+/// record.
+fn cohort_model(model: &str) -> String {
+    format!(
+        "tape.{}.v1",
+        model.trim().to_ascii_lowercase().replace(' ', "-")
+    )
+}
+
+/// Run Tape on a tracked instrument and file the result as a scored forecast.
+///
+/// Tape is only worth having if it can be shown to beat the base rate, and
+/// that means its claims have to be filed before the outcome is known and
+/// resolved against the same climatology as every other estimator. This is
+/// the command that closes that loop.
+///
+/// It refuses in two cases, both deliberate:
+///
+/// - the sidecar fell back to its mean-reversion sketch, which is not a model
+///   and must never enter a foundation-model cohort;
+/// - the run produced no sampling distribution, so there is no probability to
+///   file — and a direction without a probability cannot be Brier-scored.
+#[tauri::command]
+pub(crate) async fn tape_file_forecast(
+    app: tauri::AppHandle,
+    symbol: String,
+    horizon_days: usize,
+) -> Result<String, String> {
+    let tracked = crate::tracking::read_tracked(&app)?;
+    let row = tracked
+        .iter()
+        .find(|row| row.symbol.eq_ignore_ascii_case(&symbol))
+        .ok_or_else(|| format!("{symbol} is not tracked, so there is nothing to forecast"))?;
+
+    let (bars, _) = crate::analytics::fetch_daily_bars(row.kind, &row.provider_id).await?;
+    if bars.len() < 60 {
+        return Err(format!(
+            "{symbol} has {} daily bars; Tape needs at least 60 for its context window",
+            bars.len()
+        ));
+    }
+    let classification =
+        prismatik_regime::classify(&bars, &prismatik_regime::RegimeParams::daily());
+
+    let prices: Vec<f64> = bars.iter().map(|bar| bar.c).collect();
+    let timestamps: Vec<String> = bars.iter().map(|bar| bar.t.to_string()).collect();
+    let prediction = tape_predict(
+        symbol.clone(),
+        prices,
+        timestamps,
+        Some(horizon_days),
+        None,
+        None,
+    )
+    .await?;
+
+    if prediction.is_fallback {
+        return Err(
+            "the sidecar answered with its statistical fallback, not the model. That is a \
+             mean-reversion sketch, and filing it under a Tape cohort would corrupt the record."
+                .into(),
+        );
+    }
+    let probabilities = prediction
+        .probabilities
+        .as_ref()
+        .ok_or("this run produced no sampling distribution, so there is no probability to score")?;
+
+    // The direction Tape claims is whichever outcome its sampled paths
+    // favoured — taken from the same counts that produce the probability, so
+    // the two can never disagree.
+    let (direction, probability_ppm) = if probabilities.probability_up_ppm
+        >= probabilities.probability_down_ppm
+        && probabilities.probability_up_ppm >= probabilities.probability_flat_ppm
+    {
+        (
+            prismatik_regime::ForecastDirection::Up,
+            probabilities.probability_up_ppm,
+        )
+    } else if probabilities.probability_down_ppm >= probabilities.probability_flat_ppm {
+        (
+            prismatik_regime::ForecastDirection::Down,
+            probabilities.probability_down_ppm,
+        )
+    } else {
+        (
+            prismatik_regime::ForecastDirection::Flat,
+            probabilities.probability_flat_ppm,
+        )
+    };
+
+    let climatology =
+        prismatik_regime::climatology_for(&bars, &classification, horizon_days, direction)
+            .ok_or("no full forward window exists, so there is no base rate to score against")?;
+    let edge_ppm = i64::from(probability_ppm) - i64::from(climatology.probability_ppm);
+
+    let quote_price = *bars.last().map(|bar| &bar.c).ok_or("no closing price")?;
+    // The baseline is the last bar's close and the time that bar closed, not
+    // "now": resolution measures from the price the claim was actually made
+    // against, and a live quote would drift from the series Tape was given.
+    let observed_at = time::OffsetDateTime::from_unix_timestamp(
+        bars.last().map(|bar| bar.t).unwrap_or(0) / 1_000,
+    )
+    .map_err(|_| "the final bar carries an unusable timestamp".to_owned())?
+    .format(&time::format_description::well_known::Rfc3339)
+    .map_err(|error| error.to_string())?;
+
+    let summary = format!(
+        "Tape ({}) continued {symbol} over {horizon_days}d across {} sampled paths: {:.1}% up, \
+         {:.1}% down, {:.1}% flat, median {:+.0} bps. Base rate for the stated direction is \
+         {:.1}% over {} windows, so the edge is {:+.1} points.",
+        prediction.model,
+        probabilities.terminal_paths,
+        f64::from(probabilities.probability_up_ppm) / 10_000.0,
+        f64::from(probabilities.probability_down_ppm) / 10_000.0,
+        f64::from(probabilities.probability_flat_ppm) / 10_000.0,
+        probabilities.median_move_bps,
+        f64::from(climatology.probability_ppm) / 10_000.0,
+        climatology.sample_size,
+        edge_ppm as f64 / 10_000.0,
+    );
+
+    let filed = crate::forecast_candidates::file_estimator_candidate(
+        crate::forecast_candidates::EstimatorClaim {
+            provider_id: crate::forecast_candidates::TAPE_PROVIDER,
+            model: &cohort_model(&prediction.model),
+            target: &symbol,
+            direction,
+            probability_ppm,
+            climatology_ppm: climatology.probability_ppm,
+            summary,
+            evidence_ids: vec![format!("ohlcv:{symbol}:{}bars", bars.len())],
+            drivers: vec![
+                format!(
+                    "{} sampled continuation paths",
+                    probabilities.terminal_paths
+                ),
+                format!(
+                    "median predicted move {:+.0} bps",
+                    probabilities.median_move_bps
+                ),
+                format!("context window {} bars", prediction.context_length),
+            ],
+            risks: vec![
+                "The model was pre-trained on other instruments and is applied zero-shot"
+                    .to_owned(),
+                "Sampled paths are correlated through a shared context window".to_owned(),
+            ],
+        },
+        horizon_days,
+        quote_price,
+        &observed_at,
+    )?;
+
+    Ok(if filed {
+        format!(
+            "Filed a {horizon_days}d {} claim for {symbol} at {:.1}% against a {:.1}% base rate.",
+            match direction {
+                prismatik_regime::ForecastDirection::Up => "up",
+                prismatik_regime::ForecastDirection::Down => "down",
+                prismatik_regime::ForecastDirection::Flat => "flat",
+            },
+            f64::from(probability_ppm) / 10_000.0,
+            f64::from(climatology.probability_ppm) / 10_000.0,
+        )
+    } else {
+        format!("A {horizon_days}d claim for {symbol} is already open and unresolved.")
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cohort_key_carries_the_model_size() {
+        // Kronos-mini and Kronos-base are different estimators. Pooling their
+        // records would let a strong one carry a weak one.
+        assert_eq!(cohort_model("Kronos-base"), "tape.kronos-base.v1");
+        assert_eq!(cohort_model("Kronos-mini"), "tape.kronos-mini.v1");
+        assert_ne!(cohort_model("Kronos-base"), cohort_model("Kronos-mini"));
+    }
+
+    #[test]
+    fn the_fallback_never_shares_a_cohort_with_the_model() {
+        assert_ne!(
+            cohort_model("statistical_fallback"),
+            cohort_model("Kronos-base"),
+        );
+    }
+
+    #[test]
+    fn probabilities_are_absent_rather_than_zero_when_the_sampler_gave_none() {
+        // A null probabilities block means "no sampling distribution", which
+        // must not be read as "zero percent" — the filing path refuses on
+        // None and would happily file a confident 0% claim otherwise.
+        let null = serde_json::json!({"probabilities": null});
+        assert!(parse_probabilities(&null).is_none());
+        let missing = serde_json::json!({});
+        assert!(parse_probabilities(&missing).is_none());
+    }
+
+    #[test]
+    fn sampled_probabilities_convert_to_ppm() {
+        let value = serde_json::json!({
+            "probabilities": {
+                "probability_up": 0.62,
+                "probability_down": 0.30,
+                "probability_flat": 0.08,
+                "terminal_paths": 50,
+                "median_move_bps": 41.5,
+            }
+        });
+        let parsed = parse_probabilities(&value).expect("probabilities");
+        assert_eq!(parsed.probability_up_ppm, 620_000);
+        assert_eq!(parsed.probability_down_ppm, 300_000);
+        assert_eq!(parsed.probability_flat_ppm, 80_000);
+        assert_eq!(parsed.terminal_paths, 50);
+    }
 }

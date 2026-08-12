@@ -837,6 +837,12 @@
           "markdownDescription": "Run Kronos batch prediction for multiple symbols."
         },
         {
+          "description": "Run Tape on a tracked instrument and file the result as a scored forecast candidate.",
+          "type": "string",
+          "const": "allow-tape-file-forecast",
+          "markdownDescription": "Run Tape on a tracked instrument and file the result as a scored forecast candidate."
+        },
+        {
           "description": "List available Kronos models.",
           "type": "string",
           "const": "allow-tape-models",
