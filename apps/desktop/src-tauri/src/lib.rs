@@ -17,6 +17,7 @@ mod briefings;
 mod chart_indicators;
 mod chat;
 mod compliance;
+mod consensus;
 mod crowd;
 mod decision_memory;
 mod dex_scanner;
@@ -256,6 +257,8 @@ pub fn run() {
             crowd::crowd_get_prediction,
             crowd::crowd_history,
             crowd::crowd_build_seeds,
+            crowd::crowd_file_forecast,
+            consensus::consensus_for,
             tsfm_integration::tsfm_forecast,
             tape::tape_predict,
             tape::tape_batch_predict,

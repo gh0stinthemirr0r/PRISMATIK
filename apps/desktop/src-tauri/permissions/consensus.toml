@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-consensus-for"
+description = "Report what the regime, sequence and population estimators each claim about one target and horizon."
+commands.allow = ["consensus_for"]

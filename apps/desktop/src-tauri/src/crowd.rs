@@ -476,3 +476,283 @@ pub(crate) async fn crowd_build_seeds(symbols: Vec<String>) -> Result<Vec<SeedDo
 
     Ok(seeds)
 }
+
+/// Below this many agents a population is a focus group, not a population.
+///
+/// The probability Crowd files is a share of the swarm; with a handful of
+/// agents that share moves in jumps too coarse to be a probability at all.
+const MIN_POPULATION: usize = 20;
+
+/// How the population actually split, counted from the agents themselves.
+///
+/// The report carries `consensus_direction` and `consensus_strength`, but
+/// those are the simulation's own summary of itself and the parser defaults
+/// them to neutral/0.5 when absent. Counting the sentiments is the difference
+/// between a measured split and a plausible-looking one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PopulationSplit {
+    pub(crate) up: usize,
+    pub(crate) down: usize,
+    pub(crate) flat: usize,
+    pub(crate) total: usize,
+}
+
+impl PopulationSplit {
+    fn count(sentiments: &[AgentSentiment]) -> Self {
+        let mut split = Self {
+            up: 0,
+            down: 0,
+            flat: 0,
+            total: 0,
+        };
+        for sentiment in sentiments {
+            match sentiment.direction.trim().to_ascii_lowercase().as_str() {
+                "bullish" | "up" | "long" => split.up += 1,
+                "bearish" | "down" | "short" => split.down += 1,
+                // Anything the population expressed that is not a directional
+                // call counts as flat rather than being dropped: silently
+                // discarding agents would shrink the denominator and inflate
+                // whatever share remained.
+                _ => split.flat += 1,
+            }
+            split.total += 1;
+        }
+        split
+    }
+
+    /// The plurality view and the share of the population holding it.
+    fn plurality(self) -> Option<(prismatik_regime::ForecastDirection, u32)> {
+        if self.total == 0 {
+            return None;
+        }
+        let share =
+            |count: usize| ((count as f64 / self.total as f64) * 1_000_000.0).round() as u32;
+        let (direction, count) = if self.up >= self.down && self.up >= self.flat {
+            (prismatik_regime::ForecastDirection::Up, self.up)
+        } else if self.down >= self.flat {
+            (prismatik_regime::ForecastDirection::Down, self.down)
+        } else {
+            (prismatik_regime::ForecastDirection::Flat, self.flat)
+        };
+        Some((direction, share(count)))
+    }
+
+    /// Normalised entropy of the split, 0 = unanimous, 1 = evenly divided.
+    ///
+    /// This is the number Crowd contributes that no other estimator can: a
+    /// population that splits down the middle on the same evidence is saying
+    /// something a point estimate cannot carry.
+    pub(crate) fn dispersion(self) -> f64 {
+        if self.total == 0 {
+            return 0.0;
+        }
+        let total = self.total as f64;
+        let entropy: f64 = [self.up, self.down, self.flat]
+            .into_iter()
+            .filter(|count| *count > 0)
+            .map(|count| {
+                let share = count as f64 / total;
+                -share * share.ln()
+            })
+            .sum();
+        // Three outcomes, so the maximum entropy is ln(3).
+        (entropy / 3.0_f64.ln()).clamp(0.0, 1.0)
+    }
+}
+
+fn cohort_model() -> String {
+    // Bumped when the way a population becomes a directional claim changes.
+    "crowd.population.v1".to_owned()
+}
+
+/// File a completed Crowd simulation as a scored forecast.
+///
+/// The probability is the share of the population holding the plurality view
+/// — a number counted from the agents, not read off the report's own summary
+/// of itself.
+#[tauri::command]
+pub(crate) async fn crowd_file_forecast(
+    app: tauri::AppHandle,
+    scenario_id: String,
+    symbol: String,
+    horizon_days: usize,
+) -> Result<String, String> {
+    let prediction = crowd_get_prediction(scenario_id).await?;
+    let split = PopulationSplit::count(&prediction.agent_sentiments);
+    if split.total < MIN_POPULATION {
+        return Err(format!(
+            "only {} agents reported a view; Crowd files nothing under {MIN_POPULATION} because a \
+             share of that few is too coarse to be a probability",
+            split.total
+        ));
+    }
+    let (direction, probability_ppm) = split
+        .plurality()
+        .ok_or("the population expressed no views")?;
+
+    let tracked = crate::tracking::read_tracked(&app)?;
+    let row = tracked
+        .iter()
+        .find(|row| row.symbol.eq_ignore_ascii_case(&symbol))
+        .ok_or_else(|| {
+            format!("{symbol} is not tracked, so there is no series to resolve against")
+        })?;
+    let (bars, _) = crate::analytics::fetch_daily_bars(row.kind, &row.provider_id).await?;
+    let classification =
+        prismatik_regime::classify(&bars, &prismatik_regime::RegimeParams::daily());
+    let climatology =
+        prismatik_regime::climatology_for(&bars, &classification, horizon_days, direction)
+            .ok_or("no full forward window exists, so there is no base rate to score against")?;
+
+    let baseline_price = *bars.last().map(|bar| &bar.c).ok_or("no closing price")?;
+    let observed_at = time::OffsetDateTime::from_unix_timestamp(
+        bars.last().map(|bar| bar.t).unwrap_or(0) / 1_000,
+    )
+    .map_err(|_| "the final bar carries an unusable timestamp".to_owned())?
+    .format(&time::format_description::well_known::Rfc3339)
+    .map_err(|error| error.to_string())?;
+
+    let dispersion = split.dispersion();
+    let edge_ppm = i64::from(probability_ppm) - i64::from(climatology.probability_ppm);
+    let summary = format!(
+        "A population of {} agents split {} up / {} down / {} flat on {symbol} over \
+         {horizon_days}d (dispersion {:.2}, 0 unanimous to 1 evenly divided). Base rate for the \
+         stated direction is {:.1}% over {} windows, so the edge is {:+.1} points.",
+        split.total,
+        split.up,
+        split.down,
+        split.flat,
+        dispersion,
+        f64::from(climatology.probability_ppm) / 10_000.0,
+        climatology.sample_size,
+        edge_ppm as f64 / 10_000.0,
+    );
+
+    let filed = crate::forecast_candidates::file_estimator_candidate(
+        crate::forecast_candidates::EstimatorClaim {
+            provider_id: crate::forecast_candidates::CROWD_PROVIDER,
+            model: &cohort_model(),
+            target: &symbol,
+            direction,
+            probability_ppm,
+            climatology_ppm: climatology.probability_ppm,
+            summary,
+            evidence_ids: vec![format!("crowd:{}", prediction.scenario_id)],
+            drivers: prediction
+                .emergent_themes
+                .iter()
+                .take(4)
+                .cloned()
+                .chain(std::iter::once(format!("dispersion {dispersion:.2}")))
+                .collect(),
+            risks: prediction
+                .risk_factors
+                .iter()
+                .take(3)
+                .cloned()
+                .chain(std::iter::once(
+                    "Agents share a seed corpus, so their views are correlated by construction"
+                        .to_owned(),
+                ))
+                .collect(),
+        },
+        horizon_days,
+        baseline_price,
+        &observed_at,
+    )?;
+
+    Ok(if filed {
+        format!(
+            "Filed a {horizon_days}d claim for {symbol} at {:.1}% from {} agents (dispersion \
+             {dispersion:.2}).",
+            f64::from(probability_ppm) / 10_000.0,
+            split.total,
+        )
+    } else {
+        format!("A {horizon_days}d claim for {symbol} is already open and unresolved.")
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agents(spec: &[(&str, usize)]) -> Vec<AgentSentiment> {
+        spec.iter()
+            .flat_map(|(direction, count)| {
+                (0..*count).map(move |i| AgentSentiment {
+                    agent_persona: format!("agent-{i}"),
+                    direction: (*direction).to_owned(),
+                    conviction: 0.5,
+                    reasoning: String::new(),
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_split_is_counted_from_agents_not_read_off_the_report() {
+        let split =
+            PopulationSplit::count(&agents(&[("bullish", 30), ("bearish", 15), ("neutral", 5)]));
+        assert_eq!(split.up, 30);
+        assert_eq!(split.down, 15);
+        assert_eq!(split.flat, 5);
+        assert_eq!(split.total, 50);
+
+        let (direction, probability) = split.plurality().expect("plurality");
+        assert_eq!(direction, prismatik_regime::ForecastDirection::Up);
+        assert_eq!(probability, 600_000);
+    }
+
+    #[test]
+    fn synonyms_are_counted_and_unknown_stances_are_not_dropped() {
+        // Dropping an agent would shrink the denominator and inflate whatever
+        // share remained — a quieter way of overstating confidence.
+        let split = PopulationSplit::count(&agents(&[
+            ("up", 4),
+            ("long", 4),
+            ("short", 3),
+            ("down", 3),
+            ("undecided", 6),
+        ]));
+        assert_eq!(split.up, 8);
+        assert_eq!(split.down, 6);
+        assert_eq!(split.flat, 6);
+        assert_eq!(split.total, 20);
+    }
+
+    #[test]
+    fn dispersion_runs_from_unanimous_to_evenly_divided() {
+        let unanimous = PopulationSplit::count(&agents(&[("bullish", 40)]));
+        assert!(unanimous.dispersion() < 0.001, "{}", unanimous.dispersion());
+
+        let even = PopulationSplit::count(&agents(&[
+            ("bullish", 30),
+            ("bearish", 30),
+            ("neutral", 30),
+        ]));
+        assert!(even.dispersion() > 0.999, "{}", even.dispersion());
+
+        // A two-way split is more dispersed than unanimity, less than a
+        // three-way one.
+        let two_way = PopulationSplit::count(&agents(&[("bullish", 25), ("bearish", 25)]));
+        assert!(two_way.dispersion() > unanimous.dispersion());
+        assert!(two_way.dispersion() < even.dispersion());
+    }
+
+    #[test]
+    fn an_empty_population_has_no_plurality() {
+        let split = PopulationSplit::count(&[]);
+        assert!(split.plurality().is_none());
+        assert_eq!(split.dispersion(), 0.0);
+    }
+
+    #[test]
+    fn the_probability_is_a_share_of_the_whole_population() {
+        // Including the agents that disagreed. A probability computed over
+        // only the winning side would always be 100%.
+        let split = PopulationSplit::count(&agents(&[("bullish", 11), ("bearish", 9)]));
+        let (_, probability) = split.plurality().expect("plurality");
+        assert_eq!(probability, 550_000);
+    }
+}

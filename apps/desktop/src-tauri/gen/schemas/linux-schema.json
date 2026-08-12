@@ -303,6 +303,12 @@
           "markdownDescription": "Connect to a broker (Alpaca, Coinbase, Kraken)."
         },
         {
+          "description": "Report what the regime, sequence and population estimators each claim about one target and horizon.",
+          "type": "string",
+          "const": "allow-consensus-for",
+          "markdownDescription": "Report what the regime, sequence and population estimators each claim about one target and horizon."
+        },
+        {
           "description": "Build seed documents from market data.",
           "type": "string",
           "const": "allow-crowd-build-seeds",
@@ -319,6 +325,12 @@
           "type": "string",
           "const": "allow-crowd-connect",
           "markdownDescription": "Connect to a Crowd simulation server."
+        },
+        {
+          "description": "File a completed Crowd simulation as a scored forecast candidate.",
+          "type": "string",
+          "const": "allow-crowd-file-forecast",
+          "markdownDescription": "File a completed Crowd simulation as a scored forecast candidate."
         },
         {
           "description": "Get simulation prediction report.",

@@ -37,3 +37,8 @@ commands.allow = ["crowd_build_seeds"]
 identifier = "allow-tsfm-forecast"
 description = "Generate zero-shot time-series forecast."
 commands.allow = ["tsfm_forecast"]
+
+[[permission]]
+identifier = "allow-crowd-file-forecast"
+description = "File a completed Crowd simulation as a scored forecast candidate."
+commands.allow = ["crowd_file_forecast"]

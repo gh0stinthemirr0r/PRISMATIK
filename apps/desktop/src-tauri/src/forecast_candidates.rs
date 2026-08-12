@@ -707,6 +707,50 @@ pub(crate) fn file_estimator_candidate(
     Ok(true)
 }
 
+/// The fields `consensus` needs from an open claim.
+///
+/// A narrow projection rather than exposing `ForecastCandidate` itself: the
+/// candidate carries resolution state and journal bookkeeping that nothing
+/// outside this module should be reading, let alone acting on.
+pub(crate) struct OpenClaim {
+    pub(crate) model: String,
+    pub(crate) direction: String,
+    pub(crate) probability_ppm: u32,
+    pub(crate) climatology_ppm: u32,
+    pub(crate) summary: String,
+    pub(crate) generated_at: String,
+}
+
+/// The most recent unresolved claim from one estimator on one target.
+///
+/// Resolved candidates are excluded deliberately: they are history, and
+/// showing one beside live claims would misreport what the desk currently
+/// believes.
+pub(crate) fn latest_open_claim(
+    provider_id: &str,
+    target: &str,
+    horizon_minutes: u32,
+) -> Option<OpenClaim> {
+    let candidates = list_forecast_candidates().ok()?;
+    candidates
+        .into_iter()
+        .filter(|candidate| {
+            candidate.provider_id == provider_id
+                && candidate.target.eq_ignore_ascii_case(target)
+                && candidate.horizon_minutes == horizon_minutes
+                && candidate.outcome.is_none()
+        })
+        .max_by(|a, b| a.generated_at.cmp(&b.generated_at))
+        .map(|candidate| OpenClaim {
+            model: candidate.model,
+            direction: candidate.direction,
+            probability_ppm: candidate.probability_ppm,
+            climatology_ppm: candidate.climatology_ppm.unwrap_or(0),
+            summary: candidate.summary,
+            generated_at: candidate.generated_at,
+        })
+}
+
 fn parse_time(value: &str) -> Option<time::OffsetDateTime> {
     time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
 }

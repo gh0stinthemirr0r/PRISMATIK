@@ -107,6 +107,8 @@
     "allow-crowd-get-prediction",
     "allow-crowd-history",
     "allow-crowd-build-seeds",
+    "allow-crowd-file-forecast",
+    "allow-consensus-for",
     "allow-tsfm-forecast",
     "allow-tape-predict",
     "allow-tape-batch-predict",
