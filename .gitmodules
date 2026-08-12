@@ -1,0 +1,4 @@
+[submodule "services/kronos-sidecar/kronos"]
+	path = services/kronos-sidecar/kronos
+	url = https://github.com/shiyu-coder/Kronos.git
+	branch = master

@@ -73,11 +73,11 @@ reference/
 # make every clone enormous and muddle this repository's provenance.
 /references/
 
-# Sidecar services that carry their own git history. Committing them as plain
-# directories would produce a repository whose clones silently lack them; if
-# they are ever needed in CI they should be added as submodules.
+# Upstream MiroFish. Not required to run: services/mirofish-compat/server.py
+# is our own Flask service on the same port (5001) without the camel-oasis
+# dependency, and it is what mirofish.rs actually talks to. Kept as a local
+# clone for reading.
 /services/mirofish/
-/services/kronos-sidecar/kronos/
 
 # Stray import: a URL saved as a filename.
 /https:--github.com-aarora4-Awesome-Prediction-Market-.txt
