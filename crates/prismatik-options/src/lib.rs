@@ -10,6 +10,9 @@
 
 pub use chain::{ChainExpiry, ChainStrike, OptionsChain};
 pub use flow::{FlowClassification, FlowConfidence, FlowPrint};
+pub use pricing::{
+    greeks, implied_volatility, price, BlackScholesInputs, FullGreeks, ImpliedVolError,
+};
 pub use types::{Greeks, Moneyness, OccSymbol, OptionAdjustmentFlag, OptionContract, OptionType};
 
 /// Options type contracts.
@@ -77,6 +80,8 @@ pub mod types {
         pub adjustment: OptionAdjustmentFlag,
     }
 }
+
+pub mod pricing;
 
 /// Chain contracts.
 pub mod chain {
