@@ -2,3 +2,8 @@
 identifier = "allow-list-techniques"
 description = "List the systematic-trading technique corpus with each entry's readiness against the current data layer."
 commands.allow = ["list_techniques"]
+
+[[permission]]
+identifier = "allow-list-sources"
+description = "List the data-source and library register with each entry's licence standing."
+commands.allow = ["list_sources"]

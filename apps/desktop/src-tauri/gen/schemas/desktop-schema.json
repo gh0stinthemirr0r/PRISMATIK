@@ -633,6 +633,12 @@
           "markdownDescription": "List available seed strategies for backtesting."
         },
         {
+          "description": "List the data-source and library register with each entry's licence standing.",
+          "type": "string",
+          "const": "allow-list-sources",
+          "markdownDescription": "List the data-source and library register with each entry's licence standing."
+        },
+        {
           "description": "Allows listing durable unsigned StrategyIR drafts.",
           "type": "string",
           "const": "allow-list-strategy-drafts",

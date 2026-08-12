@@ -44,6 +44,7 @@ mod room;
 mod scheduler;
 mod screener;
 mod signal;
+mod source_register;
 mod strategy_authoring;
 mod tape;
 mod technique_corpus;
@@ -217,6 +218,7 @@ pub fn run() {
             knowledge::list_documents,
             knowledge::query_knowledge,
             technique_corpus::list_techniques,
+            source_register::list_sources,
             briefings::get_briefing,
             dex_scanner::scan_dex_arbitrage,
             chart_indicators::compute_chart_indicators,

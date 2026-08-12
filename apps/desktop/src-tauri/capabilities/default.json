@@ -134,6 +134,7 @@
     "allow-list-documents",
     "allow-query-knowledge",
     "allow-list-techniques",
+    "allow-list-sources",
     "allow-open-room",
     "allow-list-rooms",
     "allow-close-room",

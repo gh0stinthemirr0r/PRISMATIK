@@ -69,6 +69,9 @@ pub(crate) fn initialize(data_dir: &std::path::Path) -> Result<(), String> {
     for document in crate::technique_corpus::documents() {
         guard.insert(document);
     }
+    for document in crate::source_register::documents() {
+        guard.insert(document);
+    }
 
     persist(&guard);
     Ok(())

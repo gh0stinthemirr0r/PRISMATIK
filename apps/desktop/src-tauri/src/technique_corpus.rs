@@ -120,12 +120,15 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
         slug: "fifty-two-week-high",
         name: "52-week high effect",
         family: "Trend",
-        measures: "Proximity of price to its trailing one-year high, as a ratio. Names near their \
-             high have tended to continue — read as an anchoring effect rather than a \
-             valuation one.",
-        requires: "Daily bars over a year.",
-        readiness: Readiness::Ready,
-        blocker: "Nothing.",
+        measures: "Proximity of price to its trailing one-year high, as a ratio. The reference \
+             implementation never selects a stock on its own ratio: it averages the ratio to \
+             industry group and trades the six strongest industries against the six weakest. \
+             It is industry rotation wearing a stock-signal name.",
+        requires: "Daily bars over a year, an industry classification taxonomy, and market cap \
+                   for the within-industry weights.",
+        readiness: Readiness::Partial,
+        blocker: "The price maths is trivial; the taxonomy is not. A sector proxy from the \
+                  screener is coarser than the ~20-group scheme the strategy assumes.",
     },
     Technique {
         slug: "low-volatility-factor",
@@ -148,11 +151,15 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
              z-score. Enter when the spread is stretched, exit on reversion. Cointegration \
              rather than correlation is the honest test — correlated series can drift apart \
              forever.",
-        requires: "Aligned daily bars for both legs and a cointegration test.",
-        readiness: Readiness::Partial,
-        blocker: "Bars and a sample covariance matrix exist in prismatik-risk. No cointegration \
-                  test (Engle-Granger or Johansen) is implemented, and that is the part that \
-                  separates a real pair from a coincidence.",
+        requires: "Aligned daily bars for both legs. Nothing else.",
+        readiness: Readiness::Ready,
+        blocker: "Nothing. Both published reference implementations select pairs by the \
+                  *distance method* — normalise each series to its first bar, rank all pairs by \
+                  the summed squared gap — and neither runs a cointegration test at all. Daily \
+                  closes are enough. Engle-Granger is worth adding afterwards as a filter on \
+                  the top-ranked pairs, not as a gate on all of them: an ADF sweep over the \
+                  ~125,000 pairs of a 500-name universe is both slow and poisoned by multiple \
+                  comparisons.",
     },
     Technique {
         slug: "sector-and-asset-rotation",
@@ -199,11 +206,13 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
              short expensive, on the premise that the ratio mean-reverts.",
         requires: "Point-in-time fundamentals aligned to when they were public, not when they \
                    were restated.",
-        readiness: Readiness::Blocked,
-        blocker: "SEC EDGAR filings are ingested as documents, but no normalised financial \
-                  statement extraction exists. Point-in-time alignment is the harder half: \
-                  using restated figures is the classic way to backtest a look-ahead bias into \
-                  a value strategy and not notice.",
+        readiness: Readiness::Partial,
+        blocker: "Closer than it looks. The SEC publishes Financial Statement Data Sets as \
+                  quarterly flat files in the public domain, with figures as filed and a \
+                  submission table carrying the filing date — which is point-in-time by \
+                  construction, and sidesteps XBRL parsing entirely. The work is keying facts \
+                  by accession and filing date rather than fiscal period, which is a change to \
+                  the EDGAR adapter we already own rather than a new integration.",
     },
     Technique {
         slug: "quality-and-accruals",
@@ -214,9 +223,12 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
              balance-sheet growth, composite F-score style ranks. High-accrual and \
              fast-growing firms have tended to underperform.",
         requires: "Point-in-time balance sheet and cash flow statements.",
-        readiness: Readiness::Blocked,
-        blocker: "Same blocker as value: filings are stored as text, not parsed into \
-                  statements.",
+        readiness: Readiness::Partial,
+        blocker: "Same path as value: the SEC bulk datasets supply these line items as filed, \
+                  in the public domain. Note that the published implementations of this family \
+                  are the least trustworthy in the survey — one compares a cash-flow figure in \
+                  dollars against a percentage ratio, another documents cash-flow-to-assets and \
+                  computes cash-flow-to-earnings. Build from the papers, not the code.",
     },
     Technique {
         slug: "event-driven-earnings",
@@ -254,9 +266,15 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
              low-yielders — plus currency momentum and PPP-based value. Carry is famously a \
              short-volatility exposure: it earns steadily and loses violently.",
         requires: "Spot FX rates, forward points or short rates per currency.",
-        readiness: Readiness::Blocked,
-        blocker: "No FX adapter. FRED supplies some rate series, but no spot or forward FX \
-                  curve. Nothing in this family can be attempted without it.",
+        readiness: Readiness::Partial,
+        blocker: "Spot is a solved problem: Frankfurter is free, keyless, self-hostable and \
+                  explicitly permits commercial use, and the ECB publishes daily reference \
+                  rates whose only reuse condition is attribution. Forwards have no free \
+                  source, but they are derivable from covered interest parity using rate series \
+                  FRED already provides — a calculation, not an integration. Two of the four \
+                  published strategies in this family are broken as written: one sorts on a raw \
+                  PPP conversion-rate level and so permanently shorts whichever currencies have \
+                  large numbers.",
     },
     Technique {
         slug: "commodity-term-structure",
@@ -266,12 +284,20 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
              roll yield and contangoed ones negative, which is carry expressed in futures \
              rather than rates. Related members: commodity momentum, skewness and return \
              asymmetry.",
-        requires: "Futures curves by contract month, with a documented roll convention.",
-        readiness: Readiness::Blocked,
-        blocker: "No futures adapter. The CFTC adapter supplies positioning (Commitments of \
-                  Traders), which is a sentiment input, not a price curve. The roll convention \
-                  matters as much as the data: a continuous series stitched differently is a \
-                  different series.",
+        requires: "For the term-structure signal itself, the two nearest contracts with expiry \
+                   and settlement price. For the rest of the family, a single back-adjusted \
+                   continuous daily close per market — the same shape as an equity bar.",
+        readiness: Readiness::Partial,
+        blocker: "The blocker is narrower than 'futures curves' suggests. Six of the seven \
+                  published commodity strategies — momentum, skewness, return asymmetry, \
+                  time-series momentum, the WTI-Brent spread — read one price column and never \
+                  touch a curve. Only term structure needs the chain, and only its front two \
+                  expiries. Energy is already free and licence-clean: the EIA publishes NYMEX \
+                  contract-1 through contract-4 settlements in the public domain. Crypto term \
+                  structure is free from the venues. Broad CME coverage is the part that needs \
+                  a paid licensed distributor. A settlement table would also make the CFTC \
+                  positioning we already ingest useful, since it currently has no price series \
+                  to attach to.",
     },
     Technique {
         slug: "spread-trading",
@@ -295,10 +321,14 @@ pub(crate) const TECHNIQUES: &[Technique] = &[
         requires: "An options chain with strikes and expiries, implied volatilities, and a \
                    realized-volatility estimator.",
         readiness: Readiness::Partial,
-        blocker: "prismatik-options now prices, solves implied volatility and produces greeks, \
-                  and prismatik-regime supplies realized volatility. The chain itself is \
-                  missing: the unusual_whales adapter carries options *flow*, not strikes and \
-                  quotes. A chain adapter is the single remaining input.",
+        blocker: "prismatik-options prices, solves implied volatility and produces greeks, and \
+                  prismatik-regime supplies realized volatility. The chain is nearer than \
+                  assumed: Alpaca serves option snapshots on the credential the desk already \
+                  holds, delayed fifteen minutes on the free plan, which is no obstacle to a \
+                  monthly strategy. Deribit serves full crypto chains unauthenticated. Do not \
+                  reach for the Cboe delayed-quote JSON endpoint that open-source projects \
+                  commonly use — Cboe prohibits automated extraction of it and blocks the \
+                  addresses of parties who try.",
     },
     Technique {
         slug: "dispersion-trading",
