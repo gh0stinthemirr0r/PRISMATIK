@@ -213,7 +213,24 @@ On Debian/Ubuntu:
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
-### Install and run
+### One-shot build
+
+`scripts/build_app.py` resolves the prerequisites above for whichever platform
+you are on — apt / dnf / pacman / zypper on Linux, Xcode command line tools on
+macOS, MSVC and WebView2 on Windows — and then compiles the bundle:
+
+```bash
+python3 scripts/build_app.py
+```
+
+It prints every privileged or networked command and asks before running it;
+pass `--yes` to accept them all (what CI should use), `--dry-run` to see the
+plan without executing, `--deps-only` to stop after the prerequisites, or
+`--debug` for a much faster link. Where a prerequisite needs an interactive
+installer it cannot drive — Xcode command line tools, Visual Studio Build
+Tools — it says exactly what to run and stops rather than reporting success.
+
+### Install and run manually
 
 ```bash
 pnpm install
