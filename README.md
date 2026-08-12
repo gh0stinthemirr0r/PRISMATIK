@@ -136,6 +136,35 @@ The rail groups surfaces by the question the desk is asking:
 
 The loop is closed. Nothing in it is a placeholder.
 
+## The three estimators
+
+PRISMATIK carries three forecasters that reach a directional claim by
+genuinely different routes, and scores all three against the same baseline.
+
+| Estimator | Reasons from | Probability comes from |
+| --- | --- | --- |
+| **Regime** | history | the distribution of forward returns in past episodes of the current regime |
+| **Tape** | sequence | the fraction of sampled continuation paths finishing outside the flat band |
+| **Crowd** | population | the share of a seeded agent swarm holding the plurality view |
+
+Tape runs the open-source Kronos foundation model in a Python sidecar
+(port 8766, `services/kronos-sidecar/`, weights pinned as a submodule).
+Crowd runs a MiroFish-protocol Flask service (port 5001,
+`services/mirofish-compat/`). Neither is required for the rest of the
+terminal to work; when a sidecar is down, the surface says so and files
+nothing.
+
+Their independence is the point. Three estimators sharing a method would
+agree for uninteresting reasons; these can only agree because the same signal
+is visible from three directions. **Estimators** (rail: Research →
+Estimators) shows what each currently claims about one instrument and
+horizon, with each estimator's own measured standing.
+
+It deliberately does not blend them. A combined probability would read as a
+fourth, better forecast while having no cohort, no resolution and no measured
+skill — so disagreement is reported as a finding rather than averaged away,
+and the verdict line always names how many estimators are silent.
+
 ## Agents
 
 ### Specialist analysts

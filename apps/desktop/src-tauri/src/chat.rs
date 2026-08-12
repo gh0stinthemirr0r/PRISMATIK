@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::model_integrations::{session, ModelSession};
+use crate::model_integrations::session;
 
 // ── conversation state ──────────────────────────────────────────────
 

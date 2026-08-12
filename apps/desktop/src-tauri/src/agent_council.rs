@@ -20,7 +20,7 @@
 //! If the operator approves, it routes through the paper OMS + risk gate
 //! (1%-per-trade + 10% drawdown kill switch), never around them.
 
-use prismatik_application::{invoke_model_http, ModelHttpRequest, ModelProvider};
+use prismatik_application::{invoke_model_http, ModelHttpRequest};
 use prismatik_determinism::{Clock, SystemClock};
 use serde::{Deserialize, Serialize};
 
