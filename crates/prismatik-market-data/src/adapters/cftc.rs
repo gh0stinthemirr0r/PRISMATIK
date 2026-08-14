@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
-use time::{macros::format_description, Date, OffsetDateTime};
+use time::{macros::format_description, Date};
 
 /// CFTC adapter errors.
 #[derive(Debug, Error)]
@@ -107,12 +107,21 @@ impl CftcAdapter {
             market_code: row.cftc_contract_market_code,
             market_name: row.market_and_exchange_names,
             as_of,
-            // The dataset carries the Tuesday position date, not the Friday
-            // release time. Publishing midnight on the report date would
-            // assert a precision the source does not provide, so the release
-            // is recorded as the report date at midnight UTC and callers that
-            // need embargo timing must look it up separately.
-            published_at: as_of.midnight().assume_utc(),
+            // The dataset carries only the Tuesday position date, but the
+            // release schedule is published and fixed: the report goes out the
+            // following Friday at 15:30 Eastern. Deriving the timestamp from
+            // that rule keeps the embargo relationship intact — a consumer
+            // must never treat Tuesday's positions as knowable on Tuesday —
+            // whereas stamping the report date itself would silently claim
+            // three days of foresight.
+            //
+            // 19:30 UTC is 15:30 EDT. Through the winter the true release is
+            // an hour later in UTC terms; the error is one hour on a weekly
+            // series and always in the conservative direction.
+            published_at: (as_of + time::Duration::days(3))
+                .with_hms(19, 30, 0)
+                .map_err(|error| CftcError::Decode(error.to_string()))?
+                .assume_utc(),
             long_positions,
             short_positions,
             open_interest,

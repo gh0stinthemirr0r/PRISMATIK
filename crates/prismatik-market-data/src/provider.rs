@@ -81,6 +81,11 @@ pub enum Entitlement {
     Fred,
     /// SEC EDGAR entitlement (public, with declared contact).
     SecEdgar,
+    /// A public venue endpoint that needs no credential at all.
+    ///
+    /// Distinct from the keyed entitlements above: there is nothing to
+    /// revoke, so "entitled" here means the operator turned the poll on.
+    PublicVenue,
 }
 
 impl Entitlement {
@@ -94,6 +99,7 @@ impl Entitlement {
             Self::Finnhub => "finnhub:default",
             Self::Fred => "fred:default",
             Self::SecEdgar => "sec_edgar:public",
+            Self::PublicVenue => "venue:public",
         }
     }
 }

@@ -31,4 +31,8 @@ impl ProviderId {
     pub const POLYMARKET: ProviderId = ProviderId(11);
     /// Kalshi provider id.
     pub const KALSHI: ProviderId = ProviderId(12);
+    /// Kraken provider id.
+    pub const KRAKEN: ProviderId = ProviderId(13);
+    /// Coinbase Exchange provider id.
+    pub const COINBASE: ProviderId = ProviderId(14);
 }

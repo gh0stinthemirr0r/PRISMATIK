@@ -25,6 +25,7 @@ use prismatik_application::ReqwestTransport;
 use prismatik_market_data::{
     adapters::{
         alpaca::AlpacaAdapter, cftc::CftcAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials,
+        CoinbaseAdapter, KrakenAdapter,
     },
     http::{HttpMethod, HttpRequest, HttpTransport},
 };
@@ -276,4 +277,65 @@ async fn cftc_commitments_parse_from_socrata() {
         report.short_positions,
         report.open_interest,
     );
+}
+
+/// Kraken daily candles. Public, no credential.
+#[tokio::test]
+#[ignore = "network"]
+async fn kraken_candles_parse() {
+    let transport = ReqwestTransport::new("https://api.kraken.com").expect("transport");
+    let adapter = KrakenAdapter::new(Arc::new(transport));
+    let candles = adapter
+        .candles("XBTUSD", 1_440, time::OffsetDateTime::now_utc())
+        .await
+        .expect("candles");
+    assert!(!candles.is_empty(), "Kraken returned no candles");
+    let last = candles.last().expect("candle");
+    // Sanity on the column mapping rather than merely on the count: a high
+    // below the low would mean the positional read is wrong.
+    let high: f64 = last.high.parse().expect("high");
+    let low: f64 = last.low.parse().expect("low");
+    assert!(
+        high >= low,
+        "high {high} below low {low} — column order is wrong"
+    );
+    println!(
+        "Kraken ok — {} candles, last close {}",
+        candles.len(),
+        last.close
+    );
+}
+
+/// Coinbase Exchange daily candles. Public, no credential.
+///
+/// Coinbase orders its columns `[time, low, high, open, close, volume]`, so
+/// this also guards the one mapping most likely to be "corrected" into a bug.
+#[tokio::test]
+#[ignore = "network"]
+async fn coinbase_candles_parse_in_the_right_column_order() {
+    let transport = ReqwestTransport::new("https://api.exchange.coinbase.com").expect("transport");
+    let adapter = CoinbaseAdapter::new(Arc::new(transport));
+    let candles = adapter
+        .candles("BTC-USD", 86_400, time::OffsetDateTime::now_utc())
+        .await
+        .expect("candles");
+    assert!(!candles.is_empty(), "Coinbase returned no candles");
+    for candle in candles.iter().take(20) {
+        let (high, low, open, close): (f64, f64, f64, f64) = (
+            candle.high.parse().expect("high"),
+            candle.low.parse().expect("low"),
+            candle.open.parse().expect("open"),
+            candle.close.parse().expect("close"),
+        );
+        assert!(high >= low, "high {high} below low {low}");
+        assert!(
+            open >= low && open <= high,
+            "open {open} outside [{low}, {high}]"
+        );
+        assert!(
+            close >= low && close <= high,
+            "close {close} outside [{low}, {high}]"
+        );
+    }
+    println!("Coinbase ok — {} candles, columns in range", candles.len());
 }

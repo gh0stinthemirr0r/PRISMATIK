@@ -1,16 +1,22 @@
 [
   {
-    "name": "cot_crude_oil",
+    "name": "cot_wti_physical",
     "request": {
       "method": "GET",
-      "path": "/api/v1/commitments",
-      "query": {"market_code":"067651"},
+      "path": "/resource/6dca-aqww.json",
+      "query": {
+        "$where": "cftc_contract_market_code='067651'",
+        "$order": "report_date_as_yyyy_mm_dd DESC",
+        "$limit": "1"
+      },
       "headers": {}
     },
     "response": {
       "status": 200,
-      "headers": {"content-type":"application/json"},
-      "body": "{\"market_code\":\"067651\",\"market_name\":\"CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE\",\"as_of\":\"2024-07-23\",\"published_at\":\"2024-07-26T19:30:00Z\",\"long_positions\":231445,\"short_positions\":112340,\"open_interest\":1689230}"
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "[{\"cftc_contract_market_code\": \"067651\", \"market_and_exchange_names\": \"WTI-PHYSICAL - NEW YORK MERCANTILE EXCHANGE\", \"report_date_as_yyyy_mm_dd\": \"2026-08-04T00:00:00.000\", \"open_interest_all\": \"1886816\", \"noncomm_positions_long_all\": \"308841\", \"noncomm_positions_short_all\": \"196398\"}]"
     }
   }
 ]

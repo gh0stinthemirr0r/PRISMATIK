@@ -87,6 +87,32 @@ pub struct OhlcBar {
     pub quality: DataQualityScore,
 }
 
+/// One OHLCV candle from a public trading venue.
+///
+/// Separate from `OhlcBar`, which is keyed on a CoinGecko id and carries no
+/// volume, and from `EquityBar`, whose name would be a lie on a crypto pair.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VenueCandle {
+    /// The venue's own pair symbol, as requested.
+    pub pair: String,
+    /// Candle open time (UTC).
+    pub bar_start: OffsetDateTime,
+    /// Open, as a decimal string to avoid binary-float drift.
+    pub open: String,
+    /// High.
+    pub high: String,
+    /// Low.
+    pub low: String,
+    /// Close.
+    pub close: String,
+    /// Base-asset volume.
+    pub volume: String,
+    /// Venue this came from.
+    pub provider: ProviderId,
+    /// Retrieved at.
+    pub retrieved_at: OffsetDateTime,
+}
+
 /// A `[timestamp_ms, value]` series point from market_chart.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MarketChartPoint {

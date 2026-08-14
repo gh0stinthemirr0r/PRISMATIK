@@ -5,6 +5,7 @@
 pub mod alpaca;
 pub mod cftc;
 pub mod coingecko;
+pub mod crypto_venues;
 pub mod finnhub;
 pub mod fred;
 pub mod sec_edgar;
@@ -19,6 +20,7 @@ pub mod tradingview_screener;
 pub use alpaca::{AlpacaAdapter, AlpacaCredentials, AlpacaError};
 pub use cftc::{CftcAdapter, CftcError};
 pub use coingecko::{demo_cassette_json, CoinGeckoAdapter, CoinGeckoAuth, CoinGeckoError};
+pub use crypto_venues::{CoinbaseAdapter, KrakenAdapter, VenueError};
 pub use finnhub::{FinnhubAdapter, FinnhubError};
 pub use fred::{FredAdapter, FredError};
 pub use sec_edgar::{SecEdgarAdapter, SecEdgarError};

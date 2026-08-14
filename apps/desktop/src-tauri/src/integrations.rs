@@ -14,7 +14,7 @@ use prismatik_determinism::{Clock, SystemClock};
 use prismatik_market_data::{
     adapters::{
         AlpacaAdapter, AlpacaCredentials, CftcAdapter, CoinGeckoAdapter, CoinGeckoAuth,
-        FinnhubAdapter, FredAdapter, SecEdgarAdapter,
+        CoinbaseAdapter, FinnhubAdapter, FredAdapter, KrakenAdapter, SecEdgarAdapter,
     },
     AdmissionDecision, BudgetGovernor, GcraBudgetGovernor, PriorityClass,
 };
@@ -44,6 +44,10 @@ pub(crate) enum ActiveIntegration {
     },
     /// Public data. Connected state is consent to poll, not a credential.
     Cftc,
+    /// Public venue. As with CFTC, there is no secret to hold.
+    Kraken,
+    /// Public venue.
+    Coinbase,
 }
 
 static ACTIVE_INTEGRATIONS: LazyLock<RwLock<BTreeMap<String, ActiveIntegration>>> =
@@ -196,13 +200,15 @@ fn required<'a>(
 /// three-step wizard and hit "catalogued but does not yet have a governed
 /// desktop adapter" at the end. The catalog now asks the backend instead of
 /// asserting, and a test below keeps this list honest against the match arms.
-pub(crate) const LIVE_ADAPTERS: [&str; 6] = [
+pub(crate) const LIVE_ADAPTERS: [&str; 8] = [
     "coingecko",
     "fred",
     "sec-edgar",
     "finnhub",
     "alpaca",
     "cftc",
+    "kraken",
+    "coinbase",
 ];
 
 /// The providers this build can actually connect.
@@ -429,6 +435,49 @@ pub(crate) async fn test_integration(
                 ),
                 evidence:
                     "Provider adapter · BudgetGovernor permit · Socrata 6dca-aqww · CBOT wheat"
+                        .to_owned(),
+            })
+        },
+        "kraken" => {
+            admit_interactive("kraken")?;
+            let transport = ReqwestTransport::new("https://api.kraken.com")
+                .map_err(|error| format!("Kraken transport configuration failed: {error}"))?;
+            let adapter = KrakenAdapter::new(Arc::new(transport));
+            let candles = adapter
+                .candles("XBTUSD", 1_440, SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Kraken validation failed: {error}"))?;
+            activate("kraken", ActiveIntegration::Kraken)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Kraken public API reachable; {} XBTUSD daily candles normalized.",
+                    candles.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · GET /0/public/OHLC · XBTUSD"
+                    .to_owned(),
+            })
+        },
+        "coinbase" => {
+            admit_interactive("coinbase")?;
+            let transport = ReqwestTransport::new("https://api.exchange.coinbase.com")
+                .map_err(|error| format!("Coinbase transport configuration failed: {error}"))?;
+            let adapter = CoinbaseAdapter::new(Arc::new(transport));
+            let candles = adapter
+                .candles("BTC-USD", 86_400, SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Coinbase validation failed: {error}"))?;
+            activate("coinbase", ActiveIntegration::Coinbase)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Coinbase Exchange public API reachable; {} BTC-USD daily candles normalized.",
+                    candles.len()
+                ),
+                evidence:
+                    "Provider adapter · BudgetGovernor permit · GET /products/BTC-USD/candles"
                         .to_owned(),
             })
         },
