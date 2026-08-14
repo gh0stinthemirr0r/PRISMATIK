@@ -11,8 +11,11 @@
 //! - Polymarket returns `outcomePrices` as a **JSON array encoded inside a
 //!   string** — `"[\"0.0445\", \"0.9555\"]"` — so it needs parsing twice.
 //! - Kalshi quotes in dollars per contract, which is already probability, but
-//!   reports `0.0000` for untouched markets. That is absence, not a
-//!   zero-percent forecast, and it is recorded as `None`.
+//!   reports `0.0000` for unquoted markets. That is absence, not a
+//!   zero-percent forecast, and it is recorded as `None`. Its untargeted
+//!   listing is dominated by auto-generated sports parlays nothing is
+//!   pricing, so reaching real markets means keeping what carries a quote —
+//!   or asking for a series by name.
 
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -205,31 +208,73 @@ impl KalshiAdapter {
         }
     }
 
-    /// List tradeable open markets, up to `limit`.
+    /// List open markets that carry a live quote, up to `limit`.
     ///
-    /// Over-fetches deliberately. Kalshi's default ordering is dominated by
-    /// provisional placeholders — measured at 957 of 1000 on a live page — so
-    /// asking for twenty rows and filtering them out returns nothing at all,
-    /// which reads as a dead venue. The page size is scaled up, capped at the
-    /// API maximum, then the result is trimmed to what the caller asked for.
+    /// The unfiltered `status=open` listing is not usable as-is. Its default
+    /// ordering is dominated by auto-generated multi-leg sports parlays with
+    /// no bid on either side, and a thousand-row page can contain not one
+    /// quoted market. The endpoint offers no sort, so the only way through it
+    /// is to over-fetch and keep what the venue is actually pricing.
+    ///
+    /// A market with no bid has no implied probability, which is the entire
+    /// reason to read a prediction venue, so those are dropped.
+    ///
+    /// When the caller knows what it wants, [`Self::markets_in_series`] is
+    /// one exact request instead of a thousand rows.
     pub async fn open_markets(
         &self,
         limit: u32,
         retrieved_at: OffsetDateTime,
     ) -> Result<Vec<PredictionMarket>, PredictionVenueError> {
+        self.fetch(None, limit, retrieved_at, true).await
+    }
+
+    /// Every open market in one series, e.g. `KXFEDDECISION`.
+    ///
+    /// Quotes are reported as the venue gives them and nothing is filtered:
+    /// an unquoted market inside an explicitly requested series is a fact
+    /// about that series, not noise to hide.
+    pub async fn markets_in_series(
+        &self,
+        series_ticker: &str,
+        limit: u32,
+        retrieved_at: OffsetDateTime,
+    ) -> Result<Vec<PredictionMarket>, PredictionVenueError> {
+        self.fetch(Some(series_ticker), limit, retrieved_at, false)
+            .await
+    }
+
+    async fn fetch(
+        &self,
+        series_ticker: Option<&str>,
+        limit: u32,
+        retrieved_at: OffsetDateTime,
+        require_quote: bool,
+    ) -> Result<Vec<PredictionMarket>, PredictionVenueError> {
         const VENUE: &str = "Kalshi";
         /// Kalshi's maximum page size.
         const MAX_PAGE: u32 = 1_000;
-        let page = limit.saturating_mul(50).clamp(limit, MAX_PAGE);
+        // Only the untargeted listing needs the wide sweep.
+        let page = if require_quote {
+            limit.saturating_mul(50).clamp(limit, MAX_PAGE)
+        } else {
+            limit.min(MAX_PAGE)
+        };
         let response = self
             .transport
             .execute(&HttpRequest {
                 method: HttpMethod::Get,
                 path: "/trade-api/v2/markets".into(),
-                query: BTreeMap::from([
-                    ("limit".to_owned(), page.to_string()),
-                    ("status".to_owned(), "open".to_owned()),
-                ]),
+                query: {
+                    let mut query = BTreeMap::from([
+                        ("limit".to_owned(), page.to_string()),
+                        ("status".to_owned(), "open".to_owned()),
+                    ]);
+                    if let Some(series) = series_ticker {
+                        query.insert("series_ticker".to_owned(), series.to_owned());
+                    }
+                    query
+                },
                 headers: BTreeMap::new(),
                 body: None,
             })
@@ -249,25 +294,14 @@ impl KalshiAdapter {
 
         Ok(rows
             .iter()
-            // Provisional listings are placeholders the exchange has created
-            // but not opened for trading. They dominate the default ordering
-            // — around 96% of a thousand-row page — so including them would
-            // bury the real markets and make the venue look busier than it is.
-            .filter(|row| {
-                !row.get("is_provisional")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false)
-            })
             .filter_map(|row| {
                 Some(PredictionMarket {
                     id: row.get("ticker")?.as_str()?.to_owned(),
                     question: row.get("title")?.as_str()?.to_owned(),
                     // Kalshi quotes dollars per contract, which is already a
-                    // probability. Unauthenticated callers receive "0.0000"
-                    // across the board — the exchange withholds bid and ask
-                    // from anonymous requests — and `probability` rejects that
-                    // as absence rather than recording a zero-percent
-                    // forecast for every market on the venue.
+                    // probability. An unquoted market reports "0.0000", which
+                    // `probability` rejects as absence rather than recording a
+                    // zero-percent forecast.
                     yes_price: row
                         .get("yes_bid_dollars")
                         .and_then(|v| v.as_str())
@@ -277,6 +311,7 @@ impl KalshiAdapter {
                     retrieved_at,
                 })
             })
+            .filter(|market| !require_quote || market.yes_price.is_some())
             .take(limit as usize)
             .collect())
     }
@@ -359,37 +394,44 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn kalshi_reads_its_envelope_and_drops_zero_quotes() {
+    async fn kalshi_reads_its_markets_envelope() {
+        // The rows sit under a `markets` key rather than at the top level.
         let adapter = KalshiAdapter::new(Arc::new(Canned(
-            r#"{"markets":[
-                 {"ticker":"ABC","title":"Something","yes_bid_dollars":"0.6100",
-                  "close_time":"2026-08-17T20:00:00Z"},
-                 {"ticker":"DEF","title":"Untouched","yes_bid_dollars":"0.0000",
-                  "close_time":"2026-08-17T20:00:00Z"}]}"#,
+            r#"{"markets":[{"ticker":"ABC","title":"Something",
+                 "yes_bid_dollars":"0.6100","close_time":"2026-08-17T20:00:00Z"}]}"#,
         )));
-        let markets = adapter.open_markets(2, now()).await.expect("markets");
-        assert_eq!(markets.len(), 2, "both markets are real listings");
+        let markets = adapter.open_markets(5, now()).await.expect("markets");
+        assert_eq!(markets.len(), 1);
         assert_eq!(markets[0].yes_price.as_deref(), Some("0.6100"));
-        assert_eq!(
-            markets[1].yes_price, None,
-            "an untouched market has no implied probability",
-        );
+        assert!(markets[0].closes_at.is_some());
     }
 
     #[tokio::test]
-    async fn kalshi_hides_provisional_placeholders() {
-        // Roughly 96% of a live page is provisional. Including them would
-        // bury the tradeable markets under listings nobody can trade.
+    async fn the_untargeted_listing_keeps_only_quoted_markets() {
         let adapter = KalshiAdapter::new(Arc::new(Canned(
             r#"{"markets":[
-                 {"ticker":"REAL","title":"Tradeable","yes_bid_dollars":"0.4000",
-                  "is_provisional":false},
-                 {"ticker":"PLACEHOLDER","title":"Not yet open",
-                  "yes_bid_dollars":"0.0000","is_provisional":true}]}"#,
+                 {"ticker":"QUOTED","title":"Real","yes_bid_dollars":"0.6400"},
+                 {"ticker":"UNQUOTED","title":"Parlay","yes_bid_dollars":"0.0000"}]}"#,
         )));
-        let markets = adapter.open_markets(2, now()).await.expect("markets");
+        let markets = adapter.open_markets(10, now()).await.expect("markets");
         assert_eq!(markets.len(), 1);
-        assert_eq!(markets[0].id, "REAL");
+        assert_eq!(markets[0].id, "QUOTED");
+    }
+
+    #[tokio::test]
+    async fn a_series_query_reports_unquoted_markets() {
+        // Inside a named series an unquoted market is information, not noise.
+        let adapter = KalshiAdapter::new(Arc::new(Canned(
+            r#"{"markets":[
+                 {"ticker":"KXFEDDECISION-A","title":"Cut","yes_bid_dollars":"0.6400"},
+                 {"ticker":"KXFEDDECISION-B","title":"Hold","yes_bid_dollars":"0.0000"}]}"#,
+        )));
+        let markets = adapter
+            .markets_in_series("KXFEDDECISION", 10, now())
+            .await
+            .expect("markets");
+        assert_eq!(markets.len(), 2);
+        assert_eq!(markets[1].yes_price, None);
     }
 
     #[tokio::test]

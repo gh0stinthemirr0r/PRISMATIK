@@ -514,30 +514,33 @@ pub(crate) async fn test_integration(
             let transport = ReqwestTransport::new("https://api.elections.kalshi.com")
                 .map_err(|error| format!("Kalshi transport configuration failed: {error}"))?;
             let adapter = KalshiAdapter::new(Arc::new(transport));
+            // Validated against a named series rather than the open listing.
+            // That listing is almost entirely auto-generated sports parlays
+            // with no bid on either side — a thousand-row sweep returned not
+            // one quoted market — so it cannot show a working connection.
+            // The Fed decision series is stable and continuously quoted.
             let markets = adapter
-                .open_markets(20, SystemClock::new().now())
+                .markets_in_series("KXFEDDECISION", 20, SystemClock::new().now())
                 .await
                 .map_err(|error| format!("Kalshi validation failed: {error}"))?;
             let quoted = markets.iter().filter(|m| m.yes_price.is_some()).count();
+            if markets.is_empty() {
+                return Err(
+                    "Kalshi answered but returned no markets for the Fed decision series."
+                        .to_owned(),
+                );
+            }
             activate("kalshi", ActiveIntegration::Kalshi)?;
             Ok(IntegrationTestResult {
                 provider_id,
                 status: "connected",
-                message: if quoted == 0 {
-                    format!(
-                        "Kalshi public API reachable; {} tradeable markets normalized. Bid and \
-                         ask are withheld from unauthenticated callers, so no implied \
-                         probabilities are available on this connection.",
-                        markets.len()
-                    )
-                } else {
-                    format!(
-                        "Kalshi public API reachable; {} tradeable markets normalized, {quoted} \
-                         carrying a quote.",
-                        markets.len()
-                    )
-                },
-                evidence: "Provider adapter · BudgetGovernor permit · GET /trade-api/v2/markets"
+                message: format!(
+                    "Kalshi public API reachable; {} Fed-decision markets normalized, {quoted} \
+                     carrying a quote.",
+                    markets.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · GET /trade-api/v2/markets · \
+                     KXFEDDECISION"
                     .to_owned(),
             })
         },

@@ -366,11 +366,23 @@ async fn prediction_venues_list_open_markets() {
         markets.iter().filter(|m| m.yes_price.is_some()).count(),
     );
 
+    // Kalshi is queried by series, not through the open listing. That listing
+    // is dominated by auto-generated sports parlays with no bid on either
+    // side — a full thousand-row sweep returned not one quoted market — so it
+    // cannot demonstrate a working connection. A named series can.
     let kalshi = KalshiAdapter::new(Arc::new(
         ReqwestTransport::new("https://api.elections.kalshi.com").expect("transport"),
     ));
-    let markets = kalshi.open_markets(20, now).await.expect("kalshi");
-    assert!(!markets.is_empty(), "Kalshi returned no open markets");
+    let markets = kalshi
+        .markets_in_series("KXFEDDECISION", 20, now)
+        .await
+        .expect("kalshi");
+    assert!(
+        !markets.is_empty(),
+        "Kalshi returned no markets for KXFEDDECISION"
+    );
+    let quoted = markets.iter().filter(|m| m.yes_price.is_some()).count();
+    assert!(quoted > 0, "no market in KXFEDDECISION carried a quote");
     for market in &markets {
         if let Some(price) = &market.yes_price {
             let parsed: f64 = price.parse().expect("price parses");
@@ -381,8 +393,7 @@ async fn prediction_venues_list_open_markets() {
         }
     }
     println!(
-        "Kalshi ok — {} markets, {} quoted",
-        markets.len(),
-        markets.iter().filter(|m| m.yes_price.is_some()).count(),
+        "Kalshi ok — {} markets in KXFEDDECISION, {quoted} quoted",
+        markets.len()
     );
 }
