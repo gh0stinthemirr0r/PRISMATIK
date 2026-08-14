@@ -73,7 +73,13 @@ impl SecEdgarAdapter {
     ) -> Result<String, SecEdgarError> {
         let mut headers = BTreeMap::new();
         headers.insert("user-agent".into(), self.user_agent.clone());
-        headers.insert("accept-encoding".into(), "gzip, deflate".into());
+        // No Accept-Encoding header. Asking for gzip here broke every EDGAR
+        // call: reqwest is built without its `gzip`/`deflate` features, and it
+        // only decompresses responses whose Accept-Encoding *it* negotiated —
+        // setting the header by hand opts out of that path entirely. SEC
+        // honoured the request, returned compressed bytes, and every response
+        // failed to parse at byte one with a JSON decode error that looked
+        // like a malformed payload rather than a transport misconfiguration.
         let response = self
             .transport
             .execute(&HttpRequest {
@@ -217,8 +223,38 @@ impl Provider for SecEdgarAdapter {
 
 #[derive(Deserialize)]
 struct SubmissionsEnvelope {
+    /// EDGAR sends the CIK as a zero-padded *string* ("0000320193"), not a
+    /// number. Typing it as `u64` made every submissions call fail to
+    /// deserialise at the first field, long before any filing was read.
+    #[serde(deserialize_with = "cik_from_string")]
     cik: u64,
     filings: Filings,
+}
+
+/// Accept EDGAR's zero-padded string CIK, and a bare number if it ever sends
+/// one, so a format change in either direction does not break the adapter.
+fn cik_from_string<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error as _;
+    match Value::deserialize(deserializer)? {
+        Value::String(text) => text.trim_start_matches('0').parse::<u64>().or_else(|_| {
+            // "0000000000" trims to empty, which is a real CIK of zero rather
+            // than a parse failure.
+            if text.chars().all(|c| c == '0') {
+                Ok(0)
+            } else {
+                Err(D::Error::custom(format!("unparsable CIK {text:?}")))
+            }
+        }),
+        Value::Number(number) => number
+            .as_u64()
+            .ok_or_else(|| D::Error::custom("CIK is not a non-negative integer")),
+        other => Err(D::Error::custom(format!(
+            "CIK should be a string or number, got {other}"
+        ))),
+    }
 }
 
 #[derive(Deserialize)]
