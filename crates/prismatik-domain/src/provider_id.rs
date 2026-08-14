@@ -35,4 +35,12 @@ impl ProviderId {
     pub const KRAKEN: ProviderId = ProviderId(13);
     /// Coinbase Exchange provider id.
     pub const COINBASE: ProviderId = ProviderId(14);
+    /// Binance provider id.
+    pub const BINANCE: ProviderId = ProviderId(15);
+    /// GDELT provider id.
+    pub const GDELT: ProviderId = ProviderId(16);
+    /// Alpha Vantage provider id.
+    pub const ALPHA_VANTAGE: ProviderId = ProviderId(17);
+    /// Interactive Brokers provider id.
+    pub const INTERACTIVE_BROKERS: ProviderId = ProviderId(18);
 }

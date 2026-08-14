@@ -13,8 +13,9 @@ use prismatik_application::ReqwestTransport;
 use prismatik_determinism::{Clock, SystemClock};
 use prismatik_market_data::{
     adapters::{
-        AlpacaAdapter, AlpacaCredentials, CftcAdapter, CoinGeckoAdapter, CoinGeckoAuth,
-        CoinbaseAdapter, FinnhubAdapter, FredAdapter, KalshiAdapter, KrakenAdapter,
+        AlpacaAdapter, AlpacaCredentials, AlphaVantageAdapter, BinanceAdapter, CftcAdapter,
+        CoinGeckoAdapter, CoinGeckoAuth, CoinbaseAdapter, FinnhubAdapter, FredAdapter,
+        GdeltAdapter, IbkrGatewayAdapter, KalshiAdapter, KrakenAdapter, PolygonAdapter,
         PolymarketAdapter, SecEdgarAdapter,
     },
     AdmissionDecision, BudgetGovernor, GcraBudgetGovernor, PriorityClass,
@@ -53,6 +54,19 @@ pub(crate) enum ActiveIntegration {
     Polymarket,
     /// Public prediction venue.
     Kalshi,
+    /// Public venue.
+    Binance,
+    /// Public news corpus.
+    Gdelt,
+    AlphaVantage {
+        api_key: String,
+    },
+    Polygon {
+        api_key: String,
+    },
+    /// Local gateway. There is no credential to hold — the operator signs in
+    /// to the gateway itself.
+    InteractiveBrokers,
 }
 
 static ACTIVE_INTEGRATIONS: LazyLock<RwLock<BTreeMap<String, ActiveIntegration>>> =
@@ -205,7 +219,7 @@ fn required<'a>(
 /// three-step wizard and hit "catalogued but does not yet have a governed
 /// desktop adapter" at the end. The catalog now asks the backend instead of
 /// asserting, and a test below keeps this list honest against the match arms.
-pub(crate) const LIVE_ADAPTERS: [&str; 10] = [
+pub(crate) const LIVE_ADAPTERS: [&str; 15] = [
     "coingecko",
     "fred",
     "sec-edgar",
@@ -216,6 +230,11 @@ pub(crate) const LIVE_ADAPTERS: [&str; 10] = [
     "coinbase",
     "polymarket",
     "kalshi",
+    "binance",
+    "gdelt",
+    "alpha-vantage",
+    "polygon",
+    "interactive-brokers",
 ];
 
 /// The providers this build can actually connect.
@@ -542,6 +561,131 @@ pub(crate) async fn test_integration(
                 evidence: "Provider adapter · BudgetGovernor permit · GET /trade-api/v2/markets · \
                      KXFEDDECISION"
                     .to_owned(),
+            })
+        },
+        "binance" => {
+            admit_interactive("binance")?;
+            // Binance.US by default: the global host answers 451 to US
+            // addresses, which is a jurisdictional block rather than an
+            // outage, and defaulting to it would make this look broken for
+            // most of this desk's users.
+            let transport = ReqwestTransport::new("https://api.binance.us")
+                .map_err(|error| format!("Binance transport configuration failed: {error}"))?;
+            let adapter = BinanceAdapter::new(Arc::new(transport));
+            let candles = adapter
+                .candles("BTCUSDT", "1d", 5, SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Binance validation failed: {error}"))?;
+            activate("binance", ActiveIntegration::Binance)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Binance.US public API reachable; {} BTCUSDT daily klines normalized.",
+                    candles.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · GET /api/v3/klines"
+                    .to_owned(),
+            })
+        },
+        "gdelt" => {
+            admit_interactive("gdelt")?;
+            let transport = ReqwestTransport::new("https://api.gdeltproject.org")
+                .map_err(|error| format!("GDELT transport configuration failed: {error}"))?;
+            let adapter = GdeltAdapter::new(Arc::new(transport));
+            let articles = adapter
+                .search("stock market", 5)
+                .await
+                .map_err(|error| format!("GDELT validation failed: {error}"))?;
+            activate("gdelt", ActiveIntegration::Gdelt)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "GDELT document API reachable; {} articles normalized.",
+                    articles.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · GET /api/v2/doc/doc"
+                    .to_owned(),
+            })
+        },
+        "alpha-vantage" => {
+            admit_interactive("alpha-vantage")?;
+            let api_key = required(&credentials, "apiKey", "Alpha Vantage")?.to_owned();
+            let transport =
+                ReqwestTransport::new("https://www.alphavantage.co").map_err(|error| {
+                    format!("Alpha Vantage transport configuration failed: {error}")
+                })?;
+            let adapter = AlphaVantageAdapter::new(Arc::new(transport), api_key.clone());
+            let bars = adapter
+                .daily_bars("IBM", SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Alpha Vantage validation failed: {error}"))?;
+            activate("alpha-vantage", ActiveIntegration::AlphaVantage { api_key })?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Alpha Vantage authenticated; {} IBM daily bars normalized.",
+                    bars.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · TIME_SERIES_DAILY · IBM"
+                    .to_owned(),
+            })
+        },
+        "polygon" => {
+            admit_interactive("polygon")?;
+            let api_key = required(&credentials, "apiKey", "Polygon")?.to_owned();
+            let transport = ReqwestTransport::new("https://api.polygon.io")
+                .map_err(|error| format!("Polygon transport configuration failed: {error}"))?;
+            let adapter = PolygonAdapter::new(Arc::new(transport), api_key.clone());
+            let bars = adapter
+                .previous_close("AAPL", SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Polygon validation failed: {error}"))?;
+            activate("polygon", ActiveIntegration::Polygon { api_key })?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Polygon authenticated; {} AAPL aggregate bars normalized.",
+                    bars.len()
+                ),
+                evidence:
+                    "Provider adapter · BudgetGovernor permit · GET /v2/aggs/ticker/AAPL/prev"
+                        .to_owned(),
+            })
+        },
+        "interactive-brokers" => {
+            admit_interactive("interactive-brokers")?;
+            // IBKR publishes no cloud API. The operator runs a Client Portal
+            // Gateway locally and signs in through its own browser page;
+            // PRISMATIK only asks it whether that session is live. There is
+            // no credential for the desk to store.
+            let transport = ReqwestTransport::new("https://localhost:5000").map_err(|error| {
+                format!("Interactive Brokers transport configuration failed: {error}")
+            })?;
+            let adapter = IbkrGatewayAdapter::new(Arc::new(transport));
+            let status = adapter
+                .auth_status()
+                .await
+                .map_err(|error| format!("Interactive Brokers validation failed: {error}"))?;
+            if !status.authenticated {
+                return Err(
+                    "The Client Portal Gateway is running but has no authenticated session. \
+                     Sign in through its browser page and retry."
+                        .to_owned(),
+                );
+            }
+            activate("interactive-brokers", ActiveIntegration::InteractiveBrokers)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Client Portal Gateway authenticated (connected: {}).",
+                    status.connected
+                ),
+                evidence: "Local gateway · GET /v1/api/iserver/auth/status".to_owned(),
             })
         },
         _ => Err(

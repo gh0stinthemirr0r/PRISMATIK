@@ -81,6 +81,12 @@ pub enum Entitlement {
     Fred,
     /// SEC EDGAR entitlement (public, with declared contact).
     SecEdgar,
+    /// Alpha Vantage entitlement.
+    AlphaVantage,
+    /// Polygon entitlement.
+    Polygon,
+    /// Interactive Brokers, via a locally run Client Portal Gateway.
+    InteractiveBrokers,
     /// A public venue endpoint that needs no credential at all.
     ///
     /// Distinct from the keyed entitlements above: there is nothing to
@@ -99,6 +105,9 @@ impl Entitlement {
             Self::Finnhub => "finnhub:default",
             Self::Fred => "fred:default",
             Self::SecEdgar => "sec_edgar:public",
+            Self::AlphaVantage => "alpha_vantage:default",
+            Self::Polygon => "polygon:default",
+            Self::InteractiveBrokers => "ibkr:gateway",
             Self::PublicVenue => "venue:public",
         }
     }

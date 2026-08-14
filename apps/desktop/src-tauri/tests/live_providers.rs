@@ -25,7 +25,8 @@ use prismatik_application::ReqwestTransport;
 use prismatik_market_data::{
     adapters::{
         alpaca::AlpacaAdapter, cftc::CftcAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials,
-        CoinbaseAdapter, KalshiAdapter, KrakenAdapter, PolymarketAdapter,
+        BinanceAdapter, CoinbaseAdapter, GdeltAdapter, KalshiAdapter, KrakenAdapter,
+        PolymarketAdapter,
     },
     http::{HttpMethod, HttpRequest, HttpTransport},
 };
@@ -396,4 +397,49 @@ async fn prediction_venues_list_open_markets() {
         "Kalshi ok — {} markets in KXFEDDECISION, {quoted} quoted",
         markets.len()
     );
+}
+
+/// Binance and GDELT. Public, no credential.
+///
+/// Binance is pointed at binance.us because the global host answers 451 to US
+/// addresses. GDELT throttles hard, so a 429 here is the service saying "not
+/// now" rather than a broken adapter — the assertion says so.
+#[tokio::test]
+#[ignore = "network"]
+async fn binance_and_gdelt_are_reachable() {
+    let now = time::OffsetDateTime::now_utc();
+
+    let binance = BinanceAdapter::new(Arc::new(
+        ReqwestTransport::new("https://api.binance.us").expect("transport"),
+    ));
+    let candles = binance
+        .candles("BTCUSDT", "1d", 5, now)
+        .await
+        .expect("klines");
+    assert!(!candles.is_empty());
+    for candle in &candles {
+        // Millisecond timestamps read as seconds would land ~50,000 years out.
+        let year = candle.bar_start.year();
+        assert!((2000..2100).contains(&year), "implausible year {year}");
+    }
+    println!(
+        "Binance ok — {} klines, last close {}",
+        candles.len(),
+        candles.last().unwrap().close
+    );
+
+    let gdelt = GdeltAdapter::new(Arc::new(
+        ReqwestTransport::new("https://api.gdeltproject.org").expect("transport"),
+    ));
+    match gdelt.search("stock market", 5).await {
+        Ok(articles) => println!("GDELT ok — {} articles", articles.len()),
+        Err(error) => {
+            let text = format!("{error}");
+            assert!(
+                text.contains("rate limited"),
+                "GDELT failed for a reason other than throttling: {text}",
+            );
+            println!("GDELT throttled — reported as such, not as a decode failure");
+        },
+    }
 }

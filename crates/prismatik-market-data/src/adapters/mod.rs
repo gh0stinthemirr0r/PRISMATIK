@@ -9,6 +9,7 @@ pub mod crypto_venues;
 pub mod finnhub;
 pub mod fred;
 pub mod prediction_markets;
+pub mod remaining_providers;
 pub mod sec_edgar;
 pub mod tradingview_screener;
 // NOTE: `unusual_whales.rs` exists on disk but is intentionally NOT declared
@@ -21,10 +22,14 @@ pub mod tradingview_screener;
 pub use alpaca::{AlpacaAdapter, AlpacaCredentials, AlpacaError};
 pub use cftc::{CftcAdapter, CftcError};
 pub use coingecko::{demo_cassette_json, CoinGeckoAdapter, CoinGeckoAuth, CoinGeckoError};
-pub use crypto_venues::{CoinbaseAdapter, KrakenAdapter, VenueError};
+pub use crypto_venues::{BinanceAdapter, CoinbaseAdapter, KrakenAdapter, VenueError};
 pub use finnhub::{FinnhubAdapter, FinnhubError};
 pub use fred::{FredAdapter, FredError};
 pub use prediction_markets::{KalshiAdapter, PolymarketAdapter, PredictionVenueError};
+pub use remaining_providers::{
+    AlphaVantageAdapter, GdeltAdapter, GdeltArticle, IbkrAuthStatus, IbkrGatewayAdapter,
+    PolygonAdapter, ProviderError,
+};
 pub use sec_edgar::{SecEdgarAdapter, SecEdgarError};
 pub use tradingview_screener::{
     ScreenerError, ScreenerHit, ScreenerMarket, ScreenerPage, ScreenerSort, TradingViewScreener,

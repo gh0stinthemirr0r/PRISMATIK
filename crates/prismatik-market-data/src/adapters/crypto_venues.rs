@@ -1,4 +1,4 @@
-//! Public crypto venue candle adapters: Kraken and Coinbase Exchange.
+//! Public crypto venue candle adapters: Kraken, Coinbase Exchange, Binance.
 //!
 //! Both answer the same question — daily OHLCV for one pair — over an
 //! unauthenticated endpoint, so they share a file and an error type. Keeping
@@ -344,6 +344,134 @@ impl Provider for CoinbaseAdapter {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Binance
+// ---------------------------------------------------------------------------
+
+/// Public Binance kline adapter.
+///
+/// Defaults to `api.binance.us`. The global `api.binance.com` answers HTTP
+/// 451 to US addresses — a jurisdictional block, not a rate limit or a bad
+/// request — so pointing at it by default would make the integration look
+/// broken for most of this desk's users. The host is the transport's base
+/// URL, so anyone outside that block can supply the global endpoint instead.
+pub struct BinanceAdapter {
+    transport: Arc<dyn HttpTransport>,
+    entitlements: EntitlementSet,
+}
+
+impl std::fmt::Debug for BinanceAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinanceAdapter").finish_non_exhaustive()
+    }
+}
+
+impl BinanceAdapter {
+    /// Construct using an injected HTTP transport.
+    pub fn new(transport: Arc<dyn HttpTransport>) -> Self {
+        Self {
+            transport,
+            entitlements: [Entitlement::PublicVenue].into_iter().collect(),
+        }
+    }
+
+    /// Klines for a symbol, e.g. `BTCUSDT`, at an interval such as `1d`.
+    pub async fn candles(
+        &self,
+        symbol: &str,
+        interval: &str,
+        limit: u32,
+        retrieved_at: OffsetDateTime,
+    ) -> Result<Vec<VenueCandle>, VenueError> {
+        const VENUE: &str = "Binance";
+        let response = self
+            .transport
+            .execute(&HttpRequest {
+                method: HttpMethod::Get,
+                path: "/api/v3/klines".into(),
+                query: BTreeMap::from([
+                    ("symbol".to_owned(), symbol.to_uppercase()),
+                    ("interval".to_owned(), interval.to_owned()),
+                    ("limit".to_owned(), limit.to_string()),
+                ]),
+                headers: BTreeMap::new(),
+                body: None,
+            })
+            .await?;
+        if response.status == 451 {
+            return Err(VenueError::Venue {
+                venue: VENUE,
+                detail: "this endpoint is not available from your jurisdiction (HTTP 451). \
+                         api.binance.us serves US addresses; api.binance.com serves most others."
+                    .to_owned(),
+            });
+        }
+        if response.status != 200 {
+            return Err(VenueError::Status {
+                venue: VENUE,
+                status: response.status,
+            });
+        }
+        let rows: Vec<serde_json::Value> =
+            serde_json::from_str(&response.body).map_err(|e| decode(VENUE, e.to_string()))?;
+
+        rows.iter()
+            .map(|row| {
+                let cells = row
+                    .as_array()
+                    .ok_or_else(|| decode(VENUE, "kline row is not an array"))?;
+                // [open_time_ms, open, high, low, close, volume, close_time, ...]
+                if cells.len() < 6 {
+                    return Err(decode(
+                        VENUE,
+                        format!("short kline row: {} cells", cells.len()),
+                    ));
+                }
+                // Binance stamps in milliseconds where Kraken and Coinbase use
+                // seconds. Reading it as seconds would place every candle
+                // roughly fifty thousand years in the future.
+                let millis = cells[0]
+                    .as_i64()
+                    .ok_or_else(|| decode(VENUE, "kline time is not an integer"))?;
+                Ok(VenueCandle {
+                    pair: symbol.to_uppercase(),
+                    bar_start: from_unix(VENUE, millis / 1_000)?,
+                    open: decimal(VENUE, &cells[1])?,
+                    high: decimal(VENUE, &cells[2])?,
+                    low: decimal(VENUE, &cells[3])?,
+                    close: decimal(VENUE, &cells[4])?,
+                    volume: decimal(VENUE, &cells[5])?,
+                    provider: ProviderId::BINANCE,
+                    retrieved_at,
+                })
+            })
+            .collect()
+    }
+}
+
+#[async_trait]
+impl Provider for BinanceAdapter {
+    fn id(&self) -> ProviderId {
+        ProviderId::BINANCE
+    }
+
+    fn capabilities(&self) -> ProviderCapabilities {
+        [Capability::Ohlcv, Capability::Ohlc].into_iter().collect()
+    }
+
+    fn entitlements(&self) -> &EntitlementSet {
+        &self.entitlements
+    }
+
+    fn cost_of(&self, _request: &ProviderRequest) -> CostUnits {
+        CostUnits::new(1)
+    }
+
+    async fn health(&self) -> ProviderHealth {
+        ProviderHealth::healthy()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +531,37 @@ mod tests {
             .await
             .expect_err("should surface the venue error");
         assert!(format!("{error}").contains("Unknown asset pair"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn binance_reads_millisecond_timestamps() {
+        // Binance stamps in milliseconds where the other two use seconds.
+        // Reading it as seconds puts every candle ~50,000 years out.
+        let adapter = BinanceAdapter::new(Arc::new(Canned(
+            r#"[[1700000000000,"1.0","2.0","0.5","1.5","3.3",1700086399999,"0",1,"0","0","0"]]"#,
+            200,
+        )));
+        let candles = adapter
+            .candles("BTCUSDT", "1d", 1, now())
+            .await
+            .expect("candles");
+        assert_eq!(candles[0].bar_start.unix_timestamp(), 1_700_000_000);
+        assert_eq!(candles[0].open, "1.0");
+        assert_eq!(candles[0].volume, "3.3");
+    }
+
+    #[tokio::test]
+    async fn binance_names_a_jurisdictional_block() {
+        // 451 is not a rate limit or a bad request, and reporting it as a
+        // bare status would send someone hunting a bug that is not there.
+        let adapter = BinanceAdapter::new(Arc::new(Canned("{}", 451)));
+        let error = adapter
+            .candles("BTCUSDT", "1d", 1, now())
+            .await
+            .expect_err("should refuse");
+        let text = format!("{error}");
+        assert!(text.contains("jurisdiction"), "{text}");
+        assert!(text.contains("binance.us"), "{text}");
     }
 
     #[tokio::test]
