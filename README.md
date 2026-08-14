@@ -20,6 +20,7 @@ nothing it displays is a recommendation to buy or sell any instrument.
 - [Design commitments](#design-commitments)
 - [Architecture](#architecture)
 - [The predictive loop](#the-predictive-loop)
+- [The three estimators](#the-three-estimators)
 - [Agents](#agents)
 - [Autonomy and execution safety](#autonomy-and-execution-safety)
 - [Repository layout](#repository-layout)
@@ -327,16 +328,100 @@ CI builds the desktop application on all three platforms.
 
 ## Data providers
 
-- **Equities and crypto** — TradingView's scanner endpoint, ranked by
-  **turnover**, not unit volume (volume is meaningless across price scales and
-  surfaces OTC shells). Turnover uses the per-market field: `Value.Traded` for
-  equities, `24h_vol|5` for crypto.
-- **Charting** — TradingView Lightweight Charts v4.2.0 (Apache-2.0), rendered
-  in-process. The TradingView *widget* is not used: it cannot satisfy the
-  content security policy.
-- **Frontier models** — OpenAI, Anthropic and Google, each supporting OAuth
-  tokens, session tokens or API keys, configured under
-  System → Integrations.
+Fifteen providers are catalogued and all fifteen have a working backend
+adapter. The catalog cannot advertise anything that is not wired: the
+frontend asks the backend which providers are connectable, and a test fails
+the build if the advertised set and the implemented set disagree in either
+direction.
+
+Connect them under **System → Integrations**.
+
+### What each one needs
+
+| Provider | Credential | Notes |
+| --- | --- | --- |
+| **CFTC** | none | Commitments of Traders, public Socrata dataset |
+| **Coinbase** | none | Exchange candles |
+| **Kraken** | none | Public OHLC |
+| **Binance** | none | Defaults to `api.binance.us` |
+| **Polymarket** | none | Open markets with quotes |
+| **Kalshi** | none | Queried by series |
+| **GDELT** | none | News document API |
+| **SEC EDGAR** | contact email | Required by the SEC, not a key |
+| **CoinGecko** | API key | Demo tier |
+| **FRED** | API key | Macro series |
+| **Finnhub** | API key | See caveat below |
+| **Alpha Vantage** | API key | Free tier is 25 calls/day |
+| **Polygon** | API key | Free tier is 5 calls/minute |
+| **Alpaca** | key + secret | Free plan is the IEX feed |
+| **Interactive Brokers** | none | See caveat below |
+
+Seven work with nothing but a network connection, which is what makes them
+verifiable end to end without any account.
+
+### Caveats worth knowing before you debug
+
+- **Finnhub's `/stock/candle` moved to a paid plan.** A perfectly valid free
+  key now fails validation. The live test asserts specifically against the
+  403 and says so, because the next person to hit it should not spend an
+  afternoon on their key.
+- **Binance's global host answers 451 to US addresses.** That is a legal
+  boundary, not an outage. `api.binance.us` serves the same endpoints and is
+  the default; anyone outside the block can point the transport at
+  `api.binance.com`.
+- **Interactive Brokers has no cloud API.** You run a Client Portal Gateway
+  on your own machine and sign in through its browser page; PRISMATIK asks it
+  whether that session is live at `https://localhost:5000`. There is no
+  credential for the desk to store, so a failure means the gateway is not
+  running.
+- **Kalshi's open-market listing is not usable directly.** It is dominated by
+  auto-generated multi-leg sports parlays that nothing is pricing — a
+  thousand-row sweep returned no quoted market at all. Markets are queried by
+  series instead.
+- **Alpha Vantage answers HTTP 200 for a rejected key, a rate limit and an
+  unknown symbol alike**, differing only in which JSON key it returns. The
+  adapter surfaces those messages verbatim rather than reporting an empty
+  series.
+
+### Charting
+
+TradingView Lightweight Charts v4.2.0 (Apache-2.0), rendered in-process. The
+TradingView *widget* is not used: it cannot satisfy the content security
+policy. The screener uses TradingView's scanner endpoint, ranked by
+**turnover** rather than unit volume — volume is meaningless across price
+scales and surfaces OTC shells. Turnover is a per-market field:
+`Value.Traded` for equities, `24h_vol|5` for crypto.
+
+### Frontier models
+
+OpenAI, Anthropic and Google, connected under **Research → Models**
+("Frontier cognition") — a different surface from the data integrations
+above, and a different backend path.
+
+Two things to know. **Sessions are held in process memory only** and are
+never written to disk, so reconnect after restarting. And **there is no
+OAuth flow**: the "OAuth" and "Session token" options only choose which
+header carries a token you already hold, so an API key pasted under either
+will be rejected by the provider. The desk names that mismatch before the
+request goes out rather than letting it come back as an opaque 401.
+
+### Verifying a provider
+
+Unit tests prove the code is self-consistent; they cannot notice a provider
+moving an endpoint behind a paywall or changing a response shape, and that
+failure is silent. Live contract tests exist for that, ignored by default so
+the suite stays hermetic:
+
+```bash
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --test live_providers -- --ignored --nocapture
+```
+
+Tests needing a secret read it from the environment and skip loudly rather
+than failing, because "you have no key" and "the provider broke" are
+different findings and must not look alike. Supply any of
+`ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY`, `FINNHUB_API_KEY`,
+`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` to exercise those
+paths.
 
 ## Security posture
 
