@@ -87,6 +87,28 @@ pub struct OhlcBar {
     pub quality: DataQualityScore,
 }
 
+/// One open market on a prediction venue.
+///
+/// `yes_price` is the venue's own quote for the YES side, in probability
+/// units (0.0–1.0), as a decimal string. It is `None` when the venue has no
+/// trade or quote to report — a market nobody has touched has no implied
+/// probability, and rendering that as 0.5 would invent a coin flip.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PredictionMarket {
+    /// Venue's own market identifier.
+    pub id: String,
+    /// The question as the venue words it.
+    pub question: String,
+    /// Quoted probability of YES, 0.0-1.0, if the venue has one.
+    pub yes_price: Option<String>,
+    /// When the market closes, if published.
+    pub closes_at: Option<OffsetDateTime>,
+    /// Venue this came from.
+    pub provider: ProviderId,
+    /// Retrieved at.
+    pub retrieved_at: OffsetDateTime,
+}
+
 /// One OHLCV candle from a public trading venue.
 ///
 /// Separate from `OhlcBar`, which is keyed on a CoinGecko id and carries no

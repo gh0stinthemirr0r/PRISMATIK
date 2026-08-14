@@ -14,7 +14,8 @@ use prismatik_determinism::{Clock, SystemClock};
 use prismatik_market_data::{
     adapters::{
         AlpacaAdapter, AlpacaCredentials, CftcAdapter, CoinGeckoAdapter, CoinGeckoAuth,
-        CoinbaseAdapter, FinnhubAdapter, FredAdapter, KrakenAdapter, SecEdgarAdapter,
+        CoinbaseAdapter, FinnhubAdapter, FredAdapter, KalshiAdapter, KrakenAdapter,
+        PolymarketAdapter, SecEdgarAdapter,
     },
     AdmissionDecision, BudgetGovernor, GcraBudgetGovernor, PriorityClass,
 };
@@ -48,6 +49,10 @@ pub(crate) enum ActiveIntegration {
     Kraken,
     /// Public venue.
     Coinbase,
+    /// Public prediction venue.
+    Polymarket,
+    /// Public prediction venue.
+    Kalshi,
 }
 
 static ACTIVE_INTEGRATIONS: LazyLock<RwLock<BTreeMap<String, ActiveIntegration>>> =
@@ -200,7 +205,7 @@ fn required<'a>(
 /// three-step wizard and hit "catalogued but does not yet have a governed
 /// desktop adapter" at the end. The catalog now asks the backend instead of
 /// asserting, and a test below keeps this list honest against the match arms.
-pub(crate) const LIVE_ADAPTERS: [&str; 8] = [
+pub(crate) const LIVE_ADAPTERS: [&str; 10] = [
     "coingecko",
     "fred",
     "sec-edgar",
@@ -209,6 +214,8 @@ pub(crate) const LIVE_ADAPTERS: [&str; 8] = [
     "cftc",
     "kraken",
     "coinbase",
+    "polymarket",
+    "kalshi",
 ];
 
 /// The providers this build can actually connect.
@@ -479,6 +486,59 @@ pub(crate) async fn test_integration(
                 evidence:
                     "Provider adapter · BudgetGovernor permit · GET /products/BTC-USD/candles"
                         .to_owned(),
+            })
+        },
+        "polymarket" => {
+            admit_interactive("polymarket")?;
+            let transport = ReqwestTransport::new("https://gamma-api.polymarket.com")
+                .map_err(|error| format!("Polymarket transport configuration failed: {error}"))?;
+            let adapter = PolymarketAdapter::new(Arc::new(transport));
+            let markets = adapter
+                .open_markets(20, SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Polymarket validation failed: {error}"))?;
+            let quoted = markets.iter().filter(|m| m.yes_price.is_some()).count();
+            activate("polymarket", ActiveIntegration::Polymarket)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Polymarket public API reachable; {} open markets normalized, {quoted} carrying a quote.",
+                    markets.len()
+                ),
+                evidence: "Provider adapter · BudgetGovernor permit · GET /markets".to_owned(),
+            })
+        },
+        "kalshi" => {
+            admit_interactive("kalshi")?;
+            let transport = ReqwestTransport::new("https://api.elections.kalshi.com")
+                .map_err(|error| format!("Kalshi transport configuration failed: {error}"))?;
+            let adapter = KalshiAdapter::new(Arc::new(transport));
+            let markets = adapter
+                .open_markets(20, SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Kalshi validation failed: {error}"))?;
+            let quoted = markets.iter().filter(|m| m.yes_price.is_some()).count();
+            activate("kalshi", ActiveIntegration::Kalshi)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: if quoted == 0 {
+                    format!(
+                        "Kalshi public API reachable; {} tradeable markets normalized. Bid and \
+                         ask are withheld from unauthenticated callers, so no implied \
+                         probabilities are available on this connection.",
+                        markets.len()
+                    )
+                } else {
+                    format!(
+                        "Kalshi public API reachable; {} tradeable markets normalized, {quoted} \
+                         carrying a quote.",
+                        markets.len()
+                    )
+                },
+                evidence: "Provider adapter · BudgetGovernor permit · GET /trade-api/v2/markets"
+                    .to_owned(),
             })
         },
         _ => Err(

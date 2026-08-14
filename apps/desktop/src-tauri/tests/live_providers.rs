@@ -25,7 +25,7 @@ use prismatik_application::ReqwestTransport;
 use prismatik_market_data::{
     adapters::{
         alpaca::AlpacaAdapter, cftc::CftcAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials,
-        CoinbaseAdapter, KrakenAdapter,
+        CoinbaseAdapter, KalshiAdapter, KrakenAdapter, PolymarketAdapter,
     },
     http::{HttpMethod, HttpRequest, HttpTransport},
 };
@@ -338,4 +338,51 @@ async fn coinbase_candles_parse_in_the_right_column_order() {
         );
     }
     println!("Coinbase ok — {} candles, columns in range", candles.len());
+}
+
+/// Both public prediction venues. No credential.
+#[tokio::test]
+#[ignore = "network"]
+async fn prediction_venues_list_open_markets() {
+    let now = time::OffsetDateTime::now_utc();
+
+    let poly = PolymarketAdapter::new(Arc::new(
+        ReqwestTransport::new("https://gamma-api.polymarket.com").expect("transport"),
+    ));
+    let markets = poly.open_markets(20, now).await.expect("polymarket");
+    assert!(!markets.is_empty(), "Polymarket returned no open markets");
+    for market in &markets {
+        if let Some(price) = &market.yes_price {
+            let parsed: f64 = price.parse().expect("price parses");
+            assert!(
+                parsed > 0.0 && parsed <= 1.0,
+                "{price} is not a probability"
+            );
+        }
+    }
+    println!(
+        "Polymarket ok — {} markets, {} quoted",
+        markets.len(),
+        markets.iter().filter(|m| m.yes_price.is_some()).count(),
+    );
+
+    let kalshi = KalshiAdapter::new(Arc::new(
+        ReqwestTransport::new("https://api.elections.kalshi.com").expect("transport"),
+    ));
+    let markets = kalshi.open_markets(20, now).await.expect("kalshi");
+    assert!(!markets.is_empty(), "Kalshi returned no open markets");
+    for market in &markets {
+        if let Some(price) = &market.yes_price {
+            let parsed: f64 = price.parse().expect("price parses");
+            assert!(
+                parsed > 0.0 && parsed <= 1.0,
+                "{price} is not a probability"
+            );
+        }
+    }
+    println!(
+        "Kalshi ok — {} markets, {} quoted",
+        markets.len(),
+        markets.iter().filter(|m| m.yes_price.is_some()).count(),
+    );
 }
