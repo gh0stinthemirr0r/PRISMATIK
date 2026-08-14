@@ -2,3 +2,8 @@
 identifier = "allow-test-integration"
 description = "Allows an explicit provider connection test using transient credentials."
 commands.allow = ["test_integration"]
+
+[[permission]]
+identifier = "allow-list-live-adapters"
+description = "List the providers this build has a real credentialed adapter for."
+commands.allow = ["list_live_adapters"]

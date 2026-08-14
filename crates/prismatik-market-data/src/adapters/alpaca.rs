@@ -28,10 +28,31 @@ pub enum AlpacaError {
     Decode(String),
 }
 
-/// Read-only Alpaca-shaped equity bars adapter.
+/// Alpaca API credentials.
+///
+/// Alpaca authenticates with two headers rather than a bearer token, and both
+/// are required — sending only the key id returns the same 401 as sending
+/// neither, which is a confusing way to discover a half-filled form.
+#[derive(Clone)]
+pub struct AlpacaCredentials {
+    /// `APCA-API-KEY-ID`.
+    pub key_id: String,
+    /// `APCA-API-SECRET-KEY`.
+    pub secret_key: String,
+}
+
+impl std::fmt::Debug for AlpacaCredentials {
+    /// Redacted: these end up in error paths and logs.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AlpacaCredentials").finish_non_exhaustive()
+    }
+}
+
+/// Read-only Alpaca equity bars adapter.
 pub struct AlpacaAdapter {
     transport: Arc<dyn HttpTransport>,
     entitlements: EntitlementSet,
+    credentials: Option<AlpacaCredentials>,
 }
 
 impl std::fmt::Debug for AlpacaAdapter {
@@ -41,12 +62,38 @@ impl std::fmt::Debug for AlpacaAdapter {
 }
 
 impl AlpacaAdapter {
-    /// Construct the public/demo adapter using an injected transport.
+    /// Construct without credentials, for cassette replay.
+    ///
+    /// A live call made this way will be rejected by Alpaca. That is the
+    /// correct behaviour: silently returning nothing would look like an empty
+    /// market rather than a missing credential.
     pub fn new(transport: Arc<dyn HttpTransport>) -> Self {
         Self {
             transport,
             entitlements: [Entitlement::AlpacaMarketData].into_iter().collect(),
+            credentials: None,
         }
+    }
+
+    /// Construct with the credentials Alpaca's live endpoints require.
+    pub fn with_credentials(
+        transport: Arc<dyn HttpTransport>,
+        credentials: AlpacaCredentials,
+    ) -> Self {
+        Self {
+            transport,
+            entitlements: [Entitlement::AlpacaMarketData].into_iter().collect(),
+            credentials: Some(credentials),
+        }
+    }
+
+    fn auth_headers(&self) -> BTreeMap<String, String> {
+        let mut headers = BTreeMap::new();
+        if let Some(credentials) = &self.credentials {
+            headers.insert("APCA-API-KEY-ID".into(), credentials.key_id.clone());
+            headers.insert("APCA-API-SECRET-KEY".into(), credentials.secret_key.clone());
+        }
+        headers
     }
 
     /// Fetch OHLCV bars for one symbol.
@@ -58,13 +105,17 @@ impl AlpacaAdapter {
     ) -> Result<Vec<EquityBar>, AlpacaError> {
         let mut query = BTreeMap::new();
         query.insert("timeframe".into(), timeframe.into());
+        // Free Alpaca accounts are entitled to the IEX feed only; omitting
+        // this asks for SIP and returns a subscription error that reads like
+        // a bad key. Callers with a paid plan can override it.
+        query.entry("feed".into()).or_insert_with(|| "iex".into());
         let response = self
             .transport
             .execute(&HttpRequest {
                 method: HttpMethod::Get,
                 path: format!("/v2/stocks/{symbol}/bars"),
                 query,
-                headers: BTreeMap::new(),
+                headers: self.auth_headers(),
                 body: None,
             })
             .await?;

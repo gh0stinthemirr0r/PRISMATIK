@@ -19,6 +19,7 @@
     "allow-host-platform",
     "allow-intelligence-capabilities",
     "allow-test-integration",
+    "allow-list-live-adapters",
     "allow-get-terminal-feed",
     "allow-get-tracked-instruments",
     "allow-add-tracked-instrument",

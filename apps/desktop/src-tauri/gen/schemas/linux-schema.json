@@ -603,6 +603,12 @@
           "markdownDescription": "Read durable quarantined model forecast candidates."
         },
         {
+          "description": "List the providers this build has a real credentialed adapter for.",
+          "type": "string",
+          "const": "allow-list-live-adapters",
+          "markdownDescription": "List the providers this build has a real credentialed adapter for."
+        },
+        {
           "description": "List orders from a connected broker.",
           "type": "string",
           "const": "allow-list-orders",

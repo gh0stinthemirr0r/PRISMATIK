@@ -12,7 +12,10 @@ use std::{
 use prismatik_application::ReqwestTransport;
 use prismatik_determinism::{Clock, SystemClock};
 use prismatik_market_data::{
-    adapters::{CoinGeckoAdapter, CoinGeckoAuth, FinnhubAdapter, FredAdapter, SecEdgarAdapter},
+    adapters::{
+        AlpacaAdapter, AlpacaCredentials, CoinGeckoAdapter, CoinGeckoAuth, FinnhubAdapter,
+        FredAdapter, SecEdgarAdapter,
+    },
     AdmissionDecision, BudgetGovernor, GcraBudgetGovernor, PriorityClass,
 };
 use serde::Serialize;
@@ -27,6 +30,7 @@ pub(crate) enum ActiveIntegration {
     Finnhub { token: String },
     Fred { api_key: String },
     SecEdgar { contact: String },
+    Alpaca { key_id: String, secret_key: String },
 }
 
 static ACTIVE_INTEGRATIONS: LazyLock<RwLock<BTreeMap<String, ActiveIntegration>>> =
@@ -171,9 +175,28 @@ fn required<'a>(
         .ok_or_else(|| format!("{provider} requires {field}"))
 }
 
+/// Providers with a real, credentialed adapter behind them.
+///
+/// One list, because this is exactly what drifted: the frontend catalog
+/// carried its own hand-maintained readiness flag, so a provider could look
+/// connectable while `test_integration` had no arm for it. The user walked a
+/// three-step wizard and hit "catalogued but does not yet have a governed
+/// desktop adapter" at the end. The catalog now asks the backend instead of
+/// asserting, and a test below keeps this list honest against the match arms.
+pub(crate) const LIVE_ADAPTERS: [&str; 5] = ["coingecko", "fred", "sec-edgar", "finnhub", "alpaca"];
+
+/// The providers this build can actually connect.
+///
+/// The frontend uses this to decide which catalog entries offer a credential
+/// form, so the two can no longer disagree.
+#[tauri::command]
+pub(crate) fn list_live_adapters() -> Vec<String> {
+    LIVE_ADAPTERS.iter().map(|id| (*id).to_owned()).collect()
+}
+
 static INTEGRATION_GOVERNORS: LazyLock<BTreeMap<&'static str, GcraBudgetGovernor>> =
     LazyLock::new(|| {
-        ["coingecko", "fred", "sec-edgar", "finnhub"]
+        LIVE_ADAPTERS
             .into_iter()
             .map(|provider| (provider, GcraBudgetGovernor::desktop_default()))
             .collect()
@@ -323,6 +346,46 @@ pub(crate) async fn test_integration(
                     .to_owned(),
             })
         },
+        "alpaca" => {
+            admit_interactive("alpaca")?;
+            let key_id = required(&credentials, "apiKey", "Alpaca")?.to_owned();
+            let secret_key = required(&credentials, "apiSecret", "Alpaca")?.to_owned();
+            // Market data lives on its own host, separate from the trading
+            // API. Validating against data rather than the account endpoint
+            // proves the entitlement the desk actually needs.
+            let transport = ReqwestTransport::new("https://data.alpaca.markets")
+                .map_err(|error| format!("Alpaca transport configuration failed: {error}"))?;
+            let adapter = AlpacaAdapter::with_credentials(
+                Arc::new(transport),
+                AlpacaCredentials {
+                    key_id: key_id.clone(),
+                    secret_key: secret_key.clone(),
+                },
+            );
+            let rows = adapter
+                .bars("AAPL", "1Day", SystemClock::new().now())
+                .await
+                .map_err(|error| format!("Alpaca validation failed: {error}"))?;
+            if rows.is_empty() {
+                return Err(
+                    "Alpaca authenticated but returned no bars. The key is valid; the account \
+                     may lack a market-data entitlement for the IEX feed."
+                        .to_owned(),
+                );
+            }
+            activate("alpaca", ActiveIntegration::Alpaca { key_id, secret_key })?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "Alpaca authenticated; {} AAPL daily bars normalized.",
+                    rows.len()
+                ),
+                evidence:
+                    "Provider adapter · BudgetGovernor permit · GET /v2/stocks/AAPL/bars · IEX feed"
+                        .to_owned(),
+            })
+        },
         _ => Err(
             "This provider is catalogued but does not yet have a governed desktop adapter."
                 .to_owned(),
@@ -332,8 +395,52 @@ pub(crate) async fn test_integration(
 
 #[cfg(test)]
 mod tests {
-    use super::required;
+    use super::{required, LIVE_ADAPTERS};
     use std::collections::BTreeMap;
+
+    /// Every advertised adapter must have a real match arm in
+    /// `test_integration`, and every arm must be advertised.
+    ///
+    /// Reading the source is crude, but it catches the exact drift that made
+    /// a tester report that nothing works: a provider listed as connectable
+    /// with no code behind it, or code behind a provider nobody can reach.
+    #[test]
+    fn advertised_adapters_and_implemented_arms_agree() {
+        let source = include_str!("integrations.rs");
+        // The arms of the `match provider_id.as_str()` in test_integration.
+        let implemented: Vec<&str> = source
+            .lines()
+            .filter_map(|line| {
+                let line = line.trim();
+                line.strip_suffix("\" => {")
+                    .and_then(|rest| rest.strip_prefix('"'))
+            })
+            .collect();
+
+        for provider in LIVE_ADAPTERS {
+            assert!(
+                implemented.contains(&provider),
+                "{provider} is advertised as a live adapter but test_integration has no arm \
+                 for it — the setup wizard would dead-end",
+            );
+        }
+        for provider in &implemented {
+            assert!(
+                LIVE_ADAPTERS.contains(provider),
+                "{provider} has an adapter arm but is not advertised, so nothing can reach it",
+            );
+        }
+    }
+
+    #[test]
+    fn every_live_adapter_has_a_rate_governor() {
+        for provider in LIVE_ADAPTERS {
+            assert!(
+                super::INTEGRATION_GOVERNORS.contains_key(provider),
+                "{provider} would be refused by admit_interactive",
+            );
+        }
+    }
 
     #[test]
     fn required_credentials_fail_closed() {

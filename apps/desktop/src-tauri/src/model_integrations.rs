@@ -102,6 +102,43 @@ fn credential_kind(credentials: &BTreeMap<String, String>) -> Result<ModelCreden
     }
 }
 
+/// Reject a credential that plainly does not match the selected auth kind.
+///
+/// There is no OAuth flow in PRISMATIK — no authorization URL, no PKCE, no
+/// callback. "OAuth" and "Session token" only choose the header the
+/// credential is sent in, so both require a token the operator already holds.
+/// Pasting an API key under either one previously produced a bare 401 from
+/// the provider, which reads as "your key is wrong" when the key is fine and
+/// the *selection* is wrong. Naming the mismatch here costs one comparison
+/// and saves an afternoon.
+fn check_kind_matches_credential(
+    provider_id: &str,
+    kind: ModelCredentialKind,
+    credential: &str,
+) -> Result<(), String> {
+    let looks_like_api_key = match provider_id {
+        "openai" => credential.starts_with("sk-"),
+        "anthropic" => credential.starts_with("sk-ant-"),
+        "google" => credential.starts_with("AIza"),
+        _ => false,
+    };
+    match kind {
+        ModelCredentialKind::ApiKey => Ok(()),
+        ModelCredentialKind::OAuth | ModelCredentialKind::SessionToken if looks_like_api_key => {
+            Err(format!(
+                "This looks like an API key, but the auth method is set to {}. PRISMATIK has no \
+                 OAuth flow — that option only changes which header carries a token you already \
+                 hold. Switch the method to API key, or paste an access token.",
+                match kind {
+                    ModelCredentialKind::OAuth => "OAuth",
+                    _ => "Session token",
+                }
+            ))
+        },
+        _ => Ok(()),
+    }
+}
+
 fn required(credentials: &BTreeMap<String, String>, field: &str) -> Result<String, String> {
     credentials
         .get(field)
@@ -152,6 +189,7 @@ pub(crate) async fn test_model_provider(
     let kind = credential_kind(&credentials)?;
     let credential =
         required(&credentials, "credential").or_else(|_| required(&credentials, "apiKey"))?;
+    check_kind_matches_credential(&provider_id, kind, &credential)?;
 
     // Each provider is validated against its own catalog endpoint using the
     // exact header the chosen credential kind requires. Validating here rather
@@ -228,7 +266,9 @@ pub(crate) async fn test_model_provider(
         provider_id,
         status: "connected",
         message: format!(
-            "Authenticated model catalog returned {count} entries. Session is memory-only."
+            "Authenticated model catalog returned {count} entries. This session lives in \
+             process memory only and is not written to disk — reconnect after restarting \
+             PRISMATIK."
         ),
     })
 }

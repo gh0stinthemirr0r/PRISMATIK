@@ -20,6 +20,14 @@
   type RuntimeStatus = { providerId: string; active: boolean };
   type ProviderPolicy = { providerId:string; enabled:boolean; termsOwner:string; reviewReference:string; validUntil:string; retainNormalizedPayload:boolean; version:number; recordedAt:string };
 
+  /// Providers the running build can actually connect, per the backend.
+  ///
+  /// The catalog carries its own readiness flag, but that flag drifted from
+  /// reality and left users walking a setup wizard that dead-ended. The
+  /// backend is authoritative; the flag is only the fallback for a browser
+  /// preview where no backend exists.
+  let liveAdapters = $state<Set<string> | null>(null);
+
   let saved = $state<Record<string, SavedIntegration>>({});
   let selected = $state<IntegrationDefinition | null>(null);
   let setupStep = $state(0);
@@ -58,7 +66,9 @@
   const connectedCount = $derived(
     runtimeActive.size,
   );
-  const liveAdapterCount = $derived(INTEGRATIONS.filter((provider) => provider.readiness === "live-adapter").length);
+  const isConnectable = (provider: IntegrationDefinition) =>
+    liveAdapters ? liveAdapters.has(provider.id) : provider.readiness === "live-adapter";
+  const liveAdapterCount = $derived(INTEGRATIONS.filter(isConnectable).length);
   const completion = $derived(Math.round((connectedCount / Math.max(1, liveAdapterCount)) * 100));
 
   const readinessLabel = (provider: IntegrationDefinition) => ({
@@ -79,7 +89,7 @@
   };
 
   const accessMethod = (provider: IntegrationDefinition) => {
-    if (provider.readiness === "live-adapter") return "Native PRISMATIK adapter · governed REST";
+    if (isConnectable(provider)) return "Native PRISMATIK adapter · governed REST";
     if (provider.category === "Broker") return "Paper/account API first · execution separately gated";
     if (provider.cadence.toLowerCase().includes("stream")) return "REST snapshot + WebSocket stream candidate";
     if (!provider.credentialFields.length) return "Public read-only API candidate";
@@ -90,7 +100,7 @@
     `Review ${provider.name}'s official API documentation and applicable data terms.`,
     provider.credentialFields.length ? `Create least-privilege credentials for ${provider.credentialFields.map((field) => field.label).join(" and ")}.` : "Confirm the public endpoint and fair-use/rate-limit policy for your intended scope.",
     "Register the entitlement and source-retention policy in PRISMATIK; do not enable redistribution by default.",
-    provider.readiness === "live-adapter" ? "Run the governed native connection check below and retain its evidence record." : "Wait for a native PRISMATIK adapter and response-contract test; catalog presence alone cannot activate data.",
+    isConnectable(provider) ? "Run the governed native connection check below and retain its evidence record." : "This build has no adapter for it yet. Catalog presence alone cannot activate data, and connecting is not possible until one ships.",
   ];
 
   function isTauriRuntime(): boolean {
@@ -243,6 +253,13 @@
     void reconcileRuntime();
     if (isTauriRuntime()) {
       try {
+        liveAdapters = new Set(await invoke<string[]>("list_live_adapters"));
+      } catch {
+        // Leave null so the catalog flag is used. Guessing "nothing is
+        // connectable" would hide working providers.
+        liveAdapters = null;
+      }
+      try {
         const rows = await invoke<ProviderPolicy[]>("list_provider_policies");
         providerPolicies = Object.fromEntries(rows.map((row) => [row.providerId, row]));
       } catch { providerPolicies = {}; }
@@ -331,7 +348,7 @@
           {/if}
           <div class="provider-actions">
             <button class="primary" type="button" onclick={() => openSetup(provider)}>
-              {status === "validated" ? "Revalidate" : provider.readiness === "live-adapter" ? "Validate" : "View setup"}
+              {status === "validated" ? "Revalidate" : isConnectable(provider) ? "Validate" : "View setup"}
             </button>
             {#if status === "validated"}
               <button class="text" type="button" onclick={() => disconnect(provider)}>Clear validation</button>
@@ -383,7 +400,7 @@
       </div>
       <footer>
         <button class="ghost" type="button" onclick={closeSetup}>Cancel</button>
-        {#if selected.readiness === "live-adapter"}
+        {#if isConnectable(selected)}
           <button class="primary" type="button" onclick={() => (setupStep = 1)}>Configure connection</button>
         {:else}
           <button class="primary" type="button" disabled>Native adapter required</button>

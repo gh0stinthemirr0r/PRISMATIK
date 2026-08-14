@@ -42,7 +42,6 @@ impl ForecastDirection {
     }
 }
 
-
 /// Empirical forward-return distribution conditional on the current regime.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -331,8 +330,7 @@ mod tests {
         let classification = classify(&bars, &RegimeParams::daily());
 
         for horizon in [1, 5, 10] {
-            let forecast =
-                empirical_forecast(&bars, &classification, horizon).expect("forecast");
+            let forecast = empirical_forecast(&bars, &classification, horizon).expect("forecast");
             let shared = climatology_for(&bars, &classification, horizon, forecast.direction)
                 .expect("climatology");
             assert_eq!(
@@ -348,9 +346,7 @@ mod tests {
 
     #[test]
     fn climatology_covers_every_direction_and_sums_to_one() {
-        let closes: Vec<f64> = (0..400)
-            .map(|i| 100.0 + wobble(i as usize, 2.0))
-            .collect();
+        let closes: Vec<f64> = (0..400).map(|i| 100.0 + wobble(i as usize, 2.0)).collect();
         let bars = series(&closes);
         let classification = classify(&bars, &RegimeParams::daily());
 

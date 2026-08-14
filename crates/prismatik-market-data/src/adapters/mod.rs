@@ -16,7 +16,7 @@ pub mod tradingview_screener;
 // breaking the workspace. Do not delete it (briefing §1: the orphaned module
 // is the spec).
 
-pub use alpaca::{AlpacaAdapter, AlpacaError};
+pub use alpaca::{AlpacaAdapter, AlpacaCredentials, AlpacaError};
 pub use cftc::{CftcAdapter, CftcError};
 pub use coingecko::{demo_cassette_json, CoinGeckoAdapter, CoinGeckoAuth, CoinGeckoError};
 pub use finnhub::{FinnhubAdapter, FinnhubError};

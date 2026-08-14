@@ -147,6 +147,7 @@ pub fn run() {
             host_platform,
             audit_timeline::get_audit_timeline,
             integrations::test_integration,
+            integrations::list_live_adapters,
             integrations::integration_runtime_status,
             integrations::disconnect_integration,
             integrations::list_unofficial_sources,

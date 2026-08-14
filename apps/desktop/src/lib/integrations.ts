@@ -196,13 +196,13 @@ export const INTEGRATIONS: IntegrationDefinition[] = [
       },
     ],
     modes: [
-      { id: "paper", label: "Paper", help: "Recommended. Validates against paper-api.alpaca.markets." },
+      { id: "paper", label: "Paper", help: "Recommended. Validation reads market data only; no order is ever submitted." },
       { id: "live", label: "Live", help: "Connection check only. No order is submitted." },
     ],
     docsUrl: "https://docs.alpaca.markets/us/docs/authentication",
-    privacy: "Credentials remain in memory for this setup flow and are never written to browser storage.",
+    privacy: "Credentials remain in native process memory for this session and are never written to browser storage or to disk. Reconnect after restarting.",
     cadence: "Streaming + request budgets",
-    readiness: "execution-gated",
+    readiness: "live-adapter",
     venueClass: "equities",
   },
   {

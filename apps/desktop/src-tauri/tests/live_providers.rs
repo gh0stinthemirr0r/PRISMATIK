@@ -23,7 +23,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use prismatik_application::ReqwestTransport;
 use prismatik_market_data::{
-    adapters::sec_edgar::SecEdgarAdapter,
+    adapters::{alpaca::AlpacaAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials},
     http::{HttpMethod, HttpRequest, HttpTransport},
 };
 
@@ -209,4 +209,36 @@ async fn finnhub_daily_candles_are_still_reachable() {
         response.status,
     );
     println!("Finnhub ok — candles reachable");
+}
+
+/// Alpaca market data, which the desk needs before it can ever place an order.
+///
+/// Alpaca authenticates with two headers rather than a bearer token, and free
+/// accounts are entitled to the IEX feed only — asking for the default SIP
+/// feed returns a subscription error that reads exactly like a rejected key.
+/// Both of those were wrong in the adapter until this test existed.
+#[tokio::test]
+#[ignore = "network"]
+async fn alpaca_bars_authenticate_and_parse() {
+    let (Some(key_id), Some(secret_key)) = (
+        credential("ALPACA_API_KEY_ID"),
+        credential("ALPACA_API_SECRET_KEY"),
+    ) else {
+        return;
+    };
+    let transport = ReqwestTransport::new("https://data.alpaca.markets").expect("transport");
+    let adapter = AlpacaAdapter::with_credentials(
+        Arc::new(transport),
+        AlpacaCredentials { key_id, secret_key },
+    );
+    let bars = adapter
+        .bars("AAPL", "1Day", time::OffsetDateTime::now_utc())
+        .await
+        .expect("bars");
+    assert!(
+        !bars.is_empty(),
+        "Alpaca authenticated but returned no bars — the account most likely lacks a \
+         market-data entitlement for the IEX feed",
+    );
+    println!("Alpaca ok — {} AAPL daily bars", bars.len());
 }
