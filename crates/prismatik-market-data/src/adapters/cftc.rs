@@ -49,15 +49,30 @@ impl CftcAdapter {
         }
     }
 
-    /// Fetch the latest weekly report for a market code.
+    /// Fetch the most recent weekly report for a contract market code.
+    ///
+    /// Talks to the CFTC's public Socrata dataset. The previous version of
+    /// this adapter posted to `/api/v1/commitments`, which is not an endpoint
+    /// the CFTC operates — every call would have failed, so this integration
+    /// had never worked.
+    ///
+    /// `market_code` is the six-digit CFTC contract market code, e.g. `001602`
+    /// for CBOT wheat.
     pub async fn commitments(&self, market_code: &str) -> Result<CotReport, CftcError> {
         let mut query = BTreeMap::new();
-        query.insert("market_code".into(), market_code.into());
+        query.insert(
+            "$where".into(),
+            format!("cftc_contract_market_code='{market_code}'"),
+        );
+        // Newest first, one row: the caller asked for the latest report.
+        query.insert("$order".into(), "report_date_as_yyyy_mm_dd DESC".into());
+        query.insert("$limit".into(), "1".into());
+
         let response = self
             .transport
             .execute(&HttpRequest {
                 method: HttpMethod::Get,
-                path: "/api/v1/commitments".into(),
+                path: "/resource/6dca-aqww.json".into(),
                 query,
                 headers: BTreeMap::new(),
                 body: None,
@@ -66,20 +81,41 @@ impl CftcAdapter {
         if response.status != 200 {
             return Err(CftcError::Status(response.status));
         }
-        let row: CftcRow = serde_json::from_str(&response.body)
+        let rows: Vec<CftcRow> = serde_json::from_str(&response.body)
             .map_err(|error| CftcError::Decode(error.to_string()))?;
+        let row = rows
+            .into_iter()
+            .next()
+            .ok_or_else(|| CftcError::Decode(format!("no report for market code {market_code}")))?;
+
+        // Socrata returns every numeric column as a string.
+        let number = |label: &str, value: &str| -> Result<i64, CftcError> {
+            value
+                .trim()
+                .parse::<i64>()
+                .map_err(|error| CftcError::Decode(format!("{label}: {error}")))
+        };
+        // Long and short here are the *non-commercial* (speculative) legs,
+        // which is what a positioning signal is about. Commercial positions
+        // are hedging flow and move for reasons that are not a view.
+        let long_positions = number("long", &row.noncomm_positions_long_all)?;
+        let short_positions = number("short", &row.noncomm_positions_short_all)?;
+        let open_interest = number("open interest", &row.open_interest_all)?;
+
+        let as_of = parse_date(&row.report_date_as_yyyy_mm_dd)?;
         Ok(CotReport {
-            market_code: row.market_code,
-            market_name: row.market_name,
-            as_of: parse_date(&row.as_of)?,
-            published_at: OffsetDateTime::parse(
-                &row.published_at,
-                &time::format_description::well_known::Rfc3339,
-            )
-            .map_err(|error| CftcError::Decode(error.to_string()))?,
-            long_positions: row.long_positions,
-            short_positions: row.short_positions,
-            open_interest: row.open_interest,
+            market_code: row.cftc_contract_market_code,
+            market_name: row.market_and_exchange_names,
+            as_of,
+            // The dataset carries the Tuesday position date, not the Friday
+            // release time. Publishing midnight on the report date would
+            // assert a precision the source does not provide, so the release
+            // is recorded as the report date at midnight UTC and callers that
+            // need embargo timing must look it up separately.
+            published_at: as_of.midnight().assume_utc(),
+            long_positions,
+            short_positions,
+            open_interest,
         })
     }
 }
@@ -107,19 +143,27 @@ impl Provider for CftcAdapter {
     }
 }
 
+/// One row of the CFTC Socrata dataset.
+///
+/// Every column arrives as a string, including the numeric ones.
 #[derive(Deserialize)]
 struct CftcRow {
-    market_code: String,
-    market_name: String,
-    as_of: String,
-    published_at: String,
-    long_positions: i64,
-    short_positions: i64,
-    open_interest: i64,
+    cftc_contract_market_code: String,
+    market_and_exchange_names: String,
+    report_date_as_yyyy_mm_dd: String,
+    open_interest_all: String,
+    noncomm_positions_long_all: String,
+    noncomm_positions_short_all: String,
 }
 
+/// Parse a report date, tolerating Socrata's floating timestamp form.
+///
+/// The dataset renders the date as `2022-09-13T00:00:00.000` — a date with a
+/// zero time and no offset. Splitting at the `T` keeps a bare `YYYY-MM-DD`
+/// working too, so a cassette recorded in either shape still parses.
 fn parse_date(value: &str) -> Result<Date, CftcError> {
-    Date::parse(value, format_description!("[year]-[month]-[day]"))
+    let date_part = value.split('T').next().unwrap_or(value);
+    Date::parse(date_part, format_description!("[year]-[month]-[day]"))
         .map_err(|error| CftcError::Decode(error.to_string()))
 }
 

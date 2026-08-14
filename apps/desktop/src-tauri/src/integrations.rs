@@ -13,8 +13,8 @@ use prismatik_application::ReqwestTransport;
 use prismatik_determinism::{Clock, SystemClock};
 use prismatik_market_data::{
     adapters::{
-        AlpacaAdapter, AlpacaCredentials, CoinGeckoAdapter, CoinGeckoAuth, FinnhubAdapter,
-        FredAdapter, SecEdgarAdapter,
+        AlpacaAdapter, AlpacaCredentials, CftcAdapter, CoinGeckoAdapter, CoinGeckoAuth,
+        FinnhubAdapter, FredAdapter, SecEdgarAdapter,
     },
     AdmissionDecision, BudgetGovernor, GcraBudgetGovernor, PriorityClass,
 };
@@ -26,11 +26,24 @@ use serde::Serialize;
     reason = "validated macro/filing sessions are consumed by the next scheduled-ingest slice"
 )]
 pub(crate) enum ActiveIntegration {
-    CoinGecko { api_key: String },
-    Finnhub { token: String },
-    Fred { api_key: String },
-    SecEdgar { contact: String },
-    Alpaca { key_id: String, secret_key: String },
+    CoinGecko {
+        api_key: String,
+    },
+    Finnhub {
+        token: String,
+    },
+    Fred {
+        api_key: String,
+    },
+    SecEdgar {
+        contact: String,
+    },
+    Alpaca {
+        key_id: String,
+        secret_key: String,
+    },
+    /// Public data. Connected state is consent to poll, not a credential.
+    Cftc,
 }
 
 static ACTIVE_INTEGRATIONS: LazyLock<RwLock<BTreeMap<String, ActiveIntegration>>> =
@@ -183,7 +196,14 @@ fn required<'a>(
 /// three-step wizard and hit "catalogued but does not yet have a governed
 /// desktop adapter" at the end. The catalog now asks the backend instead of
 /// asserting, and a test below keeps this list honest against the match arms.
-pub(crate) const LIVE_ADAPTERS: [&str; 5] = ["coingecko", "fred", "sec-edgar", "finnhub", "alpaca"];
+pub(crate) const LIVE_ADAPTERS: [&str; 6] = [
+    "coingecko",
+    "fred",
+    "sec-edgar",
+    "finnhub",
+    "alpaca",
+    "cftc",
+];
 
 /// The providers this build can actually connect.
 ///
@@ -383,6 +403,32 @@ pub(crate) async fn test_integration(
                 ),
                 evidence:
                     "Provider adapter · BudgetGovernor permit · GET /v2/stocks/AAPL/bars · IEX feed"
+                        .to_owned(),
+            })
+        },
+        "cftc" => {
+            admit_interactive("cftc")?;
+            // No credential: the Commitments of Traders dataset is public.
+            // "Connected" here records that the operator turned the poll on.
+            let transport = ReqwestTransport::new("https://publicreporting.cftc.gov")
+                .map_err(|error| format!("CFTC transport configuration failed: {error}"))?;
+            let adapter = CftcAdapter::new(Arc::new(transport));
+            // CBOT wheat: continuous weekly history, so a failure here is the
+            // dataset or the network rather than a thin contract.
+            let report = adapter
+                .commitments("001602")
+                .await
+                .map_err(|error| format!("CFTC validation failed: {error}"))?;
+            activate("cftc", ActiveIntegration::Cftc)?;
+            Ok(IntegrationTestResult {
+                provider_id,
+                status: "connected",
+                message: format!(
+                    "CFTC public dataset reachable; {} as of {} normalized ({} long / {} short).",
+                    report.market_name, report.as_of, report.long_positions, report.short_positions,
+                ),
+                evidence:
+                    "Provider adapter · BudgetGovernor permit · Socrata 6dca-aqww · CBOT wheat"
                         .to_owned(),
             })
         },

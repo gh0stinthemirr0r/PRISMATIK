@@ -23,7 +23,9 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use prismatik_application::ReqwestTransport;
 use prismatik_market_data::{
-    adapters::{alpaca::AlpacaAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials},
+    adapters::{
+        alpaca::AlpacaAdapter, cftc::CftcAdapter, sec_edgar::SecEdgarAdapter, AlpacaCredentials,
+    },
     http::{HttpMethod, HttpRequest, HttpTransport},
 };
 
@@ -241,4 +243,37 @@ async fn alpaca_bars_authenticate_and_parse() {
          market-data entitlement for the IEX feed",
     );
     println!("Alpaca ok — {} AAPL daily bars", bars.len());
+}
+
+/// CFTC Commitments of Traders. Public data, no credential.
+///
+/// The adapter previously called `/api/v1/commitments`, which the CFTC does
+/// not operate, so this integration had never worked. It now reads the public
+/// Socrata dataset.
+#[tokio::test]
+#[ignore = "network"]
+async fn cftc_commitments_parse_from_socrata() {
+    let transport = ReqwestTransport::new("https://publicreporting.cftc.gov").expect("transport");
+    let adapter = CftcAdapter::new(Arc::new(transport));
+
+    // CBOT wheat: a contract with continuous weekly history.
+    let report = adapter.commitments("001602").await.expect("commitments");
+    assert!(
+        report.open_interest > 0,
+        "open interest should be positive, got {}",
+        report.open_interest,
+    );
+    assert!(
+        report.market_name.to_uppercase().contains("WHEAT"),
+        "{}",
+        report.market_name
+    );
+    println!(
+        "CFTC ok — {} as of {}: {} long / {} short, OI {}",
+        report.market_name,
+        report.as_of,
+        report.long_positions,
+        report.short_positions,
+        report.open_interest,
+    );
 }
